@@ -5,7 +5,7 @@ export default function SplashScreen() {
     <div className="flex h-screen w-screen flex-col items-center justify-center bg-gradient-to-b from-gray-900 to-black text-white">
       <div className="animate-fade-in animate-duration-1000 flex flex-col items-center">
           <Image
-            src="https://storage.googleapis.com/studio-images/q/v/qc/user/29be7a44-a035-4309-bbd9-35c8e967a1da/57a7905a-2115-46f5-83e8-283b8bd16503.png"
+            src="https://storage.googleapis.com/studio-images/q/v/qc/user/29be7a44-a035-4309-bbd9-35c8e967a1da/2dd2834b-4f9e-4b7d-b286-dd87f9d850a5.png"
             alt="Sunshine Logo"
             width={128}
             height={128}
