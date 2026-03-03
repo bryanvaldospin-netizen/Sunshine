@@ -160,7 +160,7 @@ export default function DashboardPage() {
                 <FormField
                   control={form.control}
                   name="proof"
-                  render={({ field: { onChange, ...rest } }) => (
+                  render={({ field: { value, onChange, ...rest } }) => (
                     <FormItem>
                       <FormLabel>{t('dashboard.proof')}</FormLabel>
                       <FormControl>
