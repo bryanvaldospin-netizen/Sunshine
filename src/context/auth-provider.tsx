@@ -24,7 +24,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('AuthProvider: Setting up Firebase auth persistence...');
     setPersistence(auth, browserLocalPersistence).catch((error) => {
       console.error("Auth persistence error:", error);
     });
@@ -39,24 +38,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let unsubscribeFromSnapshot: () => void = () => {};
 
     const unsubscribeFromAuth = onAuthStateChanged(auth, (currentFirebaseUser) => {
-      console.log('AuthProvider: onAuthStateChanged triggered.');
-      clearTimeout(loadingTimeout); // Got a response, clear the timeout
+      clearTimeout(loadingTimeout);
       unsubscribeFromSnapshot();
 
       if (currentFirebaseUser) {
-        console.log(`AuthProvider: User is authenticated with UID: ${currentFirebaseUser.uid}. Fetching profile...`);
         setFirebaseUser(currentFirebaseUser);
+        setLoading(false); // FIX: Stop loading as soon as auth state is known.
+
         const userDocRef = doc(db, 'users', currentFirebaseUser.uid);
         
         unsubscribeFromSnapshot = onSnapshot(userDocRef, async (docSnap) => {
           if (docSnap.exists()) {
             const userData = docSnap.data() as UserProfile;
-            console.log('AuthProvider: Firestore profile found:', { email: userData.email, rol: userData.rol });
             setUser(userData);
-            setLoading(false);
           } else {
-            console.log('AuthProvider: User authenticated but no profile in Firestore. Creating one...');
-            
             const newUserProfile: UserProfile = {
                 uid: currentFirebaseUser.uid,
                 email: currentFirebaseUser.email!,
@@ -68,24 +63,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             
             try {
                 await setDoc(userDocRef, newUserProfile);
-                console.log('AuthProvider: New profile created successfully.');
                 setUser(newUserProfile);
             } catch (error) {
                 console.error("AuthProvider: Error creating user profile:", error);
                 setUser(null);
-            } finally {
-               setLoading(false);
             }
           }
-          console.log('AuthProvider: Loading finished for authenticated user.');
         }, (error) => {
           console.error("AuthProvider: Error fetching user profile:", error);
           setUser(null);
-          setFirebaseUser(null);
-          setLoading(false);
         });
       } else {
-        console.log('AuthProvider: User is signed out.');
         setUser(null);
         setFirebaseUser(null);
         setLoading(false);
@@ -93,7 +81,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => {
-      console.log('AuthProvider: Cleaning up listeners.');
       clearTimeout(loadingTimeout);
       unsubscribeFromAuth();
       unsubscribeFromSnapshot();
