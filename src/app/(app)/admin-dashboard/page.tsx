@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from '@/hooks/use-translation';
-import { collection, getDocs, onSnapshot, query } from 'firebase/firestore';
+import { collection, getDocs, onSnapshot, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { UserProfile, DepositRequest } from '@/types';
 import { approveDeposit, rejectDeposit } from '@/lib/actions';
@@ -59,7 +59,7 @@ const UsersTab = () => {
                 <TableCell>{user.name}</TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell><Badge variant={user.rol === 'admin' ? 'default' : 'secondary'}>{user.rol}</Badge></TableCell>
-                <TableCell>{user.invitationCode}</TableCell>
+                <TableCell>{user.invitadoPor || 'N/A'}</TableCell>
               </TableRow>
             ))}
           </TableBody>

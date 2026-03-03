@@ -49,7 +49,7 @@
     "userName": "User Name",
     "userEmail": "Email",
     "userRole": "Role",
-    "userCode": "Invitation Code",
+    "userCode": "Invited By",
     "noRequests": "No pending deposit requests.",
     "approve": "Approve",
     "reject": "Reject",

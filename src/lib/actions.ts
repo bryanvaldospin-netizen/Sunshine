@@ -23,7 +23,7 @@ const registerSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
   password: z.string().min(6),
-  codigoInvitacion: z.string().min(1),
+  codigoInvitacion: z.string().optional(),
 });
 
 export async function registerUser(values: z.infer<typeof registerSchema>) {
@@ -31,11 +31,16 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
     const validatedValues = registerSchema.parse(values);
     const { email, password, codigoInvitacion, name } = validatedValues;
 
-    const codeRef = doc(db, 'codigos_invitacion', codigoInvitacion);
-    const codeSnap = await getDoc(codeRef);
+    let invitadoPor: string | null = null;
 
-    if (!codeSnap.exists() || codeSnap.data().used) {
-      return { error: 'Código de invitación no válido o ya ha sido utilizado.' };
+    if (codigoInvitacion && codigoInvitacion.length > 0) {
+      const codeRef = doc(db, 'codigos_invitacion', codigoInvitacion);
+      const codeSnap = await getDoc(codeRef);
+
+      if (!codeSnap.exists() || codeSnap.data().used) {
+        return { error: 'Código de invitación no válido o ya ha sido utilizado.' };
+      }
+      invitadoPor = codigoInvitacion;
     }
 
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -47,18 +52,24 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
       email,
       rol: 'user',
       saldoUSDT: 0,
-      invitationCode: codigoInvitacion,
+      invitadoPor: invitadoPor,
     });
-    
-    await updateDoc(codeRef, {
-      used: true,
-      usedBy: user.uid,
-      usedDate: new Date().toISOString()
-    });
+
+    if (invitadoPor) {
+      const codeRef = doc(db, 'codigos_invitacion', invitadoPor);
+      await updateDoc(codeRef, {
+        used: true,
+        usedBy: user.uid,
+        usedDate: new Date().toISOString(),
+      });
+    }
 
     redirect('/login');
 
   } catch (error: any) {
+    if (error.code === 'auth/email-already-in-use') {
+      return { error: 'Este correo electrónico ya está en uso.' };
+    }
     if (error instanceof z.ZodError) {
       return { error: error.errors.map(e => e.message).join(', ') };
     }

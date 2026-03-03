@@ -4,7 +4,7 @@ export type UserProfile = {
   name: string;
   rol: 'user' | 'admin';
   saldoUSDT: number;
-  invitationCode: string;
+  invitadoPor?: string | null;
 };
 
 export type DepositRequest = {

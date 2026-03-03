@@ -49,7 +49,7 @@
     "userName": "Nombre de Usuario",
     "userEmail": "Correo",
     "userRole": "Rol",
-    "userCode": "Código de Invitación",
+    "userCode": "Invitado por",
     "noRequests": "No hay solicitudes de depósito pendientes.",
     "approve": "Aprobar",
     "reject": "Rechazar",

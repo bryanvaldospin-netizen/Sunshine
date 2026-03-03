@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -25,7 +26,7 @@ const formSchema = z.object({
   name: z.string().min(2, { message: 'El nombre debe tener al menos 2 caracteres.' }),
   email: z.string().email({ message: 'Por favor, introduce un email válido.' }),
   password: z.string().min(6, { message: 'La contraseña debe tener al menos 6 caracteres.' }),
-  codigoInvitacion: z.string().min(1, { message: 'El código de invitación es obligatorio.' }),
+  codigoInvitacion: z.string().optional(),
   terms: z.literal(true, {
     errorMap: () => ({ message: 'Debes aceptar los términos y condiciones.' }),
   }),
@@ -118,8 +119,11 @@ export default function RegisterPage() {
                 <FormItem>
                   <FormLabel>{t('auth.invitationCode')}</FormLabel>
                   <FormControl>
-                    <Input placeholder="CODE123" {...field} />
+                    <Input placeholder="CODE123" {...field} value={field.value ?? ''} />
                   </FormControl>
+                  <FormDescription className="text-xs text-muted-foreground">
+                    (Opcional - Úsalo si tienes un referido)
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
