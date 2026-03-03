@@ -15,8 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { loginUser } from '@/lib/actions';
-import { useTranslation } from '@/hooks/use-translation';
+import { loginAdmin } from '@/lib/actions';
 import Link from 'next/link';
 
 const formSchema = z.object({
@@ -24,9 +23,8 @@ const formSchema = z.object({
   password: z.string().min(1, { message: 'La contraseña es obligatoria.' }),
 });
 
-export default function LoginPage() {
+export default function AdminAccessPage() {
   const { toast } = useToast();
-  const { t } = useTranslation();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -37,23 +35,23 @@ export default function LoginPage() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    const result = await loginUser(values);
-    if (result.error) {
+    const result = await loginAdmin(values);
+    if (result?.error) {
       toast({
         variant: 'destructive',
-        title: 'Error de inicio de sesión',
+        title: 'Acceso Denegado',
         description: result.error,
       });
     }
   }
 
   return (
-    <Card>
+    <Card className="bg-gray-900 border-golden text-white">
       <CardHeader>
-        <CardTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-golden to-red-800">
-          {t('auth.login')}
+        <CardTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-golden to-yellow-300">
+          Acceso de Administrador
         </CardTitle>
-        <CardDescription>{t('auth.haveAccount')}</CardDescription>
+        <CardDescription className="text-gray-400">Ingresa tus credenciales de administrador.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -63,9 +61,13 @@ export default function LoginPage() {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('auth.email')}</FormLabel>
+                  <FormLabel className="text-gray-300">Correo Electrónico</FormLabel>
                   <FormControl>
-                    <Input placeholder="usuario@sunshine.com" {...field} />
+                    <Input 
+                      placeholder="admin@sunshine.com" 
+                      {...field} 
+                      className="bg-gray-800 border-gray-600 text-white placeholder-gray-500"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -76,41 +78,27 @@ export default function LoginPage() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('auth.password')}</FormLabel>
+                  <FormLabel className="text-gray-300">Contraseña</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} />
+                    <Input 
+                      type="password" 
+                      placeholder="••••••••" 
+                      {...field} 
+                      className="bg-gray-800 border-gray-600 text-white"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
             <Button type="submit" className="w-full bg-gradient-to-r from-golden to-red-800 text-white" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? 'Iniciando...' : t('auth.login')}
+              {form.formState.isSubmitting ? 'Verificando...' : 'Iniciar Sesión'}
             </Button>
           </form>
         </Form>
         <div className="mt-4 text-center text-sm">
-          ¿No tienes cuenta?{' '}
-          <Link href="/register" className="underline text-accent">
-            Regístrate
-          </Link>
-        </div>
-        <div className="relative my-4">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">O</span>
-          </div>
-        </div>
-        <Link href="/guest-dashboard" passHref>
-          <Button className="w-full bg-gradient-to-r from-golden to-red-800 text-white">
-            Explorar como Invitado
-          </Button>
-        </Link>
-        <div className="mt-6 text-center text-xs">
-          <Link href="/admin-access" className="underline text-muted-foreground hover:text-accent">
-            Acceso para Administradores
+          <Link href="/login" className="underline text-gray-400 hover:text-golden">
+            ¿No eres administrador? Ir al login de usuario.
           </Link>
         </div>
       </CardContent>
