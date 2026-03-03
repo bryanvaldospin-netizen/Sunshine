@@ -9,6 +9,7 @@ import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +20,7 @@ import { db } from '@/lib/firebase';
 import { submitDeposit, getWalletAddress } from '@/lib/actions';
 import type { DepositRequest } from '@/types';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import SplashScreen from '@/components/splash-screen';
 
 const depositSchema = z.object({
   amount: z.coerce.number().positive({ message: 'El monto debe ser positivo.' }),
@@ -42,7 +44,7 @@ export default function DashboardPage() {
   const form = useForm<z.infer<typeof depositSchema>>({
     resolver: zodResolver(depositSchema),
   });
-
+  
   useEffect(() => {
     if (user) {
       const fetchAddress = async () => {
@@ -63,6 +65,10 @@ export default function DashboardPage() {
       return () => unsubscribe();
     }
   }, [user]);
+
+  if (!user) {
+    return <SplashScreen />;
+  }
 
   const handleCopy = () => {
     navigator.clipboard.writeText(walletAddress);
@@ -98,7 +104,7 @@ export default function DashboardPage() {
     }
   };
   
-  const formattedBalance = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(user?.saldoUSDT || 0);
+  const formattedBalance = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(user?.saldoUSDT ?? 0);
 
   return (
     <div className="container mx-auto p-4 md:p-8 space-y-8">

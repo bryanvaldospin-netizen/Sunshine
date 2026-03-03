@@ -28,22 +28,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error("Auth persistence error:", error);
     });
 
-    const loadingTimeout = setTimeout(() => {
-        if (loading) {
-            console.warn("AuthProvider: Loading timeout reached after 3 seconds. Forcing render.");
-            setLoading(false);
-        }
-    }, 3000);
-
     let unsubscribeFromSnapshot: () => void = () => {};
 
     const unsubscribeFromAuth = onAuthStateChanged(auth, (currentFirebaseUser) => {
-      clearTimeout(loadingTimeout);
       unsubscribeFromSnapshot();
 
       if (currentFirebaseUser) {
         setFirebaseUser(currentFirebaseUser);
-        setLoading(false); // FIX: Stop loading as soon as auth state is known.
 
         const userDocRef = doc(db, 'users', currentFirebaseUser.uid);
         
@@ -69,9 +60,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 setUser(null);
             }
           }
+          setLoading(false);
         }, (error) => {
           console.error("AuthProvider: Error fetching user profile:", error);
           setUser(null);
+          setLoading(false);
         });
       } else {
         setUser(null);
@@ -81,7 +74,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => {
-      clearTimeout(loadingTimeout);
       unsubscribeFromAuth();
       unsubscribeFromSnapshot();
     };
