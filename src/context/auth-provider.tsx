@@ -29,10 +29,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error("Auth persistence error:", error);
     });
 
+    const loadingTimeout = setTimeout(() => {
+        if (loading) {
+            console.warn("AuthProvider: Loading timeout reached after 3 seconds. Forcing render.");
+            setLoading(false);
+        }
+    }, 3000);
+
     let unsubscribeFromSnapshot: () => void = () => {};
 
     const unsubscribeFromAuth = onAuthStateChanged(auth, (currentFirebaseUser) => {
       console.log('AuthProvider: onAuthStateChanged triggered.');
+      clearTimeout(loadingTimeout); // Got a response, clear the timeout
       unsubscribeFromSnapshot();
 
       if (currentFirebaseUser) {
@@ -86,6 +94,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       console.log('AuthProvider: Cleaning up listeners.');
+      clearTimeout(loadingTimeout);
       unsubscribeFromAuth();
       unsubscribeFromSnapshot();
     };
