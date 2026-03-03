@@ -236,7 +236,7 @@ export default function AdminDashboardPage() {
   const { t } = useTranslation();
 
   // Hardcode admin access as requested for debugging
-  const isHardcodedAdmin = user?.email === 'bryanvaldospin@gmail.com';
+  const isHardcodedAdmin = user?.email === 'bryanvaldospin@gmail.com' || user?.email === 'brayanvaldospin@gmail.com';
   const isRoleAdmin = user?.rol === 'admin';
   const isAllowed = isRoleAdmin || isHardcodedAdmin;
 
