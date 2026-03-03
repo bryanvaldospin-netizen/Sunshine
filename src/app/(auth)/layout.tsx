@@ -17,7 +17,7 @@ export default function AuthLayout({
 
   useEffect(() => {
     if (!loading && firebaseUser) {
-      router.replace('/dashboard');
+      router.replace('/titulo1');
     }
   }, [firebaseUser, loading, router]);
 
