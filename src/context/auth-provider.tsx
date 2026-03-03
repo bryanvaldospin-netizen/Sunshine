@@ -2,7 +2,7 @@
 
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { onAuthStateChanged, User as FirebaseUser, setPersistence, browserLocalPersistence } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile } from '@/types';
 import SplashScreen from '@/components/splash-screen';
@@ -25,35 +25,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let unsubscribe: () => void = () => {};
-    
-    const initializeAuth = async () => {
-      try {
-        await setPersistence(auth, browserLocalPersistence);
-      } catch (error) {
-        console.error("Auth persistence error:", error);
-      } finally {
-        unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-          setFirebaseUser(firebaseUser);
-          if (firebaseUser) {
-            const userDocRef = doc(db, 'users', firebaseUser.uid);
-            const userDocSnap = await getDoc(userDocRef);
-            if (userDocSnap.exists()) {
-              setUser(userDocSnap.data() as UserProfile);
-            } else {
-              setUser(null);
-            }
+    // Apply persistence setting once.
+    setPersistence(auth, browserLocalPersistence).catch((error) => {
+      console.error("Auth persistence error:", error);
+    });
+
+    let unsubscribeFromSnapshot: () => void = () => {};
+
+    const unsubscribeFromAuth = onAuthStateChanged(auth, (currentFirebaseUser) => {
+      // Clean up previous snapshot listener
+      unsubscribeFromSnapshot();
+
+      if (currentFirebaseUser) {
+        setFirebaseUser(currentFirebaseUser);
+        const userDocRef = doc(db, 'users', currentFirebaseUser.uid);
+        
+        unsubscribeFromSnapshot = onSnapshot(userDocRef, (doc) => {
+          if (doc.exists()) {
+            setUser(doc.data() as UserProfile);
           } else {
+            // User authenticated but no profile in Firestore.
             setUser(null);
           }
           setLoading(false);
         });
+      } else {
+        // User is signed out.
+        setUser(null);
+        setFirebaseUser(null);
+        setLoading(false);
       }
+    });
+
+    // Cleanup function for useEffect
+    return () => {
+      unsubscribeFromAuth();
+      unsubscribeFromSnapshot();
     };
-
-    initializeAuth();
-
-    return () => unsubscribe();
   }, []);
 
   if (loading) {
