@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, User as FirebaseUser, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile } from '@/types';
@@ -25,21 +25,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setFirebaseUser(firebaseUser);
-      if (firebaseUser) {
-        const userDocRef = doc(db, 'users', firebaseUser.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-          setUser(userDocSnap.data() as UserProfile);
-        } else {
-          setUser(null);
-        }
-      } else {
-        setUser(null);
+    let unsubscribe: () => void = () => {};
+    
+    const initializeAuth = async () => {
+      try {
+        await setPersistence(auth, browserLocalPersistence);
+      } catch (error) {
+        console.error("Auth persistence error:", error);
+      } finally {
+        unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+          setFirebaseUser(firebaseUser);
+          if (firebaseUser) {
+            const userDocRef = doc(db, 'users', firebaseUser.uid);
+            const userDocSnap = await getDoc(userDocRef);
+            if (userDocSnap.exists()) {
+              setUser(userDocSnap.data() as UserProfile);
+            } else {
+              setUser(null);
+            }
+          } else {
+            setUser(null);
+          }
+          setLoading(false);
+        });
       }
-      setLoading(false);
-    });
+    };
+
+    initializeAuth();
 
     return () => unsubscribe();
   }, []);
