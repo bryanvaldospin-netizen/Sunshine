@@ -1,12 +1,10 @@
-import { Sun } from 'lucide-react';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 export function Logo({ className }: { className?: string }) {
   return (
     <div className={cn('flex items-center gap-2 text-foreground', className)}>
-      <div className="bg-gradient-to-r from-golden to-red-800 p-2 rounded-md">
-        <Sun className="h-6 w-6 text-white" />
-      </div>
+      <Image src="/logo.png" alt="Sunshine Logo" width={40} height={40} />
       <span className="text-xl font-bold font-headline tracking-tight">Sunshine</span>
     </div>
   );
