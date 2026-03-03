@@ -1,0 +1,38 @@
+# **App Name**: Sunshine
+
+## Core Features:
+
+- Secure Authentication: User registration and login using Firebase Authentication. Registration requires a valid 'codigoInvitacion' that must match an entry in the 'codigos_invitacion' Firestore collection to create a new user profile. Registration also requires an obligatory checkbox acceptance of 'Términos y Condiciones de Inversión de Sunshine', which links to a modal displaying detailed terms.
+- Role-Based Redirection: After successful login, users are automatically redirected to '/admin-dashboard' if 'rol' is 'admin', or to '/dashboard' if 'rol' is 'user'.
+- User Dashboard View: Displays the user's current 'saldoUSDT' (highlighted in bold golden color) and a basic transaction history. It includes a dedicated 'Depósito de Inversión' section with: a numeric input for the USDT amount, a prominent text box (with a light grey background and a 'Copiar' button) displaying the user's USDT wallet address (TRC-20), a file input component with a camera icon for uploading the transfer proof ('comprobante'), and a large 'Enviar Comprobante' button with a golden-to-red gradient. Below this section, a simple table 'Historial de Solicitudes' shows Date, Amount, and Status (Pendiente, Aprobado, or Rechazado) with brand-consistent colors. Upon approval, a success message '¡Tu inversión ha salido a la luz! ☀️' with body 'Hola, [Nombre]. Tu depósito de USDT ha sido verificado con éxito. Tu capital ya está trabajando para ti en Sunshine. ¡Es hora de ver crecer tus rendimientos!' and a 'Ver mi saldo actualizado' button is shown. If rejected, an error message '⚠️ Hubo un problema con tu depósito' with body 'Hola, [Nombre]. No hemos podido verificar tu última solicitud de inversión en USDT. Esto puede deberse a un comprobante poco claro o un error en los datos enviados.' and 'Por favor, revisa tu transacción y vuelve a intentarlo. Si crees que esto es un error, contacta con nuestro equipo de soporte de Sunshine.' with a 'Reintentar Solicitud' button (featuring a red gradient) is displayed.
+- Admin User Management: Provides administrators with a protected view to see a list of all registered users and their associated invitation codes.
+- Admin Deposit Approvals: A panel for administrators to review, approve (with golden border button), or reject (with red gradient button) user-submitted USDT deposit requests. This includes viewing the 'comprobanteURL', updating the 'status' to 'aprobado' or 'rechazado', and triggering corresponding user notifications.
+- AI-Powered Admin User Insights: An AI tool that summarizes user activity, flags unusual patterns, or provides concise profile overviews for administrators to assist in user management and approval decisions.
+- Protected Routes: Ensures that all dashboard routes are protected, requiring users to be logged in to access them, and prevents unauthorized access based on role.
+- Firestore Security Rules for Balances: Implement Firebase Firestore security rules to ensure 'saldoUSDT' is read-only for regular users and only editable by administrators.
+- Terms and Conditions Modal: A modal window that displays the detailed 'Términos y Condiciones de Inversión de Sunshine', covering aspects like deposit verification, user responsibility, approval times, and withdrawal policy, accessible via a link in the registration form.
+- User Profile Management: Provides a dedicated view for users to see their name, email, and role. Includes a support contact button that opens an email client to 'bryan_valdospin@hotmail.com' with the subject 'Soporte Sunshine - Ayuda con mi cuenta', and a language selector for switching between Spanish and English.
+- Multilingual Application Interface: Enables instant translation of the entire application interface (dashboards, menus, content) between Spanish and English based on user selection.
+- Secure Logout: A 'Cerrar Sesión' button that securely logs out the user from Firebase Authentication and redirects them to the login page.
+- Splash Screen and Branding Identity: Displays a splash screen at app launch with a dark gradient background, the 'Sunshine' logo (logo.png) with a fade-in animation, and a golden loading spinner. The logo is consistently used as the favicon, in the main navigation bar, and as a small icon next to page titles across all application views.
+
+## Style Guidelines:
+
+- The visual theme is light, evoking warmth and clarity. The background is a soft, warm off-white (#FCFBF7), creating a clean and inviting canvas. An accent color, a rich burnt orange (#BE6D2C), provides visual emphasis and calls to action.
+- Main buttons, headers, and progress bars utilize a gradient transitioning from a goldenrod (#D4AF37) to a deep red (#8B0000), adding a premium and impactful visual element. The T&C modal also uses this golden to red gradient for its design.
+- In the Admin Dashboard, the 'Aprobar' button will have a golden border, and the 'Rechazar' button will feature a subtle red gradient. The 'saldoUSDT' on the User Dashboard will be a bright golden color. Status indicators in the 'Historial de Solicitudes' table will use colors that align with the brand palette (e.g., golden for approved, red for rejected, and a neutral or soft color for pending).
+- Important profile data will be highlighted with a golden color.
+- The 'Cerrar Sesión' button will feature a deep red gradient.
+- Splash screen background: Dark gradient transitioning to almost black.
+- Splash screen loading spinner: Golden.
+- The primary typeface for the entire application, including legal documents and messages, is 'Montserrat' (sans-serif), used for both headlines and body text to convey a premium and financial feel, ensuring a modern, clean, and highly readable aesthetic. The 'saldoUSDT' on the User Dashboard will be bold.
+- Profile view headings (username, email, role) will use 'Montserrat' in bold.
+- Modern and clean iconography, prioritizing simplicity and clarity, will be used. Icons should clearly represent financial concepts, user actions, and administrative functions without unnecessary embellishment. The file upload component in the 'Depósito de Inversión' section will feature a camera icon.
+- A message icon will be used for the support contact button.
+- The 'logo.png' (golden-to-red gradient) is used as the favicon, in the Navbar, and as a small icon next to page titles for consistent branding, ensuring it stands out against Montserrat typography.
+- A responsive and minimalist layout, built with Tailwind CSS, ensuring optimal user experience across various devices. Emphasizes clear data presentation, logical content grouping, and ample white space for a professional feel. The Terms & Conditions will be displayed within a modal. The 'Depósito de Inversión' section will clearly present the input fields, wallet address with copy button, and file upload component, followed by a simple table for the 'Historial de Solicitudes'.
+- The user profile view will feature rounded borders and soft shadows, maintaining the brand's premium aesthetic.
+- A splash screen is displayed on app launch, featuring a central logo and a loading spinner.
+- The logo is consistently placed in the top-left of the main Navbar and next to page titles across the application.
+- Subtle and purposeful animations and transitions will be implemented. These will enhance user interaction, providing clear feedback on actions and smooth navigation without distracting from the core financial data.
+- A soft 'fade-in' animation for the logo on the splash screen.

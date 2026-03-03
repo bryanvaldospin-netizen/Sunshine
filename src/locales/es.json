@@ -1,0 +1,63 @@
+{
+  "auth": {
+    "login": "Iniciar Sesión",
+    "register": "Registrarse",
+    "email": "Correo Electrónico",
+    "password": "Contraseña",
+    "invitationCode": "Código de Invitación",
+    "terms": "Acepto los",
+    "termsLink": "Términos y Condiciones de Inversión de Sunshine",
+    "createAccount": "Crear Cuenta",
+    "haveAccount": "¿Ya tienes una cuenta? Inicia Sesión"
+  },
+  "profile": {
+    "title": "Mi Perfil",
+    "name": "Nombre",
+    "email": "Correo",
+    "role": "Rol",
+    "support": "Contactar a Soporte",
+    "language": "Idioma",
+    "logout": "Cerrar Sesión"
+  },
+  "dashboard": {
+    "balance": "Saldo Actual",
+    "depositTitle": "Depósito de Inversión",
+    "usdtAddress": "Tu Dirección de Billetera USDT (TRC-20)",
+    "copy": "Copiar",
+    "amount": "Monto USDT",
+    "proof": "Subir Comprobante de Transferencia",
+    "sendProof": "Enviar Comprobante",
+    "historyTitle": "Historial de Solicitudes",
+    "date": "Fecha",
+    "status": "Estado",
+    "statusPending": "Pendiente",
+    "statusApproved": "Aprobado",
+    "statusRejected": "Rechazado",
+    "successTitle": "¡Tu inversión ha salido a la luz! ☀️",
+    "successBody": "Hola, {name}. Tu depósito de USDT ha sido verificado con éxito. Tu capital ya está trabajando para ti en Sunshine. ¡Es hora de ver crecer tus rendimientos!",
+    "successBtn": "Ver mi saldo actualizado",
+    "errorTitle": "⚠️ Hubo un problema con tu depósito",
+    "errorBody": "Hola, {name}. No hemos podido verificar tu última solicitud de inversión en USDT. Esto puede deberse a un comprobante poco claro o un error en los datos enviados.",
+    "errorBody2": "Por favor, revisa tu transacción y vuelve a intentarlo. Si crees que esto es un error, contacta con nuestro equipo de soporte de Sunshine.",
+    "errorBtn": "Reintentar Solicitud"
+  },
+  "admin": {
+    "title": "Panel de Administrador",
+    "users": "Usuarios",
+    "deposits": "Depósitos",
+    "insights": "Análisis IA",
+    "userName": "Nombre de Usuario",
+    "userEmail": "Correo",
+    "userRole": "Rol",
+    "userCode": "Código de Invitación",
+    "noRequests": "No hay solicitudes de depósito pendientes.",
+    "approve": "Aprobar",
+    "reject": "Rechazar",
+    "viewProof": "Ver Comprobante",
+    "selectUser": "Selecciona un usuario para obtener análisis",
+    "getInsights": "Obtener Análisis",
+    "summary": "Resumen",
+    "unusualPatterns": "Patrones Inusuales",
+    "unusualPatternsDesc": "Descripción"
+  }
+}
