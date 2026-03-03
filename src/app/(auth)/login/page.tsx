@@ -20,6 +20,7 @@ import { useTranslation } from '@/hooks/use-translation';
 import Link from 'next/link';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Por favor, introduce un email válido.' }),
@@ -57,6 +58,7 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export default function LoginPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -74,6 +76,8 @@ export default function LoginPage() {
         title: 'Error de inicio de sesión',
         description: result.error,
       });
+    } else if (result?.success) {
+      router.push('/dashboard');
     }
   }
 

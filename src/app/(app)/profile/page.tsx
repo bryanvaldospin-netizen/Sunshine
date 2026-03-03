@@ -8,15 +8,18 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Mail, LogOut } from 'lucide-react';
 import { logoutUser } from '@/lib/actions';
+import { useRouter } from 'next/navigation';
 
 export default function ProfilePage() {
   const { user } = useAuth();
   const { t, locale, setLocale } = useTranslation();
+  const router = useRouter();
 
   if (!user) return null;
 
   const handleLogout = async () => {
     await logoutUser();
+    router.push('/login');
   };
 
   const supportEmail = 'bryan_valdospin@hotmail.com';

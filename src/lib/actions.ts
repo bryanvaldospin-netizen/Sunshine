@@ -16,8 +16,7 @@ import {
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage } from '@/lib/firebase';
-import { redirect } from 'next/navigation';
-import * as z from 'zod';
+import { z } from 'zod';
 
 const registerSchema = z.object({
   name: z.string().min(2),
@@ -63,6 +62,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
         usedDate: new Date().toISOString(),
       });
     }
+    return { success: true };
   } catch (error: any) {
     if (error.code === 'auth/email-already-in-use') {
       return { error: 'Este correo electrónico ya está en uso.' };
@@ -72,8 +72,6 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
     }
     return { error: error.message };
   }
-
-  redirect('/dashboard');
 }
 
 const loginSchema = z.object({
@@ -85,18 +83,18 @@ export async function loginUser(values: z.infer<typeof loginSchema>) {
   try {
     const { email, password } = loginSchema.parse(values);
     await signInWithEmailAndPassword(auth, email, password);
+    return { success: true };
   } catch (error: any) {
      if (error.code === 'auth/invalid-credential') {
       return { error: 'Credenciales incorrectas. Por favor, verifica tu email y contraseña.' };
     }
     return { error: error.message };
   }
-  redirect('/dashboard');
 }
 
 export async function logoutUser() {
   await signOut(auth);
-  redirect('/login');
+  return { success: true };
 }
 
 export async function getWalletAddress() {

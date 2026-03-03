@@ -21,6 +21,7 @@ import { registerUser } from '@/lib/actions';
 import { TermsAndConditionsModal } from '@/components/terms-modal';
 import { useTranslation } from '@/hooks/use-translation';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'El nombre debe tener al menos 2 caracteres.' }),
@@ -35,6 +36,7 @@ const formSchema = z.object({
 export default function RegisterPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -54,11 +56,12 @@ export default function RegisterPage() {
         title: 'Error de registro',
         description: result.error,
       });
-    } else {
+    } else if (result?.success) {
       toast({
         title: '¡Registro exitoso!',
-        description: 'Ahora puedes iniciar sesión con tu cuenta.',
+        description: 'Redirigiendo al dashboard...',
       });
+      router.push('/dashboard');
     }
   }
 
