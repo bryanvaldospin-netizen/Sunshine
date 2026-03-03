@@ -59,9 +59,9 @@ export default function RegisterPage() {
     } else if (result?.success) {
       toast({
         title: '¡Registro exitoso!',
-        description: 'Redirigiendo al dashboard...',
+        description: 'Redirigiendo...',
       });
-      router.push('/dashboard');
+      router.push('/test-page');
     }
   }
 
