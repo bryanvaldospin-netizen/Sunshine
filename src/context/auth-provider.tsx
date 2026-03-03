@@ -24,7 +24,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Apply persistence setting once.
+    console.log('AuthProvider: Setting up Firebase auth persistence...');
     setPersistence(auth, browserLocalPersistence).catch((error) => {
       console.error("Auth persistence error:", error);
     });
@@ -32,36 +32,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let unsubscribeFromSnapshot: () => void = () => {};
 
     const unsubscribeFromAuth = onAuthStateChanged(auth, (currentFirebaseUser) => {
+      console.log('AuthProvider: onAuthStateChanged triggered.');
       // Clean up previous snapshot listener
       unsubscribeFromSnapshot();
 
       if (currentFirebaseUser) {
+        console.log(`AuthProvider: User is authenticated with UID: ${currentFirebaseUser.uid}. Fetching profile...`);
         setFirebaseUser(currentFirebaseUser);
         const userDocRef = doc(db, 'users', currentFirebaseUser.uid);
         
         unsubscribeFromSnapshot = onSnapshot(userDocRef, (doc) => {
           if (doc.exists()) {
-            setUser(doc.data() as UserProfile);
+            const userData = doc.data() as UserProfile;
+            console.log('AuthProvider: Firestore profile found:', { email: userData.email, rol: userData.rol });
+            setUser(userData);
           } else {
-            // User authenticated but no profile in Firestore.
+            console.log('AuthProvider: User authenticated but no profile in Firestore.');
             setUser(null);
           }
+          console.log('AuthProvider: Loading finished.');
           setLoading(false);
         }, (error) => {
-          console.error("Error fetching user profile:", error);
+          console.error("AuthProvider: Error fetching user profile:", error);
           setUser(null);
+          console.log('AuthProvider: Loading finished due to error.');
           setLoading(false);
         });
       } else {
-        // User is signed out.
+        console.log('AuthProvider: User is signed out.');
         setUser(null);
         setFirebaseUser(null);
+        console.log('AuthProvider: Loading finished.');
         setLoading(false);
       }
     });
 
-    // Cleanup function for useEffect
     return () => {
+      console.log('AuthProvider: Cleaning up listeners.');
       unsubscribeFromAuth();
       unsubscribeFromSnapshot();
     };
