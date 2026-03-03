@@ -231,41 +231,10 @@ const AiInsightsTab = () => {
 
 
 export default function AdminDashboardPage() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
+  const { loading } = useAuth();
   const { t } = useTranslation();
 
-  // Hardcode admin access as requested for debugging
-  const isHardcodedAdmin = user?.email === 'bryanvaldospin@gmail.com' || user?.email === 'brayanvaldospin@gmail.com';
-  const isRoleAdmin = user?.rol === 'admin';
-  const isAllowed = isRoleAdmin || isHardcodedAdmin;
-
-  useEffect(() => {
-    console.log('Admin Dashboard Guard:', {
-      loading,
-      userEmail: user?.email,
-      userRole: user?.rol,
-      isRoleAdmin,
-      isHardcodedAdmin,
-      isAllowed,
-    });
-    
-    // Wait until loading is finished to make a decision
-    if (loading) {
-      console.log('Admin Dashboard: Waiting for auth state to load...');
-      return;
-    }
-
-    // If loading is done and user is not allowed, then redirect.
-    if (!isAllowed) {
-      console.log('Admin Dashboard: User is not authorized. Redirecting to /dashboard.');
-      router.replace('/dashboard');
-    }
-  }, [user, loading, router, isAllowed]);
-
-  // Show splash screen while loading or if user is not authorized yet.
-  // This prevents content from flashing before the redirect logic in useEffect runs.
-  if (loading || !isAllowed) {
+  if (loading) {
     return <SplashScreen />;
   }
 

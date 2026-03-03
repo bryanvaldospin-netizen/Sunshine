@@ -73,7 +73,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
     return { error: error.message };
   }
 
-  redirect('/login');
+  redirect('/dashboard');
 }
 
 const loginSchema = z.object({
@@ -82,66 +82,17 @@ const loginSchema = z.object({
 });
 
 export async function loginUser(values: z.infer<typeof loginSchema>) {
-  let redirectPath: string;
   try {
     const { email, password } = loginSchema.parse(values);
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-    
-    const userDocRef = doc(db, 'users', user.uid);
-    const userDocSnap = await getDoc(userDocRef);
-
-    if (userDocSnap.exists()) {
-      const userData = userDocSnap.data();
-      if (userData.rol === 'admin') {
-        redirectPath = '/admin-dashboard';
-      } else {
-        redirectPath = '/dashboard';
-      }
-    } else {
-      throw new Error("User profile not found.");
-    }
-
+    await signInWithEmailAndPassword(auth, email, password);
   } catch (error: any) {
      if (error.code === 'auth/invalid-credential') {
       return { error: 'Credenciales incorrectas. Por favor, verifica tu email y contraseña.' };
     }
     return { error: error.message };
   }
-  redirect(redirectPath);
+  redirect('/dashboard');
 }
-
-export async function loginAdmin(values: z.infer<typeof loginSchema>) {
-  let redirectPath: string;
-  try {
-    const { email, password } = loginSchema.parse(values);
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-
-    const userDocRef = doc(db, 'users', user.uid);
-    const userDocSnap = await getDoc(userDocRef);
-
-    if (userDocSnap.exists()) {
-      const userData = userDocSnap.data();
-      if (userData.rol === 'admin') {
-        redirectPath = '/admin-dashboard';
-      } else {
-        await signOut(auth);
-        return { error: 'Acceso denegado. Esta cuenta no tiene privilegios de administrador.' };
-      }
-    } else {
-      await signOut(auth);
-      return { error: 'Perfil de usuario no encontrado.' };
-    }
-  } catch (error: any) {
-    if (error.code === 'auth/invalid-credential') {
-      return { error: 'Credenciales incorrectas. Por favor, verifica tu email y contraseña.' };
-    }
-    return { error: 'Ocurrió un error inesperado. ' + error.message };
-  }
-  redirect(redirectPath);
-}
-
 
 export async function logoutUser() {
   await signOut(auth);

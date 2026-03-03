@@ -68,7 +68,7 @@ export default function LoginPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     const result = await loginUser(values);
-    if (result.error) {
+    if (result?.error) {
       toast({
         variant: 'destructive',
         title: 'Error de inicio de sesión',
@@ -160,11 +160,6 @@ export default function LoginPage() {
           </Button>
         </Link>
         
-        <div className="mt-4 text-center text-xs">
-          <Link href="/admin-access" className="underline text-muted-foreground hover:text-accent">
-            Acceso para Administradores
-          </Link>
-        </div>
       </CardContent>
     </Card>
   );

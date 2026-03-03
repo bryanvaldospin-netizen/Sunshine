@@ -48,7 +48,7 @@ export default function RegisterPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     const result = await registerUser(values);
-    if (result.error) {
+    if (result?.error) {
       toast({
         variant: 'destructive',
         title: 'Error de registro',

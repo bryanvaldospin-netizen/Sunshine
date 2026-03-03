@@ -12,8 +12,7 @@ export default function Home() {
   useEffect(() => {
     if (!loading) {
       if (user) {
-        const targetPath = user.rol === 'admin' ? '/admin-dashboard' : '/dashboard';
-        router.replace(targetPath);
+        router.replace('/dashboard');
       } else {
         router.replace('/login');
       }

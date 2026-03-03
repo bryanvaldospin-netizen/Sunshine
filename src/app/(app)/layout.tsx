@@ -11,20 +11,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    console.log('AppLayout (Protected Route) Check:', {
-      loading,
-      user: user ? { email: user.email, role: user.rol } : null,
-    });
     if (!loading && !user) {
-      console.log('AppLayout: No user found after loading. Redirecting to /login.');
       router.replace('/login');
     }
   }, [user, loading, router]);
 
-  if (loading || !user) {
-    console.log("AppLayout: Rendering SplashScreen because 'loading' is true or 'user' is null.", { loading, user: !!user });
+  if (loading) {
     return <SplashScreen />;
   }
+
+  if (!user) {
+    return <SplashScreen />;
+  }
+
 
   return (
     <div className="relative flex min-h-screen flex-col">

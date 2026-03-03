@@ -49,12 +49,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           } else {
             console.log('AuthProvider: User authenticated but no profile in Firestore. Creating one...');
             
-            const isAdmin = currentFirebaseUser.email === 'bryanvaldospin@gmail.com' || currentFirebaseUser.email === 'brayanvaldospin@gmail.com';
             const newUserProfile: UserProfile = {
                 uid: currentFirebaseUser.uid,
                 email: currentFirebaseUser.email!,
                 name: currentFirebaseUser.displayName || 'New User',
-                rol: isAdmin ? 'admin' : 'user',
+                rol: 'user',
                 saldoUSDT: 0,
                 invitadoPor: null,
             };
