@@ -9,11 +9,12 @@ export default function TestPage() {
   const { user, loading } = useAuth();
   const { t } = useTranslation();
 
-  if (loading || !user) {
+  if (loading) {
     return <SplashScreen />;
   }
 
-  // Ensure saldoUSDT is a number, default to 0 if not available
+  // If loading is false, proceed. user can be null here if Firestore read failed.
+  // We use a default value of 0 for the balance to prevent crashes and avoid redirects.
   const balance = user?.saldoUSDT ?? 0;
 
   const formattedBalance = new Intl.NumberFormat('en-US', {
