@@ -61,7 +61,7 @@ export default function RegisterPage() {
         title: '¡Registro exitoso!',
         description: 'Redirigiendo...',
       });
-      router.push('/titulo1');
+      router.push('/test-page');
     }
   }
 

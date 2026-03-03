@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
-import { onAuthStateChanged, User as FirebaseUser, setPersistence, browserLocalPersistence } from 'firebase/auth';
+import { onAuthStateChanged, User as FirebaseUser, setPersistence, browserLocalPersistence, getRedirectResult } from 'firebase/auth';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile } from '@/types';
@@ -24,6 +24,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Handling the redirect result from Google Sign-In
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result) {
+          // This is the signed-in user.
+          // The onAuthStateChanged observer will also fire,
+          // so we don't need to duplicate the profile creation logic here.
+        }
+      })
+      .catch((error) => {
+        console.error("Error getting redirect result:", error);
+        // Handle errors here, such as account-exists-with-different-credential
+      });
+
+
     setPersistence(auth, browserLocalPersistence).catch((error) => {
       console.error("Auth persistence error:", error);
     });

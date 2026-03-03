@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { loginUser } from '@/lib/actions';
 import { useTranslation } from '@/hooks/use-translation';
 import Link from 'next/link';
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithRedirect } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 
@@ -77,21 +77,20 @@ export default function LoginPage() {
         description: result.error,
       });
     } else if (result?.success) {
-      router.push('/titulo1');
+      router.push('/test-page');
     }
   }
 
   async function handleGoogleSignIn() {
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-      // onAuthStateChanged in AuthProvider will handle the rest (profile creation, redirection)
+      await signInWithRedirect(auth, provider);
     } catch (error: any) {
-      console.error("Google Sign-In Error:", error);
+      console.error("Google Sign-In Redirect Error:", error);
       toast({
         variant: 'destructive',
-        title: 'Error de inicio de sesión con Google',
-        description: 'No se pudo completar el inicio de sesión. Por favor, inténtalo de nuevo.',
+        title: 'Error al iniciar con Google',
+        description: 'No se pudo redirigir para el inicio de sesión. Por favor, inténtalo de nuevo.',
       });
     }
   }
