@@ -6,18 +6,18 @@ import { useAuth } from '@/hooks/use-auth';
 import SplashScreen from '@/components/splash-screen';
 
 export default function Home() {
-  const { user, loading } = useAuth();
+  const { firebaseUser, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!loading) {
-      if (user) {
+      if (firebaseUser) {
         router.replace('/dashboard');
       } else {
         router.replace('/login');
       }
     }
-  }, [user, loading, router]);
+  }, [firebaseUser, loading, router]);
 
   return <SplashScreen />;
 }
