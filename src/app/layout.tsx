@@ -8,9 +8,6 @@ import { LanguageProvider } from '@/context/language-provider';
 export const metadata: Metadata = {
   title: 'Sunshine',
   description: 'Sunshine Investment App',
-  icons: {
-    icon: '/logo.png',
-  },
 };
 
 export default function RootLayout({
