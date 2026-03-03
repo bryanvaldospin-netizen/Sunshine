@@ -5,7 +5,6 @@ import { onAuthStateChanged, User as FirebaseUser, setPersistence, browserLocalP
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile } from '@/types';
-import SplashScreen from '@/components/splash-screen';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -48,6 +47,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setUser(null);
           }
           setLoading(false);
+        }, (error) => {
+          console.error("Error fetching user profile:", error);
+          setUser(null);
+          setLoading(false);
         });
       } else {
         // User is signed out.
@@ -63,10 +66,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       unsubscribeFromSnapshot();
     };
   }, []);
-
-  if (loading) {
-    return <SplashScreen />;
-  }
 
   return (
     <AuthContext.Provider value={{ user, firebaseUser, loading }}>
