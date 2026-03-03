@@ -77,7 +77,7 @@ export default function LoginPage() {
         description: result.error,
       });
     } else if (result?.success) {
-      router.push('/test-page');
+      router.push('/dashboard');
     }
   }
 
