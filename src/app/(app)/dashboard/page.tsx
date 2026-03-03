@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -20,7 +21,6 @@ import { db } from '@/lib/firebase';
 import { submitDeposit, getWalletAddress } from '@/lib/actions';
 import type { DepositRequest } from '@/types';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import SplashScreen from '@/components/splash-screen';
 
 const depositSchema = z.object({
   amount: z.coerce.number().positive({ message: 'El monto debe ser positivo.' }),
@@ -33,7 +33,7 @@ const depositSchema = z.object({
 type DepositStatus = 'idle' | 'success' | 'error';
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { t } = useTranslation();
   const { toast } = useToast();
   const [walletAddress, setWalletAddress] = useState('Cargando...');
@@ -66,8 +66,18 @@ export default function DashboardPage() {
     }
   }, [user]);
 
-  if (!user) {
-    return <SplashScreen />;
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Image
+          src="https://storage.googleapis.com/studio-images/q/v/qc/user/29be7a44-a035-4309-bbd9-35c8e967a1da/2dd2834b-4f9e-4b7d-b286-dd87f9d850a5.png"
+          alt="Sunshine Logo"
+          width={80}
+          height={80}
+          className="animate-pulse"
+        />
+      </div>
+    );
   }
 
   const handleCopy = () => {
