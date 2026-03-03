@@ -2,7 +2,7 @@
 
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { onAuthStateChanged, User as FirebaseUser, setPersistence, browserLocalPersistence } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile } from '@/types';
 
@@ -33,7 +33,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const unsubscribeFromAuth = onAuthStateChanged(auth, (currentFirebaseUser) => {
       console.log('AuthProvider: onAuthStateChanged triggered.');
-      // Clean up previous snapshot listener
       unsubscribeFromSnapshot();
 
       if (currentFirebaseUser) {
@@ -41,28 +40,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setFirebaseUser(currentFirebaseUser);
         const userDocRef = doc(db, 'users', currentFirebaseUser.uid);
         
-        unsubscribeFromSnapshot = onSnapshot(userDocRef, (doc) => {
-          if (doc.exists()) {
-            const userData = doc.data() as UserProfile;
+        unsubscribeFromSnapshot = onSnapshot(userDocRef, async (docSnap) => {
+          if (docSnap.exists()) {
+            const userData = docSnap.data() as UserProfile;
             console.log('AuthProvider: Firestore profile found:', { email: userData.email, rol: userData.rol });
             setUser(userData);
+            setLoading(false);
           } else {
-            console.log('AuthProvider: User authenticated but no profile in Firestore.');
-            setUser(null);
+            console.log('AuthProvider: User authenticated but no profile in Firestore. Creating one...');
+            
+            const isAdmin = currentFirebaseUser.email === 'bryanvaldospin@gmail.com' || currentFirebaseUser.email === 'brayanvaldospin@gmail.com';
+            const newUserProfile: UserProfile = {
+                uid: currentFirebaseUser.uid,
+                email: currentFirebaseUser.email!,
+                name: currentFirebaseUser.displayName || 'New User',
+                rol: isAdmin ? 'admin' : 'user',
+                saldoUSDT: 0,
+                invitadoPor: null,
+            };
+            
+            try {
+                await setDoc(userDocRef, newUserProfile);
+                console.log('AuthProvider: New profile created successfully.');
+                setUser(newUserProfile);
+            } catch (error) {
+                console.error("AuthProvider: Error creating user profile:", error);
+                setUser(null);
+            } finally {
+               setLoading(false);
+            }
           }
-          console.log('AuthProvider: Loading finished.');
-          setLoading(false);
+          console.log('AuthProvider: Loading finished for authenticated user.');
         }, (error) => {
           console.error("AuthProvider: Error fetching user profile:", error);
           setUser(null);
-          console.log('AuthProvider: Loading finished due to error.');
+          setFirebaseUser(null);
           setLoading(false);
         });
       } else {
         console.log('AuthProvider: User is signed out.');
         setUser(null);
         setFirebaseUser(null);
-        console.log('AuthProvider: Loading finished.');
         setLoading(false);
       }
     });
