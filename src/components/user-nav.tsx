@@ -16,16 +16,13 @@ import { logoutUser } from '@/lib/actions';
 import { useTranslation } from '@/hooks/use-translation';
 import { LogOut, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 
 export function UserNav() {
   const { user } = useAuth();
-  const router = useRouter();
   const { t } = useTranslation();
 
   const handleLogout = async () => {
     await logoutUser();
-    router.push('/login');
   };
   
   const getInitials = (name: string) => {

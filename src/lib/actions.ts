@@ -63,9 +63,6 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
         usedDate: new Date().toISOString(),
       });
     }
-
-    redirect('/login');
-
   } catch (error: any) {
     if (error.code === 'auth/email-already-in-use') {
       return { error: 'Este correo electrónico ya está en uso.' };
@@ -75,6 +72,8 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
     }
     return { error: error.message };
   }
+
+  redirect('/login');
 }
 
 const loginSchema = z.object({
@@ -83,6 +82,7 @@ const loginSchema = z.object({
 });
 
 export async function loginUser(values: z.infer<typeof loginSchema>) {
+  let redirectPath: string;
   try {
     const { email, password } = loginSchema.parse(values);
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -94,9 +94,9 @@ export async function loginUser(values: z.infer<typeof loginSchema>) {
     if (userDocSnap.exists()) {
       const userData = userDocSnap.data();
       if (userData.rol === 'admin') {
-        redirect('/admin-dashboard');
+        redirectPath = '/admin-dashboard';
       } else {
-        redirect('/dashboard');
+        redirectPath = '/dashboard';
       }
     } else {
       throw new Error("User profile not found.");
@@ -108,6 +108,7 @@ export async function loginUser(values: z.infer<typeof loginSchema>) {
     }
     return { error: error.message };
   }
+  redirect(redirectPath);
 }
 
 export async function logoutUser() {
