@@ -22,8 +22,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { getWalletAddress, submitDeposit } from '@/lib/actions';
-import { Copy, Upload } from 'lucide-react';
+import { getWalletAddress, submitDeposit, logoutUser } from '@/lib/actions';
+import { Copy, Upload, LogOut } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 const depositFormSchema = z.object({
   amount: z.coerce.number().positive({ message: 'El monto debe ser mayor a 0.' }),
@@ -165,6 +166,12 @@ const DepositCard = ({ user }: { user: UserProfile | null }) => {
 export default function TestPage() {
   const { user, loading } = useAuth();
   const { t } = useTranslation();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await logoutUser();
+    router.push('/login');
+  };
 
   if (loading) {
     return <SplashScreen />;
@@ -178,21 +185,34 @@ export default function TestPage() {
   }).format(balance);
 
   return (
-    <main className="bg-gray-900 text-white min-h-screen flex flex-col items-center justify-center font-body p-4 md:p-8 space-y-8">
-      <div className="w-full max-w-sm">
-        <Card className="bg-gray-800 border-golden text-white text-center">
-          <CardHeader>
-            <CardTitle className="text-xl font-medium text-gray-300">
-              {t('dashboard.balance')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="py-6">
-            <p className="text-6xl font-bold text-golden">{formattedBalance}</p>
-          </CardContent>
-        </Card>
+    <main className="bg-gray-900 text-white min-h-screen font-body p-4 md:p-8 relative">
+       <div className="absolute top-4 right-4 md:top-8 md:right-8">
+         <Button onClick={handleLogout} variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-gray-700">
+            <LogOut className="mr-2 h-4 w-4" />
+            {t('profile.logout')}
+        </Button>
       </div>
-      <div className="w-full max-w-sm">
-        <DepositCard user={user} />
+
+      <div className="flex flex-col items-center justify-start w-full h-full pt-16 sm:pt-8 space-y-8">
+        <div className="text-center">
+            <h1 className="text-3xl font-bold">Hola, {user?.name}!</h1>
+        </div>
+        
+        <div className="w-full max-w-sm">
+          <Card className="bg-gray-800 border-golden text-white text-center">
+            <CardHeader>
+              <CardTitle className="text-xl font-medium text-gray-300">
+                {t('dashboard.balance')}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="py-6">
+              <p className="text-6xl font-bold text-golden">{formattedBalance}</p>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="w-full max-w-sm">
+          <DepositCard user={user} />
+        </div>
       </div>
     </main>
   );
