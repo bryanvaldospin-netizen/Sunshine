@@ -59,9 +59,9 @@ const InvestmentPlans = ({ user, walletAddress }: { user: UserProfile | null, wa
     const [open, setOpen] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<{name: string, investment: string, min: number} | null>(null);
 
-    const form = useForm<z.infer<typeof depositFormSchema>>({
+    const form = useForm({
         resolver: zodResolver(depositFormSchema),
-        defaultValues: { amount: undefined, proof: undefined },
+        defaultValues: { amount: '', proof: undefined },
     });
     
     async function onSubmit(values: z.infer<typeof depositFormSchema>) {
