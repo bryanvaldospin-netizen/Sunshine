@@ -37,7 +37,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 
 
 const depositFormSchema = z.object({
@@ -61,14 +61,13 @@ const InvestmentPlans = ({ user, walletAddress }: { user: UserProfile | null, wa
 
     const form = useForm<z.infer<typeof depositFormSchema>>({
         resolver: zodResolver(depositFormSchema),
-        defaultValues: { amount: '', proof: undefined },
+        defaultValues: { amount: '' as any, proof: undefined },
     });
     
     async function onSubmit(values: z.infer<typeof depositFormSchema>) {
-        console.log('Usuario actual:', auth.currentUser);
-        const currentUser = auth.currentUser;
+        console.log('Usuario para el depósito (desde useAuth):', user);
 
-        if (!currentUser || !user || !selectedPlan) {
+        if (!user || !selectedPlan) {
             toast({ variant: 'destructive', title: 'Error', description: t('dashboard.mustLogin') });
             return;
         }
@@ -82,7 +81,7 @@ const InvestmentPlans = ({ user, walletAddress }: { user: UserProfile | null, wa
         const formData = new FormData();
         formData.append('amount', values.amount.toString());
         formData.append('proof', values.proof[0]);
-        formData.append('userId', currentUser.uid);
+        formData.append('userId', user.uid);
         formData.append('userName', user.name);
 
         try {
@@ -148,6 +147,9 @@ const InvestmentPlans = ({ user, walletAddress }: { user: UserProfile | null, wa
             <DialogContent className="bg-gray-800 border-golden text-white">
                 <DialogHeader>
                     <DialogTitle>Realizar Depósito para {selectedPlan?.name}</DialogTitle>
+                    <DialogDescription>
+                        Transfiere el monto exacto a la billetera USDT (TRC-20) a continuación y sube el comprobante de la transacción.
+                    </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                     <div className="space-y-2">
