@@ -23,7 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getWalletAddress, submitDeposit, logoutUser } from '@/lib/actions';
-import { Copy, Upload, LogOut, PiggyBank, TrendingUp, CircleDollarSign } from 'lucide-react';
+import { Copy, Upload, LogOut, PiggyBank, TrendingUp, CircleDollarSign, Globe } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -31,6 +31,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { AreaChart, Area, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 import { Progress } from '@/components/ui/progress';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 
 const depositFormSchema = z.object({
@@ -67,12 +73,12 @@ const DepositCard = ({ user }: { user: UserProfile | null }) => {
   const handleCopy = () => {
     if (!walletAddress) return;
     navigator.clipboard.writeText(walletAddress);
-    toast({ title: t('dashboard.copy'), description: 'Dirección de billetera copiada al portapapeles.' });
+    toast({ title: t('dashboard.copy'), description: t('dashboard.copied') });
   };
 
   async function onSubmit(values: z.infer<typeof depositFormSchema>) {
     if (!user) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Debes iniciar sesión para depositar.' });
+      toast({ variant: 'destructive', title: 'Error', description: t('dashboard.mustLogin') });
       return;
     }
     
@@ -87,13 +93,13 @@ const DepositCard = ({ user }: { user: UserProfile | null }) => {
         const result = await submitDeposit(formData);
 
         if (result?.error) {
-          toast({ variant: 'destructive', title: 'Error al depositar', description: result.error });
+          toast({ variant: 'destructive', title: t('dashboard.depositError'), description: result.error });
         } else {
-          toast({ title: '¡Comprobante enviado!', description: 'Tu solicitud de depósito está siendo revisada.' });
+          toast({ title: t('dashboard.proofSent'), description: t('dashboard.proofReview') });
           form.reset();
         }
     } catch(error: any) {
-        toast({ variant: 'destructive', title: 'Error inesperado', description: error.message || 'Ocurrió un problema al enviar el formulario.' });
+        toast({ variant: 'destructive', title: t('dashboard.unexpectedError'), description: error.message || t('dashboard.formError') });
     } finally {
         setIsSubmitting(false);
     }
@@ -108,7 +114,7 @@ const DepositCard = ({ user }: { user: UserProfile | null }) => {
         <div className="space-y-2">
           <Label htmlFor="wallet-address">{t('dashboard.usdtAddress')}</Label>
           <div className="flex items-center gap-2">
-            <Input id="wallet-address" readOnly value={walletAddress} className="bg-gray-700 border-gray-600 truncate" placeholder="Cargando dirección..."/>
+            <Input id="wallet-address" readOnly value={walletAddress} className="bg-gray-700 border-gray-600 truncate" placeholder={t('dashboard.loadingAddress')}/>
             <Button variant="outline" size="icon" onClick={handleCopy} className="border-golden text-golden hover:bg-golden/10 hover:text-golden flex-shrink-0">
               <Copy className="h-4 w-4" />
             </Button>
@@ -140,7 +146,7 @@ const DepositCard = ({ user }: { user: UserProfile | null }) => {
                         <Button asChild variant="outline" className="w-full border-dashed border-gray-500 hover:border-golden text-gray-300">
                             <label htmlFor="proof-upload" className="cursor-pointer flex items-center justify-center">
                                 <Upload className="mr-2 h-4 w-4" />
-                                <span className="truncate">{form.watch('proof')?.[0]?.name || 'Seleccionar archivo'}</span>
+                                <span className="truncate">{form.watch('proof')?.[0]?.name || t('dashboard.selectFile')}</span>
                             </label>
                         </Button>
                         <Input 
@@ -160,7 +166,7 @@ const DepositCard = ({ user }: { user: UserProfile | null }) => {
               )}
             />
             <Button type="submit" className="w-full bg-gradient-to-r from-golden to-red-800 text-white text-lg py-6" disabled={isSubmitting}>
-              {isSubmitting ? 'Enviando...' : t('dashboard.sendProof')}
+              {isSubmitting ? t('dashboard.sending') : t('dashboard.sendProof')}
             </Button>
           </form>
         </Form>
@@ -170,6 +176,7 @@ const DepositCard = ({ user }: { user: UserProfile | null }) => {
 };
 
 const ActivePlanCard = ({ plan, loading, user }: { plan: Investment | null, loading: boolean, user: UserProfile | null }) => {
+  const { t } = useTranslation();
   const [countdown, setCountdown] = useState('');
   const [progress, setProgress] = useState(0);
 
@@ -184,7 +191,7 @@ const ActivePlanCard = ({ plan, loading, user }: { plan: Investment | null, load
       const distance = nextPaymentDate.getTime() - now.getTime();
 
       if (distance < 0) {
-        setCountdown('Pago procesando');
+        setCountdown(t('dashboard.processingPayment'));
         setProgress(100);
         clearInterval(intervalId);
         return;
@@ -204,7 +211,7 @@ const ActivePlanCard = ({ plan, loading, user }: { plan: Investment | null, load
     }, 1000);
 
     return () => clearInterval(intervalId);
-  }, [plan]);
+  }, [plan, t]);
 
   if (loading) {
     return (
@@ -224,7 +231,7 @@ const ActivePlanCard = ({ plan, loading, user }: { plan: Investment | null, load
       return (
         <Card className="bg-gray-800 border-gray-700 text-white flex items-center justify-center p-6">
             <Button variant="outline" className="border-golden text-golden hover:bg-golden/10 hover:text-golden">
-                Ver planes disponibles
+                {t('dashboard.viewPlans')}
             </Button>
         </Card>
       );
@@ -235,15 +242,15 @@ const ActivePlanCard = ({ plan, loading, user }: { plan: Investment | null, load
   return (
      <Card className="bg-gray-800 border-gray-700 text-white">
       <CardHeader>
-        <CardTitle className="text-xl font-semibold">{plan.planName}</CardTitle>
+        <CardTitle className="text-xl font-semibold">{t('dashboard.activePlan')}: {plan.planName}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
            <Progress value={progress} className="w-full h-2 bg-gray-700 [&>div]:bg-golden" />
-           <p className="text-xs text-right text-gray-400 mt-1">{progress.toFixed(0)}% completado</p>
+           <p className="text-xs text-right text-gray-400 mt-1">{progress.toFixed(0)}{t('dashboard.completed')}</p>
         </div>
         <div className="text-center">
-            <p className="text-sm text-gray-400">Siguiente pago en:</p>
+            <p className="text-sm text-gray-400">{t('dashboard.nextPayment')}</p>
             <p className="text-2xl font-bold font-mono text-golden">{countdown}</p>
         </div>
       </CardContent>
@@ -254,7 +261,7 @@ const ActivePlanCard = ({ plan, loading, user }: { plan: Investment | null, load
 
 export default function TestPage() {
   const { user, loading } = useAuth();
-  const { t } = useTranslation();
+  const { t, setLocale } = useTranslation();
   const router = useRouter();
 
   const [stats, setStats] = useState({ totalInvested: 0, earnings: 0, withdrawals: 0 });
@@ -264,7 +271,7 @@ export default function TestPage() {
   const [planLoading, setPlanLoading] = useState(true);
   
   const balance = user?.saldoUSDT ?? 0;
-  const userName = user?.name || 'Inversor';
+  const userName = user?.name || t('dashboard.investor');
 
    useEffect(() => {
     if (user?.uid) {
@@ -345,11 +352,11 @@ export default function TestPage() {
 
   const formattedBalance = formatCurrency(balance);
   
-  const statItems = [
-    { title: 'Inversión Total', value: stats.totalInvested, icon: PiggyBank },
-    { title: 'Ganancias Generadas', value: stats.earnings, icon: TrendingUp },
-    { title: 'Retiros Totales', value: stats.withdrawals, icon: CircleDollarSign },
-  ];
+  const statItems = useMemo(() => [
+    { title: t('dashboard.totalInvestment'), value: stats.totalInvested, icon: PiggyBank },
+    { title: t('dashboard.generatedEarnings'), value: stats.earnings, icon: TrendingUp },
+    { title: t('dashboard.totalWithdrawals'), value: stats.withdrawals, icon: CircleDollarSign },
+  ], [t, stats]);
 
   const chartConfig = {
     balance: {
@@ -361,8 +368,19 @@ export default function TestPage() {
 
   return (
     <main className="bg-gray-900 text-white min-h-screen font-body p-4 md:p-8 relative">
-       <div className="absolute top-4 right-4 md:top-8 md:right-8">
-         <Button onClick={handleLogout} variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-gray-700">
+       <div className="absolute top-4 right-4 md:top-8 md:right-8 flex items-center gap-2">
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-gray-700 w-9 h-9 p-0">
+                    <Globe className="h-5 w-5" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700 text-white">
+                <DropdownMenuItem onClick={() => setLocale('es')} className="focus:bg-gray-700 cursor-pointer">Español</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setLocale('en')} className="focus:bg-gray-700 cursor-pointer">English</DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+        <Button onClick={handleLogout} variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-gray-700">
             <LogOut className="mr-2 h-4 w-4" />
             {t('profile.logout')}
         </Button>
@@ -370,7 +388,7 @@ export default function TestPage() {
 
       <div className="flex flex-col items-center justify-start w-full h-full pt-16 sm:pt-8 space-y-8">
         <div className="text-center">
-            <h1 className="text-3xl font-bold">Hola, {userName}!</h1>
+            <h1 className="text-3xl font-bold">{t('dashboard.greeting', { name: userName })}</h1>
         </div>
         
         <div className="w-full max-w-3xl">
@@ -413,7 +431,7 @@ export default function TestPage() {
         <div className="w-full max-w-3xl">
             <Card className="bg-gray-800 border-gray-700 text-white">
                 <CardHeader>
-                    <CardTitle>Crecimiento de Saldo</CardTitle>
+                    <CardTitle>{t('dashboard.balanceGrowth')}</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-4 h-[290px] flex items-center justify-center">
                   {statsLoading ? (
@@ -466,7 +484,7 @@ export default function TestPage() {
                     </ChartContainer>
                   ) : (
                     <p className="text-muted-foreground text-center">
-                      Tu historial de crecimiento aparecerá aquí conforme realices tus inversiones.
+                      {t('dashboard.growthHistoryPlaceholder')}
                     </p>
                   )}
                 </CardContent>

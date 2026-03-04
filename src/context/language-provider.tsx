@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useState, ReactNode, useMemo, useCallback } from 'react';
+import React, { createContext, useState, ReactNode, useMemo, useCallback, useEffect } from 'react';
 import es from '@/locales/es.json';
 import en from '@/locales/en.json';
 
@@ -21,7 +21,23 @@ export const LanguageContext = createContext<LanguageContextType>({
 });
 
 export const LanguageProvider = ({ children }: { children: ReactNode }) => {
-  const [locale, setLocale] = useState<Locale>('es');
+  const [locale, setLocaleState] = useState<Locale>('es');
+
+  useEffect(() => {
+    const storedLocale = localStorage.getItem('locale') as Locale | null;
+    if (storedLocale && ['es', 'en'].includes(storedLocale)) {
+      setLocaleState(storedLocale);
+    }
+  }, []);
+  
+  const setLocale = (newLocale: Locale) => {
+    try {
+      localStorage.setItem('locale', newLocale);
+      setLocaleState(newLocale);
+    } catch (error) {
+      console.error("Could not save locale to localStorage:", error);
+    }
+  };
 
   const t = useCallback((key: string, values?: Record<string, any>): string => {
     const keys = key.split('.');
@@ -29,7 +45,14 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
     for (const k of keys) {
       result = result?.[k];
       if (result === undefined) {
-        return key;
+        // Fallback to English if key not found in current locale
+        let fallbackResult: any = translations['en'];
+        for (const fk of keys) {
+            fallbackResult = fallbackResult?.[fk];
+            if(fallbackResult === undefined) return key;
+        }
+        result = fallbackResult;
+        break;
       }
     }
 
@@ -45,7 +68,7 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
     return str;
   }, [locale]);
 
-  const value = useMemo(() => ({ locale, setLocale, t }), [locale, t]);
+  const value = useMemo(() => ({ locale, setLocale, t }), [locale, t, setLocale]);
 
   return (
     <LanguageContext.Provider value={value}>
