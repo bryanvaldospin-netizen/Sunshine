@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +28,8 @@ import { useRouter } from 'next/navigation';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AreaChart, Area, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
 
 
 const depositFormSchema = z.object({
@@ -201,8 +203,10 @@ export default function TestPage() {
       };
 
       fetchStats();
+    } else if (!loading) {
+        setStatsLoading(false);
     }
-  }, [user?.uid]);
+  }, [user?.uid, loading]);
 
   const handleLogout = async () => {
     await logoutUser();
@@ -229,6 +233,24 @@ export default function TestPage() {
     { title: 'Retiros Totales', value: stats.withdrawals, icon: CircleDollarSign },
   ];
 
+  const chartData = useMemo(() => [
+    { date: 'Hace 6d', balance: balance > 120 ? balance - 120 : 880 },
+    { date: 'Hace 5d', balance: balance > 100 ? balance - 100 : 900 },
+    { date: 'Hace 4d', balance: balance > 80 ? balance - 80 : 920 },
+    { date: 'Hace 3d', balance: balance > 60 ? balance - 60 : 940 },
+    { date: 'Hace 2d', balance: balance > 30 ? balance - 30 : 970 },
+    { date: 'Ayer', balance: balance > 10 ? balance - 10 : 990 },
+    { date: 'Hoy', balance: balance },
+  ], [balance]);
+
+  const chartConfig = {
+    balance: {
+      label: 'Saldo',
+      color: 'hsl(var(--primary))',
+    },
+  } satisfies ChartConfig;
+
+
   return (
     <main className="bg-gray-900 text-white min-h-screen font-body p-4 md:p-8 relative">
        <div className="absolute top-4 right-4 md:top-8 md:right-8">
@@ -243,7 +265,7 @@ export default function TestPage() {
             <h1 className="text-3xl font-bold">Hola, {userName}!</h1>
         </div>
         
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-3xl">
           <Card className="bg-gray-800 border-golden text-white text-center">
             <CardHeader>
               <CardTitle className="text-xl font-medium text-gray-300">
@@ -256,7 +278,7 @@ export default function TestPage() {
           </Card>
         </div>
 
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-3xl">
            {statsLoading ? (
              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
                 <Skeleton className="h-28 bg-gray-800" />
@@ -279,8 +301,64 @@ export default function TestPage() {
             </div>
            )}
         </div>
+        
+        <div className="w-full max-w-3xl">
+            <Card className="bg-gray-800 border-gray-700 text-white">
+                <CardHeader>
+                    <CardTitle>Crecimiento de Saldo (Últimos 7 Días)</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                    <ChartContainer config={chartConfig} className="h-[250px] w-full">
+                        <AreaChart
+                            data={chartData}
+                            margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                        >
+                            <defs>
+                                <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
+                                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid vertical={false} stroke="rgba(255, 255, 255, 0.1)" strokeDasharray="3 3" />
+                            <XAxis 
+                                dataKey="date" 
+                                tickLine={false}
+                                axisLine={false}
+                                stroke="rgba(255, 255, 255, 0.4)"
+                                fontSize={12}
+                            />
+                            <YAxis
+                                tickLine={false}
+                                axisLine={false}
+                                stroke="rgba(255, 255, 255, 0.4)"
+                                fontSize={12}
+                                tickFormatter={(value) => formatCurrency(value as number)}
+                                domain={['dataMin - 100', 'dataMax + 100']}
+                            />
+                            <ChartTooltip 
+                                cursor={true}
+                                content={<ChartTooltipContent
+                                    indicator="line"
+                                    formatter={(value, name) => [formatCurrency(value as number), 'Saldo']}
+                                    labelClassName="text-white"
+                                    className="bg-gray-900 border-golden"
+                                />}
+                            />
+                            <Area 
+                                dataKey="balance"
+                                type="monotone" 
+                                strokeWidth={2}
+                                stroke="hsl(var(--primary))"
+                                fill="url(#colorBalance)" 
+                            />
+                        </AreaChart>
+                    </ChartContainer>
+                </CardContent>
+            </Card>
+        </div>
 
-        <div className="w-full max-w-md">
+
+        <div className="w-full max-w-3xl">
           <DepositCard user={user} />
         </div>
       </div>
