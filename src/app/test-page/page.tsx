@@ -178,6 +178,7 @@ export default function TestPage() {
   }
 
   const balance = user?.saldoUSDT ?? 0;
+  const userName = user?.name || 'Inversor';
 
   const formattedBalance = new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -195,7 +196,7 @@ export default function TestPage() {
 
       <div className="flex flex-col items-center justify-start w-full h-full pt-16 sm:pt-8 space-y-8">
         <div className="text-center">
-            <h1 className="text-3xl font-bold">Hola, {user?.name}!</h1>
+            <h1 className="text-3xl font-bold">Hola, {userName}!</h1>
         </div>
         
         <div className="w-full max-w-sm">
