@@ -22,11 +22,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { getWalletAddress, submitDeposit, logoutUser } from '@/lib/actions';
-import { Copy, Upload, LogOut, PiggyBank, TrendingUp, CircleDollarSign, Globe, Gem, Shield, Crown, Zap, Star } from 'lucide-react';
+import { getWalletAddress, submitDeposit } from '@/lib/actions';
+import { Copy, Upload, Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AreaChart, Area, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
@@ -59,13 +59,16 @@ const InvestmentPlans = ({ user, walletAddress }: { user: UserProfile | null, wa
     const [open, setOpen] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<{name: string, investment: string, min: number} | null>(null);
 
-    const form = useForm({
+    const form = useForm<z.infer<typeof depositFormSchema>>({
         resolver: zodResolver(depositFormSchema),
         defaultValues: { amount: '', proof: undefined },
     });
     
     async function onSubmit(values: z.infer<typeof depositFormSchema>) {
-        if (!user || !selectedPlan) {
+        console.log('Usuario actual:', auth.currentUser);
+        const currentUser = auth.currentUser;
+
+        if (!currentUser || !user || !selectedPlan) {
             toast({ variant: 'destructive', title: 'Error', description: t('dashboard.mustLogin') });
             return;
         }
@@ -79,7 +82,7 @@ const InvestmentPlans = ({ user, walletAddress }: { user: UserProfile | null, wa
         const formData = new FormData();
         formData.append('amount', values.amount.toString());
         formData.append('proof', values.proof[0]);
-        formData.append('userId', user.uid);
+        formData.append('userId', currentUser.uid);
         formData.append('userName', user.name);
 
         try {
@@ -318,9 +321,6 @@ export default function TestPage() {
     getWalletAddress().then(setWalletAddress);
   }, []);
   
-  const balance = user?.saldoUSDT ?? 0;
-  const userName = user?.name || t('dashboard.investor');
-
    useEffect(() => {
     if (user?.uid) {
       const fetchData = async () => {
@@ -393,6 +393,9 @@ export default function TestPage() {
   if (loading) {
     return <SplashScreen />;
   }
+  
+  const balance = user?.saldoUSDT ?? 0;
+  const userName = user?.name || t('dashboard.investor');
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', {
     style: 'currency',
