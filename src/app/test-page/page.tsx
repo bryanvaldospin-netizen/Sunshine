@@ -176,6 +176,18 @@ export default function TestPage() {
 
   const [stats, setStats] = useState({ totalInvested: 0, earnings: 0, withdrawals: 0 });
   const [statsLoading, setStatsLoading] = useState(true);
+  
+  const balance = user?.saldoUSDT ?? 0;
+
+  const chartData = useMemo(() => [
+    { date: 'Hace 6d', balance: balance > 120 ? balance - 120 : 880 },
+    { date: 'Hace 5d', balance: balance > 100 ? balance - 100 : 900 },
+    { date: 'Hace 4d', balance: balance > 80 ? balance - 80 : 920 },
+    { date: 'Hace 3d', balance: balance > 60 ? balance - 60 : 940 },
+    { date: 'Hace 2d', balance: balance > 30 ? balance - 30 : 970 },
+    { date: 'Ayer', balance: balance > 10 ? balance - 10 : 990 },
+    { date: 'Hoy', balance: balance },
+  ], [balance]);
 
    useEffect(() => {
     if (user?.uid) {
@@ -217,7 +229,6 @@ export default function TestPage() {
     return <SplashScreen />;
   }
 
-  const balance = user?.saldoUSDT ?? 0;
   const userName = user?.name || 'Inversor';
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', {
@@ -232,16 +243,6 @@ export default function TestPage() {
     { title: 'Ganancias Generadas', value: stats.earnings, icon: TrendingUp },
     { title: 'Retiros Totales', value: stats.withdrawals, icon: CircleDollarSign },
   ];
-
-  const chartData = useMemo(() => [
-    { date: 'Hace 6d', balance: balance > 120 ? balance - 120 : 880 },
-    { date: 'Hace 5d', balance: balance > 100 ? balance - 100 : 900 },
-    { date: 'Hace 4d', balance: balance > 80 ? balance - 80 : 920 },
-    { date: 'Hace 3d', balance: balance > 60 ? balance - 60 : 940 },
-    { date: 'Hace 2d', balance: balance > 30 ? balance - 30 : 970 },
-    { date: 'Ayer', balance: balance > 10 ? balance - 10 : 990 },
-    { date: 'Hoy', balance: balance },
-  ], [balance]);
 
   const chartConfig = {
     balance: {
