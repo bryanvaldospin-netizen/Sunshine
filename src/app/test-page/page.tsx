@@ -336,6 +336,12 @@ export default function TestPage() {
     }
   }, [user?.uid, loading]);
 
+  const statItems = useMemo(() => [
+    { title: t('dashboard.totalInvestment'), value: stats.totalInvested, icon: PiggyBank },
+    { title: t('dashboard.generatedEarnings'), value: stats.earnings, icon: TrendingUp },
+    { title: t('dashboard.totalWithdrawals'), value: stats.withdrawals, icon: CircleDollarSign },
+  ], [t, stats]);
+
   const handleLogout = async () => {
     await logoutUser();
     router.push('/login');
@@ -351,12 +357,6 @@ export default function TestPage() {
   }).format(value);
 
   const formattedBalance = formatCurrency(balance);
-  
-  const statItems = useMemo(() => [
-    { title: t('dashboard.totalInvestment'), value: stats.totalInvested, icon: PiggyBank },
-    { title: t('dashboard.generatedEarnings'), value: stats.earnings, icon: TrendingUp },
-    { title: t('dashboard.totalWithdrawals'), value: stats.withdrawals, icon: CircleDollarSign },
-  ], [t, stats]);
 
   const chartConfig = {
     balance: {
