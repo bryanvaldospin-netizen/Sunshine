@@ -52,14 +52,19 @@ const depositFormSchema = z.object({
     ),
 });
 
-const InvestmentPlans = ({ walletAddress }: { walletAddress: string }) => {
+const InvestmentPlans = () => {
     const { t } = useTranslation();
     const { user } = useAuth();
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [open, setOpen] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<{name: string, investment: string, min: number} | null>(null);
+    const [walletAddress, setWalletAddress] = useState('');
     const descriptionId = useId();
+
+    useEffect(() => {
+        getWalletAddress().then(setWalletAddress);
+    }, []);
 
     const form = useForm<z.infer<typeof depositFormSchema>>({
         resolver: zodResolver(depositFormSchema),
@@ -67,17 +72,6 @@ const InvestmentPlans = ({ walletAddress }: { walletAddress: string }) => {
     });
     
     async function onSubmit(values: z.infer<typeof depositFormSchema>) {
-        const testUser = {
-            uid: 'XA10iCiKFscyFkcfZnwEfQOWYsB2',
-            name: 'yareelvaldospin@gmail.com',
-        };
-
-        let userToSubmit = user;
-        if (!userToSubmit) {
-            console.log('Modo Dev: Usando UID Maestro para Sunshine');
-            userToSubmit = testUser;
-        }
-
         if (!selectedPlan) {
             toast({ variant: 'destructive', title: 'Error', description: 'Por favor, selecciona un plan primero.' });
             return;
@@ -92,8 +86,10 @@ const InvestmentPlans = ({ walletAddress }: { walletAddress: string }) => {
         const formData = new FormData();
         formData.append('amount', values.amount.toString());
         formData.append('proof', values.proof[0]);
-        formData.append('userId', userToSubmit.uid);
-        formData.append('userName', userToSubmit.name);
+        if (user) {
+            formData.append('userId', user.uid);
+            formData.append('userName', user.name);
+        }
 
         try {
             const result = await submitDeposit(formData);
@@ -323,13 +319,8 @@ export default function TestPage() {
   const [chartData, setChartData] = useState<any[]>([]);
   const [activePlan, setActivePlan] = useState<Investment | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
-  const [walletAddress, setWalletAddress] = useState('');
 
   useEffect(() => {
-    getWalletAddress().then(setWalletAddress);
-  }, []);
-  
-   useEffect(() => {
     if (user?.uid) {
       const fetchData = async () => {
         setStatsLoading(true);
@@ -500,7 +491,7 @@ export default function TestPage() {
         </div>
         
         <div className="w-full max-w-5xl">
-            <InvestmentPlans walletAddress={walletAddress} />
+            <InvestmentPlans />
         </div>
 
         <div className="w-full max-w-5xl">

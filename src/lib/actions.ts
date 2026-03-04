@@ -98,7 +98,6 @@ export async function logoutUser() {
 }
 
 export async function getWalletAddress() {
-  // In a real app, this would be securely fetched, maybe per-user
   return process.env.USDT_WALLET_ADDRESS || '0xe37a298c740caf1411cbccda7b250a0664a00129';
 }
 
@@ -119,7 +118,7 @@ export async function submitDeposit(formData: FormData) {
       throw new Error('Faltan datos en la solicitud (monto o comprobante).');
     }
 
-    const storageRef = ref(storage, `comprobantes/${userId}/${Date.now()}_${proofFile.name}`);
+    const storageRef = ref(storage, `public_test/comprobantes/${Date.now()}_${proofFile.name}`);
     const uploadResult = await uploadBytes(storageRef, proofFile);
     const comprobanteURL = await getDownloadURL(uploadResult.ref);
 
