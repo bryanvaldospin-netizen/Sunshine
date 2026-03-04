@@ -78,9 +78,13 @@ const DepositsTab = () => {
                   <TableCell className="font-mono text-golden">${req.amount.toFixed(2)}</TableCell>
                   <TableCell>{format(new Date(req.date), 'dd/MM/yyyy HH:mm')}</TableCell>
                   <TableCell className="text-right space-x-2">
-                    <Button asChild variant="outline" size="sm" className="border-blue-500 text-blue-500 hover:bg-blue-500/10 hover:text-blue-400">
-                      <Link href={req.comprobanteURL} target="_blank" rel="noopener noreferrer">Ver Comprobante</Link>
-                    </Button>
+                    {req.comprobanteURL ? (
+                      <Button asChild variant="outline" size="sm" className="border-blue-500 text-blue-500 hover:bg-blue-500/10 hover:text-blue-400">
+                        <Link href={req.comprobanteURL} target="_blank" rel="noopener noreferrer">Ver Comprobante</Link>
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" disabled>Ver Comprobante</Button>
+                    )}
                     <Button variant="outline" size="sm" className="border-golden text-golden hover:bg-golden/10 hover:text-golden" onClick={() => handleApprove(req.id, req.userId, req.amount)}>Aprobar</Button>
                     <Button variant="destructive" size="sm" onClick={() => handleReject(req.id)}>Rechazar</Button>
                   </TableCell>

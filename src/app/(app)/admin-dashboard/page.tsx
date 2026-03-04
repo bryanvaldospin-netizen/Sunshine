@@ -120,9 +120,13 @@ const DepositsTab = () => {
               <p className="text-lg font-bold text-golden">{req.amount} USDT</p>
             </div>
             <div className="flex items-center gap-2">
-               <Link href={req.comprobanteURL} target="_blank" rel="noopener noreferrer">
-                <Button variant="outline">{t('admin.viewProof')}</Button>
-              </Link>
+              {req.comprobanteURL ? (
+                <Link href={req.comprobanteURL} target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline">{t('admin.viewProof')}</Button>
+                </Link>
+              ) : (
+                <Button variant="outline" disabled>{t('admin.viewProof')}</Button>
+              )}
               <Button variant="outline" className="border-golden text-golden hover:bg-golden/10 hover:text-golden" onClick={() => handleApprove(req.id, req.userId, req.amount)}>{t('admin.approve')}</Button>
               <Button className="bg-gradient-to-r from-red-600 to-red-800 text-white" onClick={() => handleReject(req.id)}>{t('admin.reject')}</Button>
             </div>
