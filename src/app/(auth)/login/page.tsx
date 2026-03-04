@@ -156,6 +156,10 @@ export default function LoginPage() {
           <GoogleIcon className="mr-2" />
           Iniciar sesión con Google
         </Button>
+
+        <Button variant="outline" className="w-full mt-2" onClick={() => router.push('/admin-test')}>
+            Entrar como Admin (Modo Dev)
+        </Button>
         
         <Link href="/guest-dashboard" passHref>
            <Button variant="link" className="w-full mt-2 text-muted-foreground">
