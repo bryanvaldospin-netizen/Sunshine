@@ -99,7 +99,7 @@ export async function logoutUser() {
 
 export async function getWalletAddress() {
   // In a real app, this would be securely fetched, maybe per-user
-  return process.env.USDT_WALLET_ADDRESS || 'TU_BILLETERA_USDT_TRC20_AQUI';
+  return process.env.USDT_WALLET_ADDRESS || '0xe37a298c740caf1411cbccda7b250a0664a00129';
 }
 
 export async function submitDeposit(formData: FormData) {
