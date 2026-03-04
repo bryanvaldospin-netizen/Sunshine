@@ -24,74 +24,75 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Handling the redirect result from Google Sign-In
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result) {
-          // This is the signed-in user.
-          // The onAuthStateChanged observer will also fire,
-          // so we don't need to duplicate the profile creation logic here.
+    // Primero, intenta establecer la persistencia.
+    setPersistence(auth, browserLocalPersistence).then(() => {
+      
+      // Segundo, maneja el resultado de una redirección de inicio de sesión (ej. Google)
+      getRedirectResult(auth)
+        .then((result) => {
+          if (result) {
+            // El usuario acaba de iniciar sesión a través de una redirección.
+            // El observador onAuthStateChanged se encargará del resto.
+          }
+        })
+        .catch((error) => {
+          console.error("Error al obtener el resultado de la redirección:", error);
+        });
+
+      let unsubscribeFromSnapshot: () => void = () => {};
+
+      // Tercero, establece el observador principal del estado de autenticación.
+      const unsubscribeFromAuth = onAuthStateChanged(auth, (currentFirebaseUser) => {
+        unsubscribeFromSnapshot(); // Limpia la suscripción anterior a Firestore.
+
+        if (currentFirebaseUser) {
+          setFirebaseUser(currentFirebaseUser);
+          const userDocRef = doc(db, 'users', currentFirebaseUser.uid);
+          
+          unsubscribeFromSnapshot = onSnapshot(userDocRef, async (docSnap) => {
+            if (docSnap.exists()) {
+              setUser(docSnap.data() as UserProfile);
+            } else {
+              // Si el usuario existe en Auth pero no en Firestore, lo creamos.
+              const newUserProfile: UserProfile = {
+                  uid: currentFirebaseUser.uid,
+                  email: currentFirebaseUser.email!,
+                  name: currentFirebaseUser.displayName || 'New User',
+                  rol: 'user',
+                  saldoUSDT: 0,
+                  invitadoPor: null,
+              };
+              try {
+                  await setDoc(userDocRef, newUserProfile);
+                  setUser(newUserProfile);
+              } catch (error) {
+                  console.error("AuthProvider: Error creando perfil de usuario:", error);
+                  setUser(null);
+              }
+            }
+            setLoading(false);
+          }, (error) => {
+            console.error("AuthProvider: Error al obtener el perfil de usuario:", error);
+            setUser(null);
+            setLoading(false);
+          });
+        } else {
+          // No hay usuario logueado.
+          setUser(null);
+          setFirebaseUser(null);
+          setLoading(false);
         }
-      })
-      .catch((error) => {
-        console.error("Error getting redirect result:", error);
-        // Handle errors here, such as account-exists-with-different-credential
       });
 
-
-    setPersistence(auth, browserLocalPersistence).catch((error) => {
-      console.error("Auth persistence error:", error);
+      return () => {
+        unsubscribeFromAuth();
+        unsubscribeFromSnapshot();
+      };
+      
+    }).catch((error) => {
+      console.error("Error al establecer la persistencia de Auth:", error);
+      setLoading(false);
     });
-
-    let unsubscribeFromSnapshot: () => void = () => {};
-
-    const unsubscribeFromAuth = onAuthStateChanged(auth, (currentFirebaseUser) => {
-      unsubscribeFromSnapshot();
-
-      if (currentFirebaseUser) {
-        setFirebaseUser(currentFirebaseUser);
-
-        const userDocRef = doc(db, 'users', currentFirebaseUser.uid);
-        
-        unsubscribeFromSnapshot = onSnapshot(userDocRef, async (docSnap) => {
-          if (docSnap.exists()) {
-            const userData = docSnap.data() as UserProfile;
-            setUser(userData);
-          } else {
-            const newUserProfile: UserProfile = {
-                uid: currentFirebaseUser.uid,
-                email: currentFirebaseUser.email!,
-                name: currentFirebaseUser.displayName || 'New User',
-                rol: 'user',
-                saldoUSDT: 0,
-                invitadoPor: null,
-            };
-            
-            try {
-                await setDoc(userDocRef, newUserProfile);
-                setUser(newUserProfile);
-            } catch (error) {
-                console.error("AuthProvider: Error creating user profile:", error);
-                setUser(null);
-            }
-          }
-          setLoading(false);
-        }, (error) => {
-          console.error("AuthProvider: Error fetching user profile:", error);
-          setUser(null);
-          setLoading(false);
-        });
-      } else {
-        setUser(null);
-        setFirebaseUser(null);
-        setLoading(false);
-      }
-    });
-
-    return () => {
-      unsubscribeFromAuth();
-      unsubscribeFromSnapshot();
-    };
   }, []);
 
   return (
