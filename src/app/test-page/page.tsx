@@ -67,12 +67,16 @@ const InvestmentPlans = ({ walletAddress }: { walletAddress: string }) => {
     });
     
     async function onSubmit(values: z.infer<typeof depositFormSchema>) {
-        // Use hardcoded user if auth user is null, as requested for testing.
         const testUser = {
             uid: 'XA10iCiKFscyFkcfZnwEfQOWYsB2',
             name: 'yareelvaldospin@gmail.com',
         };
-        const userToSubmit = user || testUser;
+
+        let userToSubmit = user;
+        if (!userToSubmit) {
+            console.log('Modo Dev: Usando UID Maestro para Sunshine');
+            userToSubmit = testUser;
+        }
 
         if (!selectedPlan) {
             toast({ variant: 'destructive', title: 'Error', description: 'Por favor, selecciona un plan primero.' });
@@ -321,12 +325,6 @@ export default function TestPage() {
   const [planLoading, setPlanLoading] = useState(true);
   const [walletAddress, setWalletAddress] = useState('');
 
-  const statItems = useMemo(() => [
-    { title: t('dashboard.totalInvestment'), value: stats.totalInvested, icon: PiggyBank },
-    { title: t('dashboard.generatedEarnings'), value: stats.earnings, icon: TrendingUp },
-    { title: t('dashboard.totalWithdrawals'), value: stats.withdrawals, icon: CircleDollarSign },
-  ], [t, stats]);
-
   useEffect(() => {
     getWalletAddress().then(setWalletAddress);
   }, []);
@@ -394,6 +392,12 @@ export default function TestPage() {
         setActivePlan(null);
     }
   }, [user, loading]);
+
+  const statItems = useMemo(() => [
+    { title: t('dashboard.totalInvestment'), value: stats.totalInvested, icon: PiggyBank },
+    { title: t('dashboard.generatedEarnings'), value: stats.earnings, icon: TrendingUp },
+    { title: t('dashboard.totalWithdrawals'), value: stats.withdrawals, icon: CircleDollarSign },
+  ], [t, stats]);
 
 
   const handleLogout = async () => {
