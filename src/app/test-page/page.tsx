@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import SplashScreen from '@/components/splash-screen';
-import type { UserProfile } from '@/types';
+import type { UserProfile, Investment } from '@/types';
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -25,11 +25,12 @@ import { useToast } from '@/hooks/use-toast';
 import { getWalletAddress, submitDeposit, logoutUser } from '@/lib/actions';
 import { Copy, Upload, LogOut, PiggyBank, TrendingUp, CircleDollarSign } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AreaChart, Area, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
+import { Progress } from '@/components/ui/progress';
 
 
 const depositFormSchema = z.object({
@@ -168,6 +169,88 @@ const DepositCard = ({ user }: { user: UserProfile | null }) => {
   );
 };
 
+const ActivePlanCard = ({ plan, loading, user }: { plan: Investment | null, loading: boolean, user: UserProfile | null }) => {
+  const [countdown, setCountdown] = useState('');
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    if (!plan) return;
+
+    const intervalId = setInterval(() => {
+      const now = new Date();
+      const nextPaymentDate = new Date(plan.nextPaymentDate);
+      const startDate = new Date(plan.startDate);
+      
+      const distance = nextPaymentDate.getTime() - now.getTime();
+
+      if (distance < 0) {
+        setCountdown('Pago procesando');
+        setProgress(100);
+        clearInterval(intervalId);
+        return;
+      }
+      
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+      
+      setCountdown(`${hours.toString().padStart(2, '0')}h ${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`);
+
+      const totalDuration = nextPaymentDate.getTime() - startDate.getTime();
+      const elapsed = now.getTime() - startDate.getTime();
+      const currentProgress = (elapsed / totalDuration) * 100;
+      setProgress(Math.min(currentProgress, 100));
+
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [plan]);
+
+  if (loading) {
+    return (
+      <Card className="bg-gray-800 border-gray-700 text-white">
+        <CardHeader>
+          <Skeleton className="h-6 w-1/2 bg-gray-700" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-20 w-full bg-gray-700" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!plan) {
+    if (user && user.saldoUSDT > 0) {
+      return (
+        <Card className="bg-gray-800 border-gray-700 text-white flex items-center justify-center p-6">
+            <Button variant="outline" className="border-golden text-golden hover:bg-golden/10 hover:text-golden">
+                Ver planes disponibles
+            </Button>
+        </Card>
+      );
+    }
+    return null; // Don't show anything if no balance and no plan
+  }
+
+  return (
+     <Card className="bg-gray-800 border-gray-700 text-white">
+      <CardHeader>
+        <CardTitle className="text-xl font-semibold">{plan.planName}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div>
+           <Progress value={progress} className="w-full h-2 bg-gray-700 [&>div]:bg-golden" />
+           <p className="text-xs text-right text-gray-400 mt-1">{progress.toFixed(0)}% completado</p>
+        </div>
+        <div className="text-center">
+            <p className="text-sm text-gray-400">Siguiente pago en:</p>
+            <p className="text-2xl font-bold font-mono text-golden">{countdown}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 
 export default function TestPage() {
   const { user, loading } = useAuth();
@@ -177,13 +260,17 @@ export default function TestPage() {
   const [stats, setStats] = useState({ totalInvested: 0, earnings: 0, withdrawals: 0 });
   const [statsLoading, setStatsLoading] = useState(true);
   const [chartData, setChartData] = useState<any[]>([]);
+  const [activePlan, setActivePlan] = useState<Investment | null>(null);
+  const [planLoading, setPlanLoading] = useState(true);
   
   const balance = user?.saldoUSDT ?? 0;
+  const userName = user?.name || 'Inversor';
 
    useEffect(() => {
     if (user?.uid) {
       const fetchData = async () => {
         setStatsLoading(true);
+        setPlanLoading(true);
         try {
           const depositsQuery = query(
             collection(db, 'deposit_requests'),
@@ -212,16 +299,33 @@ export default function TestPage() {
             earnings: 0, // Placeholder
             withdrawals: 0, // Placeholder
           });
+          
+          const investmentsQuery = query(
+            collection(db, 'investments'),
+            where('userId', '==', user.uid),
+            where('status', '==', 'Activo'),
+            limit(1)
+          );
+          const planSnapshot = await getDocs(investmentsQuery);
+          if (!planSnapshot.empty) {
+            const planDoc = planSnapshot.docs[0];
+            setActivePlan({ id: planDoc.id, ...planDoc.data() } as Investment);
+          } else {
+            setActivePlan(null);
+          }
+
         } catch (error) {
-          console.error("Error fetching stats:", error);
+          console.error("Error fetching dashboard data:", error);
         } finally {
           setStatsLoading(false);
+          setPlanLoading(false);
         }
       };
 
       fetchData();
     } else if (!loading) {
         setStatsLoading(false);
+        setPlanLoading(false);
     }
   }, [user?.uid, loading]);
 
@@ -233,8 +337,6 @@ export default function TestPage() {
   if (loading) {
     return <SplashScreen />;
   }
-
-  const userName = user?.name || 'Inversor';
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -371,6 +473,9 @@ export default function TestPage() {
             </Card>
         </div>
 
+        <div className="w-full max-w-3xl">
+          <ActivePlanCard plan={activePlan} loading={planLoading} user={user} />
+        </div>
 
         <div className="w-full max-w-3xl">
           <DepositCard user={user} />

@@ -22,3 +22,12 @@ export type InvitationCode = {
   used: boolean;
   usedBy: string | null;
 };
+
+export type Investment = {
+  id: string;
+  userId: string;
+  planName: string;
+  startDate: string; // ISO string
+  nextPaymentDate: string; // ISO string
+  status: 'Activo' | 'Completado';
+};
