@@ -45,16 +45,13 @@ const depositFormSchema = z.object({
   proof: z
     .any()
     .refine((files) => files?.length == 1, 'Debes subir un comprobante.')
-    .refine((files) => files?.[0]?.size <= 5000000, `El tamaño máximo del archivo es 5MB.`)
-    .refine(
-      (files) => ['image/jpeg', 'image/png', 'image/webp'].includes(files?.[0]?.type),
-      'Solo se permiten archivos .jpg, .png y .webp.'
-    ),
+    .refine((files) => files?.[0]?.size <= 5000000, `El tamaño máximo del archivo es 5MB.`),
 });
 
 const InvestmentPlans = () => {
     const { t } = useTranslation();
     const { toast } = useToast();
+    const { user } = useAuth();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [open, setOpen] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<{name: string, investment: string, min: number} | null>(null);
@@ -94,6 +91,7 @@ const InvestmentPlans = () => {
             if (result?.error) {
                 toast({ variant: 'destructive', title: t('dashboard.depositError'), description: result.error });
             } else {
+                alert('¡Imagen en la nube!');
                 toast({ title: 'Solicitud enviada con éxito', description: t('dashboard.proofReview') });
                 form.reset();
                 setOpen(false);

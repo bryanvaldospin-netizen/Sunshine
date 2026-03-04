@@ -123,7 +123,8 @@ export async function submitDeposit(formData: FormData) {
     
     let comprobanteURL = '';
     try {
-        const uploadResult = await uploadBytes(storageRef, proofFile);
+        const metadata = { contentType: 'image/png' };
+        const uploadResult = await uploadBytes(storageRef, proofFile, metadata);
         comprobanteURL = await getDownloadURL(uploadResult.ref);
         console.log('Subida completada. URL:', comprobanteURL);
     } catch (error: any) {
@@ -225,7 +226,6 @@ export async function submitTestDeposit() {
       amount: 50,
       comprobanteURL: 'https://picsum.photos/seed/test-receipt/600/400',
       date: new Date().toISOString(),
-      status: 'Pendiente',
       planName: 'Nivel 3 (Oro)',
     });
 
