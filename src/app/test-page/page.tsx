@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,7 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getWalletAddress, submitDeposit, logoutUser } from '@/lib/actions';
 import { Copy, Upload, LogOut, PiggyBank, TrendingUp, CircleDollarSign } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AreaChart, Area, CartesianGrid, XAxis, YAxis } from 'recharts';
@@ -176,31 +176,36 @@ export default function TestPage() {
 
   const [stats, setStats] = useState({ totalInvested: 0, earnings: 0, withdrawals: 0 });
   const [statsLoading, setStatsLoading] = useState(true);
+  const [chartData, setChartData] = useState<any[]>([]);
   
   const balance = user?.saldoUSDT ?? 0;
 
-  const chartData = useMemo(() => [
-    { date: 'Hace 6d', balance: balance > 120 ? balance - 120 : 880 },
-    { date: 'Hace 5d', balance: balance > 100 ? balance - 100 : 900 },
-    { date: 'Hace 4d', balance: balance > 80 ? balance - 80 : 920 },
-    { date: 'Hace 3d', balance: balance > 60 ? balance - 60 : 940 },
-    { date: 'Hace 2d', balance: balance > 30 ? balance - 30 : 970 },
-    { date: 'Ayer', balance: balance > 10 ? balance - 10 : 990 },
-    { date: 'Hoy', balance: balance },
-  ], [balance]);
-
    useEffect(() => {
     if (user?.uid) {
-      const fetchStats = async () => {
+      const fetchData = async () => {
         setStatsLoading(true);
         try {
           const depositsQuery = query(
             collection(db, 'deposit_requests'),
             where('userId', '==', user.uid),
-            where('status', '==', 'Aprobado')
+            where('status', '==', 'Aprobado'),
+            orderBy('date', 'asc')
           );
+          
           const querySnapshot = await getDocs(depositsQuery);
-          const totalInvested = querySnapshot.docs.reduce((sum, doc) => sum + doc.data().amount, 0);
+          const approvedDeposits = querySnapshot.docs.map(doc => doc.data() as { amount: number, date: string });
+
+          const totalInvested = approvedDeposits.reduce((sum, doc) => sum + doc.amount, 0);
+
+          let accumulatedBalance = 0;
+          const processedChartData = approvedDeposits.map(deposit => {
+            accumulatedBalance += deposit.amount;
+            return {
+              date: new Date(deposit.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }),
+              balance: accumulatedBalance,
+            };
+          });
+          setChartData(processedChartData);
 
           setStats({
             totalInvested,
@@ -214,7 +219,7 @@ export default function TestPage() {
         }
       };
 
-      fetchStats();
+      fetchData();
     } else if (!loading) {
         setStatsLoading(false);
     }
@@ -306,10 +311,13 @@ export default function TestPage() {
         <div className="w-full max-w-3xl">
             <Card className="bg-gray-800 border-gray-700 text-white">
                 <CardHeader>
-                    <CardTitle>Crecimiento de Saldo (Últimos 7 Días)</CardTitle>
+                    <CardTitle>Crecimiento de Saldo</CardTitle>
                 </CardHeader>
-                <CardContent className="pt-4">
-                    <ChartContainer config={chartConfig} className="h-[250px] w-full">
+                <CardContent className="pt-4 h-[290px] flex items-center justify-center">
+                  {statsLoading ? (
+                    <Skeleton className="w-full h-full bg-gray-700" />
+                  ) : chartData.length > 0 ? (
+                    <ChartContainer config={chartConfig} className="h-full w-full">
                         <AreaChart
                             data={chartData}
                             margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
@@ -340,7 +348,7 @@ export default function TestPage() {
                                 cursor={true}
                                 content={<ChartTooltipContent
                                     indicator="line"
-                                    formatter={(value, name) => [formatCurrency(value as number), 'Saldo']}
+                                    formatter={(value) => [formatCurrency(value as number), 'Saldo Acumulado']}
                                     labelClassName="text-white"
                                     className="bg-gray-900 border-golden"
                                 />}
@@ -354,6 +362,11 @@ export default function TestPage() {
                             />
                         </AreaChart>
                     </ChartContainer>
+                  ) : (
+                    <p className="text-muted-foreground text-center">
+                      Tu historial de crecimiento aparecerá aquí conforme realices tus inversiones.
+                    </p>
+                  )}
                 </CardContent>
             </Card>
         </div>
