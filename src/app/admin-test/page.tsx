@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -13,7 +11,6 @@ import { db } from '@/lib/firebase';
 import type { UserProfile, DepositRequest } from '@/types';
 import { approveDeposit, rejectDeposit } from '@/lib/actions';
 import Link from 'next/link';
-import SplashScreen from '@/components/splash-screen';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 
@@ -154,19 +151,6 @@ const UsersTab = () => {
 
 
 export default function AdminTestPage() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!loading && (!user || user.rol !== 'admin')) {
-      router.replace('/login');
-    }
-  }, [user, loading, router]);
-
-  if (loading || !user || user.rol !== 'admin') {
-    return <SplashScreen />;
-  }
-
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 md:p-8">
       <div className="container mx-auto">
