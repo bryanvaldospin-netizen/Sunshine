@@ -9,11 +9,12 @@ import { useToast } from '@/hooks/use-toast';
 import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { UserProfile, DepositRequest } from '@/types';
-import { approveDeposit, rejectDeposit, toggleUserRole } from '@/lib/actions';
+import { approveDeposit, rejectDeposit, toggleUserRole, logoutUser } from '@/lib/actions';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { Repeat } from 'lucide-react';
+import { Repeat, LogOut, LayoutDashboard } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 const DepositsTab = () => {
   const { toast } = useToast();
@@ -177,10 +178,30 @@ const UsersTab = () => {
 
 
 export default function AdminTestPage() {
+    const router = useRouter();
+
+    const handleLogout = async () => {
+        await logoutUser();
+        router.push('/login');
+    };
+
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4 md:p-8">
+    <div className="min-h-screen bg-gray-900 text-white p-4 md:p-8 relative">
+       <div className="absolute top-4 right-4 md:top-8 md:right-8 flex items-center gap-2">
+            <Link href="/test-page" passHref>
+            <Button variant="outline" size="sm" className="text-gray-300 border-gray-600 hover:bg-gray-700 hover:text-white">
+                <LayoutDashboard className="mr-2 h-4 w-4" />
+                Volver al Dashboard
+            </Button>
+            </Link>
+            <Button onClick={handleLogout} variant="ghost" size="sm" className="text-gray-300 hover:bg-gray-700 hover:text-white">
+                <LogOut className="mr-2 h-4 w-4" />
+                Cerrar Sesión
+            </Button>
+      </div>
+
       <div className="container mx-auto">
-        <h1 className="text-4xl font-bold mb-8 text-center bg-clip-text text-transparent bg-gradient-to-r from-golden to-red-700">
+        <h1 className="text-4xl font-bold mb-8 text-center bg-clip-text text-transparent bg-gradient-to-r from-golden to-red-700 pt-12 md:pt-0">
           Panel de Control - Administrador Sunshine
         </h1>
         <Tabs defaultValue="deposits" className="w-full">
