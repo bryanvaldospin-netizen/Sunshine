@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useId } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -52,12 +52,14 @@ const depositFormSchema = z.object({
     ),
 });
 
-const InvestmentPlans = ({ user, walletAddress }: { user: UserProfile | null, walletAddress: string }) => {
+const InvestmentPlans = ({ walletAddress }: { walletAddress: string }) => {
     const { t } = useTranslation();
+    const { user } = useAuth();
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [open, setOpen] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<{name: string, investment: string, min: number} | null>(null);
+    const descriptionId = useId();
 
     const form = useForm<z.infer<typeof depositFormSchema>>({
         resolver: zodResolver(depositFormSchema),
@@ -144,10 +146,10 @@ const InvestmentPlans = ({ user, walletAddress }: { user: UserProfile | null, wa
                 </CardContent>
             </Card>
 
-            <DialogContent className="bg-gray-800 border-golden text-white">
+            <DialogContent aria-describedby={descriptionId} className="bg-gray-800 border-golden text-white">
                 <DialogHeader>
                     <DialogTitle>Realizar Depósito para {selectedPlan?.name}</DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription id={descriptionId}>
                         Transfiere el monto exacto a la billetera USDT (TRC-20) a continuación y sube el comprobante de la transacción.
                     </DialogDescription>
                 </DialogHeader>
@@ -339,8 +341,6 @@ export default function TestPage() {
           const querySnapshot = await getDocs(depositsQuery);
           const approvedDeposits = querySnapshot.docs.map(doc => doc.data() as { amount: number, date: string });
 
-          const totalInvested = approvedDeposits.reduce((sum, doc) => sum + doc.amount, 0);
-
           let accumulatedBalance = 0;
           const processedChartData = approvedDeposits.map(deposit => {
             accumulatedBalance += deposit.amount;
@@ -352,7 +352,7 @@ export default function TestPage() {
           setChartData(processedChartData);
 
           setStats({
-            totalInvested,
+            totalInvested: accumulatedBalance,
             earnings: 0, // Placeholder
             withdrawals: 0, // Placeholder
           });
@@ -383,8 +383,11 @@ export default function TestPage() {
     } else if (!loading) {
         setStatsLoading(false);
         setPlanLoading(false);
+        setChartData([]);
+        setStats({ totalInvested: 0, earnings: 0, withdrawals: 0 });
+        setActivePlan(null);
     }
-  }, [user?.uid, loading]);
+  }, [user, loading]);
 
 
   const handleLogout = async () => {
@@ -477,7 +480,7 @@ export default function TestPage() {
         </div>
         
         <div className="w-full max-w-5xl">
-            <InvestmentPlans user={user} walletAddress={walletAddress} />
+            <InvestmentPlans walletAddress={walletAddress} />
         </div>
 
         <div className="w-full max-w-5xl">
