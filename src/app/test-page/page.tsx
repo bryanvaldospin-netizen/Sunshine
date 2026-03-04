@@ -23,8 +23,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getWalletAddress, submitDeposit, logoutUser } from '@/lib/actions';
-import { Copy, Upload, LogOut } from 'lucide-react';
+import { Copy, Upload, LogOut, PiggyBank, TrendingUp, CircleDollarSign } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { Skeleton } from '@/components/ui/skeleton';
+
 
 const depositFormSchema = z.object({
   amount: z.coerce.number().positive({ message: 'El monto debe ser mayor a 0.' }),
@@ -168,6 +172,38 @@ export default function TestPage() {
   const { t } = useTranslation();
   const router = useRouter();
 
+  const [stats, setStats] = useState({ totalInvested: 0, earnings: 0, withdrawals: 0 });
+  const [statsLoading, setStatsLoading] = useState(true);
+
+   useEffect(() => {
+    if (user?.uid) {
+      const fetchStats = async () => {
+        setStatsLoading(true);
+        try {
+          const depositsQuery = query(
+            collection(db, 'deposit_requests'),
+            where('userId', '==', user.uid),
+            where('status', '==', 'Aprobado')
+          );
+          const querySnapshot = await getDocs(depositsQuery);
+          const totalInvested = querySnapshot.docs.reduce((sum, doc) => sum + doc.data().amount, 0);
+
+          setStats({
+            totalInvested,
+            earnings: 0, // Placeholder
+            withdrawals: 0, // Placeholder
+          });
+        } catch (error) {
+          console.error("Error fetching stats:", error);
+        } finally {
+          setStatsLoading(false);
+        }
+      };
+
+      fetchStats();
+    }
+  }, [user?.uid]);
+
   const handleLogout = async () => {
     await logoutUser();
     router.push('/login');
@@ -180,10 +216,18 @@ export default function TestPage() {
   const balance = user?.saldoUSDT ?? 0;
   const userName = user?.name || 'Inversor';
 
-  const formattedBalance = new Intl.NumberFormat('en-US', {
+  const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-  }).format(balance);
+  }).format(value);
+
+  const formattedBalance = formatCurrency(balance);
+  
+  const statItems = [
+    { title: 'Inversión Total', value: stats.totalInvested, icon: PiggyBank },
+    { title: 'Ganancias Generadas', value: stats.earnings, icon: TrendingUp },
+    { title: 'Retiros Totales', value: stats.withdrawals, icon: CircleDollarSign },
+  ];
 
   return (
     <main className="bg-gray-900 text-white min-h-screen font-body p-4 md:p-8 relative">
@@ -199,7 +243,7 @@ export default function TestPage() {
             <h1 className="text-3xl font-bold">Hola, {userName}!</h1>
         </div>
         
-        <div className="w-full max-w-sm">
+        <div className="w-full max-w-md">
           <Card className="bg-gray-800 border-golden text-white text-center">
             <CardHeader>
               <CardTitle className="text-xl font-medium text-gray-300">
@@ -211,7 +255,32 @@ export default function TestPage() {
             </CardContent>
           </Card>
         </div>
-        <div className="w-full max-w-sm">
+
+        <div className="w-full max-w-md">
+           {statsLoading ? (
+             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
+                <Skeleton className="h-28 bg-gray-800" />
+                <Skeleton className="h-28 bg-gray-800" />
+                <Skeleton className="h-28 bg-gray-800" />
+            </div>
+           ) : (
+             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
+                {statItems.map((item, index) => (
+                    <Card key={index} className="bg-gray-800 border-gray-700 text-white">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium text-gray-400">{item.title}</CardTitle>
+                            <item.icon className="h-5 w-5 text-golden" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold">{formatCurrency(item.value)}</div>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+           )}
+        </div>
+
+        <div className="w-full max-w-md">
           <DepositCard user={user} />
         </div>
       </div>
