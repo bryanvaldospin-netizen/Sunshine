@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import SplashScreen from '@/components/splash-screen';
 import type { UserProfile, Investment } from '@/types';
 
@@ -23,7 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getWalletAddress, submitDeposit, logoutUser } from '@/lib/actions';
-import { Copy, Upload, LogOut, PiggyBank, TrendingUp, CircleDollarSign, Globe } from 'lucide-react';
+import { Copy, Upload, LogOut, PiggyBank, TrendingUp, CircleDollarSign, Globe, Gem, Shield, Crown, Zap, Star } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -37,6 +37,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 
 const depositFormSchema = z.object({
@@ -51,128 +52,164 @@ const depositFormSchema = z.object({
     ),
 });
 
+const InvestmentPlans = ({ user, walletAddress }: { user: UserProfile | null, walletAddress: string }) => {
+    const { t } = useTranslation();
+    const { toast } = useToast();
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [open, setOpen] = useState(false);
+    const [selectedPlan, setSelectedPlan] = useState<{name: string, investment: string, min: number} | null>(null);
 
-const DepositCard = ({ user }: { user: UserProfile | null }) => {
-  const { t } = useTranslation();
-  const { toast } = useToast();
-  const [walletAddress, setWalletAddress] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+    const form = useForm<z.infer<typeof depositFormSchema>>({
+        resolver: zodResolver(depositFormSchema),
+        defaultValues: { amount: undefined, proof: undefined },
+    });
+    
+    async function onSubmit(values: z.infer<typeof depositFormSchema>) {
+        if (!user || !selectedPlan) {
+            toast({ variant: 'destructive', title: 'Error', description: t('dashboard.mustLogin') });
+            return;
+        }
 
-  useEffect(() => {
-    getWalletAddress().then(setWalletAddress);
-  }, []);
+        if (values.amount < selectedPlan.min) {
+            toast({ variant: 'destructive', title: 'Monto Inválido', description: `El monto mínimo para el plan ${selectedPlan.name} es ${selectedPlan.min} USDT.` });
+            return;
+        }
+        
+        setIsSubmitting(true);
+        const formData = new FormData();
+        formData.append('amount', values.amount.toString());
+        formData.append('proof', values.proof[0]);
+        formData.append('userId', user.uid);
+        formData.append('userName', user.name);
 
-  const form = useForm<z.infer<typeof depositFormSchema>>({
-    resolver: zodResolver(depositFormSchema),
-    defaultValues: {
-      amount: undefined,
-      proof: undefined,
-    },
-  });
+        try {
+            const result = await submitDeposit(formData);
 
-  const handleCopy = () => {
-    if (!walletAddress) return;
-    navigator.clipboard.writeText(walletAddress);
-    toast({ title: t('dashboard.copy'), description: t('dashboard.copied') });
-  };
-
-  async function onSubmit(values: z.infer<typeof depositFormSchema>) {
-    if (!user) {
-      toast({ variant: 'destructive', title: 'Error', description: t('dashboard.mustLogin') });
-      return;
+            if (result?.error) {
+                toast({ variant: 'destructive', title: t('dashboard.depositError'), description: result.error });
+            } else {
+                toast({ title: t('dashboard.proofSent'), description: t('dashboard.proofReview') });
+                form.reset();
+                setOpen(false);
+            }
+        } catch(error: any) {
+            toast({ variant: 'destructive', title: t('dashboard.unexpectedError'), description: error.message || t('dashboard.formError') });
+        } finally {
+            setIsSubmitting(false);
+        }
     }
     
-    setIsSubmitting(true);
-    const formData = new FormData();
-    formData.append('amount', values.amount.toString());
-    formData.append('proof', values.proof[0]);
-    formData.append('userId', user.uid);
-    formData.append('userName', user.name);
+    const handleCopy = () => {
+        if (!walletAddress) return;
+        navigator.clipboard.writeText(walletAddress);
+        toast({ title: t('dashboard.copy'), description: t('dashboard.copied') });
+    };
 
-    try {
-        const result = await submitDeposit(formData);
+    const plans = [
+        { name: 'Nivel 1 (Bronce)', investment: 'Desde $20', min: 20, icon: Shield, color: 'border-bronze', textColor: 'text-bronze' },
+        { name: 'Nivel 2 (Plata)', investment: 'Desde $30', min: 30, icon: Star, color: 'border-silver', textColor: 'text-silver' },
+        { name: 'Nivel 3 (Oro)', investment: 'Desde $50', min: 50, icon: Zap, color: 'border-golden', textColor: 'text-golden' },
+        { name: 'Nivel 4 (Platino)', investment: 'Desde $100', min: 100, icon: Crown, color: 'border-platinum', textColor: 'text-platinum' },
+        { name: 'Nivel 5 (Diamante)', investment: 'Hasta $5,000', min: 1000, icon: Gem, color: 'border-diamond', textColor: 'text-diamond' },
+    ];
 
-        if (result?.error) {
-          toast({ variant: 'destructive', title: t('dashboard.depositError'), description: result.error });
-        } else {
-          toast({ title: t('dashboard.proofSent'), description: t('dashboard.proofReview') });
-          form.reset();
-        }
-    } catch(error: any) {
-        toast({ variant: 'destructive', title: t('dashboard.unexpectedError'), description: error.message || t('dashboard.formError') });
-    } finally {
-        setIsSubmitting(false);
-    }
-  }
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <Card className="bg-gray-800 border-gray-700 text-white w-full">
+                <CardHeader>
+                    <CardTitle>Planes de Inversión</CardTitle>
+                    <CardDescription>Selecciona un plan para comenzar a invertir.</CardDescription>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    {plans.map((plan) => (
+                        <Card key={plan.name} className={`bg-gray-900/50 flex flex-col ${plan.color} border-2`}>
+                            <CardHeader className="items-center text-center">
+                                <plan.icon className={`w-10 h-10 mb-2 ${plan.textColor}`} />
+                                <CardTitle className={`text-lg ${plan.textColor}`}>{plan.name}</CardTitle>
+                            </CardHeader>
+                            <CardContent className="flex-grow text-center">
+                                <p className="text-2xl font-bold">{plan.investment}</p>
+                            </CardContent>
+                            <CardFooter>
+                                <DialogTrigger asChild>
+                                    <Button onClick={() => setSelectedPlan(plan)} className="w-full bg-gradient-to-r from-golden to-red-800 text-white">
+                                        Seleccionar Plan
+                                    </Button>
+                                </DialogTrigger>
+                            </CardFooter>
+                        </Card>
+                    ))}
+                </CardContent>
+            </Card>
 
-  return (
-    <Card className="bg-gray-800 border-golden text-white w-full">
-      <CardHeader>
-        <CardTitle>{t('dashboard.depositTitle')}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-2">
-          <Label htmlFor="wallet-address">{t('dashboard.usdtAddress')}</Label>
-          <div className="flex items-center gap-2">
-            <Input id="wallet-address" readOnly value={walletAddress} className="bg-gray-700 border-gray-600 truncate" placeholder={t('dashboard.loadingAddress')}/>
-            <Button variant="outline" size="icon" onClick={handleCopy} className="border-golden text-golden hover:bg-golden/10 hover:text-golden flex-shrink-0">
-              <Copy className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="amount"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('dashboard.amount')}</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="100.00" {...field} className="bg-gray-700 border-gray-600" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-             <FormField
-              control={form.control}
-              name="proof"
-              render={({ field: { onChange, onBlur, name, ref } }) => (
-                <FormItem>
-                  <FormLabel>{t('dashboard.proof')}</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                        <Button asChild variant="outline" className="w-full border-dashed border-gray-500 hover:border-golden text-gray-300">
-                            <label htmlFor="proof-upload" className="cursor-pointer flex items-center justify-center">
-                                <Upload className="mr-2 h-4 w-4" />
-                                <span className="truncate">{form.watch('proof')?.[0]?.name || t('dashboard.selectFile')}</span>
-                            </label>
-                        </Button>
-                        <Input 
-                            id="proof-upload"
-                            type="file" 
-                            className="hidden" 
-                            accept="image/*"
-                            onBlur={onBlur}
-                            name={name}
-                            ref={ref}
-                            onChange={(e) => onChange(e.target.files)}
-                        />
+            <DialogContent className="bg-gray-800 border-golden text-white">
+                <DialogHeader>
+                    <DialogTitle>Realizar Depósito para {selectedPlan?.name}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="wallet-address">{t('dashboard.usdtAddress')}</Label>
+                        <div className="flex items-center gap-2">
+                            <Input id="wallet-address" readOnly value={walletAddress} className="bg-gray-700 border-gray-600 truncate" placeholder={t('dashboard.loadingAddress')}/>
+                            <Button variant="outline" size="icon" onClick={handleCopy} className="border-golden text-golden hover:bg-golden/10 hover:text-golden flex-shrink-0">
+                                <Copy className="h-4 w-4" />
+                            </Button>
+                        </div>
                     </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button type="submit" className="w-full bg-gradient-to-r from-golden to-red-800 text-white text-lg py-6" disabled={isSubmitting}>
-              {isSubmitting ? t('dashboard.sending') : t('dashboard.sendProof')}
-            </Button>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
-  );
+                    <Form {...form}>
+                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <FormField
+                          control={form.control}
+                          name="amount"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t('dashboard.amount')}</FormLabel>
+                              <FormControl>
+                                <Input type="number" placeholder={`${selectedPlan?.min || 100}.00`} {...field} className="bg-gray-700 border-gray-600" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                         <FormField
+                          control={form.control}
+                          name="proof"
+                          render={({ field: { onChange, onBlur, name, ref } }) => (
+                            <FormItem>
+                              <FormLabel>{t('dashboard.proof')}</FormLabel>
+                              <FormControl>
+                                <div className="relative">
+                                    <Button asChild variant="outline" className="w-full border-dashed border-gray-500 hover:border-golden text-gray-300">
+                                        <label htmlFor="proof-upload" className="cursor-pointer flex items-center justify-center">
+                                            <Upload className="mr-2 h-4 w-4" />
+                                            <span className="truncate">{form.watch('proof')?.[0]?.name || t('dashboard.selectFile')}</span>
+                                        </label>
+                                    </Button>
+                                    <Input 
+                                        id="proof-upload"
+                                        type="file" 
+                                        className="hidden" 
+                                        accept="image/*"
+                                        onBlur={onBlur}
+                                        name={name}
+                                        ref={ref}
+                                        onChange={(e) => onChange(e.target.files)}
+                                    />
+                                </div>
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <Button type="submit" className="w-full bg-gradient-to-r from-golden to-red-800 text-white text-lg py-6" disabled={isSubmitting}>
+                          {isSubmitting ? t('dashboard.sending') : t('dashboard.sendProof')}
+                        </Button>
+                      </form>
+                    </Form>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
 };
 
 const ActivePlanCard = ({ plan, loading, user }: { plan: Investment | null, loading: boolean, user: UserProfile | null }) => {
@@ -269,6 +306,17 @@ export default function TestPage() {
   const [chartData, setChartData] = useState<any[]>([]);
   const [activePlan, setActivePlan] = useState<Investment | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
+  const [walletAddress, setWalletAddress] = useState('');
+
+  const statItems = useMemo(() => [
+    { title: t('dashboard.totalInvestment'), value: stats.totalInvested, icon: PiggyBank },
+    { title: t('dashboard.generatedEarnings'), value: stats.earnings, icon: TrendingUp },
+    { title: t('dashboard.totalWithdrawals'), value: stats.withdrawals, icon: CircleDollarSign },
+  ], [t, stats]);
+
+  useEffect(() => {
+    getWalletAddress().then(setWalletAddress);
+  }, []);
   
   const balance = user?.saldoUSDT ?? 0;
   const userName = user?.name || t('dashboard.investor');
@@ -336,11 +384,6 @@ export default function TestPage() {
     }
   }, [user?.uid, loading]);
 
-  const statItems = useMemo(() => [
-    { title: t('dashboard.totalInvestment'), value: stats.totalInvested, icon: PiggyBank },
-    { title: t('dashboard.generatedEarnings'), value: stats.earnings, icon: TrendingUp },
-    { title: t('dashboard.totalWithdrawals'), value: stats.withdrawals, icon: CircleDollarSign },
-  ], [t, stats]);
 
   const handleLogout = async () => {
     await logoutUser();
@@ -391,7 +434,7 @@ export default function TestPage() {
             <h1 className="text-3xl font-bold">{t('dashboard.greeting', { name: userName })}</h1>
         </div>
         
-        <div className="w-full max-w-3xl">
+        <div className="w-full max-w-5xl">
           <Card className="bg-gray-800 border-golden text-white text-center">
             <CardHeader>
               <CardTitle className="text-xl font-medium text-gray-300">
@@ -404,7 +447,7 @@ export default function TestPage() {
           </Card>
         </div>
 
-        <div className="w-full max-w-3xl">
+        <div className="w-full max-w-5xl">
            {statsLoading ? (
              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
                 <Skeleton className="h-28 bg-gray-800" />
@@ -428,7 +471,11 @@ export default function TestPage() {
            )}
         </div>
         
-        <div className="w-full max-w-3xl">
+        <div className="w-full max-w-5xl">
+            <InvestmentPlans user={user} walletAddress={walletAddress} />
+        </div>
+
+        <div className="w-full max-w-5xl">
             <Card className="bg-gray-800 border-gray-700 text-white">
                 <CardHeader>
                     <CardTitle>{t('dashboard.balanceGrowth')}</CardTitle>
@@ -491,13 +538,10 @@ export default function TestPage() {
             </Card>
         </div>
 
-        <div className="w-full max-w-3xl">
+        <div className="w-full max-w-5xl">
           <ActivePlanCard plan={activePlan} loading={planLoading} user={user} />
         </div>
 
-        <div className="w-full max-w-3xl">
-          <DepositCard user={user} />
-        </div>
       </div>
     </main>
   );

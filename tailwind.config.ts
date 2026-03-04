@@ -66,6 +66,10 @@ export default {
           ring: 'hsl(var(--sidebar-ring))',
         },
         golden: '#D4AF37',
+        bronze: '#CD7F32',
+        silver: '#C0C0C0',
+        platinum: '#E5E4E2',
+        diamond: '#b9f2ff',
       },
       borderRadius: {
         lg: 'var(--radius)',
