@@ -86,9 +86,14 @@ const InvestmentPlans = () => {
         const formData = new FormData();
         formData.append('amount', values.amount.toString());
         formData.append('proof', values.proof[0]);
+        
         if (user) {
             formData.append('userId', user.uid);
             formData.append('userName', user.name);
+        } else {
+            console.log('Modo Dev: Usando UID Maestro para Sunshine');
+            formData.append('userId', 'XA10iCiKFscyFkcfZnwEfQOWYsB2');
+            formData.append('userName', 'yareelvaldospin@gmail.com');
         }
 
         try {

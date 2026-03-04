@@ -105,17 +105,11 @@ export async function submitDeposit(formData: FormData) {
   try {
     const amount = Number(formData.get('amount'));
     const proofFile = formData.get('proof') as File;
-    let userId = formData.get('userId') as string;
-    let userName = formData.get('userName') as string;
+    const userId = formData.get('userId') as string;
+    const userName = formData.get('userName') as string;
 
-    if (!userId) {
-        console.log('Modo Dev: Usando UID Maestro para Sunshine');
-        userId = 'XA10iCiKFscyFkcfZnwEfQOWYsB2';
-        userName = 'yareelvaldospin@gmail.com';
-    }
-
-    if (!amount || !proofFile) {
-      throw new Error('Faltan datos en la solicitud (monto o comprobante).');
+    if (!amount || !proofFile || !userId) {
+      throw new Error('Faltan datos en la solicitud (monto, comprobante o usuario).');
     }
 
     const storageRef = ref(storage, `public_test/comprobantes/${Date.now()}_${proofFile.name}`);
