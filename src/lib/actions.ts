@@ -105,16 +105,31 @@ export async function submitDeposit(formData: FormData) {
   try {
     const amount = Number(formData.get('amount'));
     const proofFile = formData.get('proof') as File;
-    const userId = formData.get('userId') as string;
-    const userName = formData.get('userName') as string;
+    
+    // Bypass: Hardcode user info for development, ignoring client-sent data
+    const userId = 'XA10iCiKFscyFkcfZnwEfQOWYsB2'; 
+    const userName = 'yareelvaldospin@gmail.com'; 
 
-    if (!amount || !proofFile || !userId) {
-      throw new Error('Faltan datos en la solicitud (monto, comprobante o usuario).');
+    if (!amount || !proofFile) {
+      throw new Error('Faltan datos en la solicitud (monto o comprobante).');
     }
+    
+    console.log('Iniciando subida forzada...');
 
-    const storageRef = ref(storage, `public_test/comprobantes/${Date.now()}_${proofFile.name}`);
-    const uploadResult = await uploadBytes(storageRef, proofFile);
-    const comprobanteURL = await getDownloadURL(uploadResult.ref);
+    // Use a simple, unique file name to avoid character issues and overwrites.
+    const fileName = `${Date.now()}_test_deposito.png`;
+    // Use a flat, public path as established in previous turns for `if true` rules.
+    const storageRef = ref(storage, `public_test/comprobantes/${fileName}`);
+    
+    let comprobanteURL = '';
+    try {
+        const uploadResult = await uploadBytes(storageRef, proofFile);
+        comprobanteURL = await getDownloadURL(uploadResult.ref);
+        console.log('Subida completada. URL:', comprobanteURL);
+    } catch (error: any) {
+        console.error('Error detallado de Storage:', error);
+        throw new Error(`Error de Firebase Storage: ${error.code}`);
+    }
 
     await addDoc(collection(db, 'deposit_requests'), {
       userId,
@@ -127,9 +142,11 @@ export async function submitDeposit(formData: FormData) {
 
     return { success: true };
   } catch (error: any) {
+    console.error('Error en la acción submitDeposit:', error.message);
     return { error: error.message };
   }
 }
+
 
 const idSchema = z.object({ requestId: z.string() });
 
@@ -202,7 +219,6 @@ export async function toggleUserRole(values: z.infer<typeof toggleRoleSchema>) {
 
 export async function submitTestDeposit() {
   try {
-    // UID provided by user to test the flow. This user must exist in Firestore.
     await addDoc(collection(db, 'deposit_requests'), {
       userId: 'XA10iCiKFscyFkcfZnwEfQOWYsB2',
       userName: 'yareelvaldospin@gmail.com',
@@ -210,7 +226,7 @@ export async function submitTestDeposit() {
       comprobanteURL: 'https://picsum.photos/seed/test-receipt/600/400',
       date: new Date().toISOString(),
       status: 'Pendiente',
-      planName: 'Nivel 3 (Oro)', // Test field
+      planName: 'Nivel 3 (Oro)',
     });
 
     return { success: true };

@@ -54,7 +54,6 @@ const depositFormSchema = z.object({
 
 const InvestmentPlans = () => {
     const { t } = useTranslation();
-    const { user } = useAuth();
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [open, setOpen] = useState(false);
@@ -87,14 +86,7 @@ const InvestmentPlans = () => {
         formData.append('amount', values.amount.toString());
         formData.append('proof', values.proof[0]);
         
-        if (user) {
-            formData.append('userId', user.uid);
-            formData.append('userName', user.name);
-        } else {
-            console.log('Modo Dev: Usando UID Maestro para Sunshine');
-            formData.append('userId', 'XA10iCiKFscyFkcfZnwEfQOWYsB2');
-            formData.append('userName', 'yareelvaldospin@gmail.com');
-        }
+        console.log('Iniciando subida forzada desde el cliente...');
 
         try {
             const result = await submitDeposit(formData);
@@ -165,7 +157,7 @@ const InvestmentPlans = () => {
                 </DialogHeader>
                 <div className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="wallet-address">{t('dashboard.usdtAddress')}</Label>
+                        <Label htmlFor="wallet-address">0xe37a298c740caf1411cbccda7b250a0664a00129</Label>
                         <div className="flex items-center gap-2">
                             <Input id="wallet-address" readOnly value={walletAddress} className="bg-gray-700 border-gray-600 truncate" placeholder={t('dashboard.loadingAddress')}/>
                             <Button variant="outline" size="icon" onClick={handleCopy} className="border-golden text-golden hover:bg-golden/10 hover:text-golden flex-shrink-0">
