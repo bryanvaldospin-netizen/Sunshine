@@ -67,10 +67,15 @@ const InvestmentPlans = ({ walletAddress }: { walletAddress: string }) => {
     });
     
     async function onSubmit(values: z.infer<typeof depositFormSchema>) {
-        console.log('Usuario para el depósito (desde useAuth):', user);
+        // Use hardcoded user if auth user is null, as requested for testing.
+        const testUser = {
+            uid: 'XA10iCiKFscyFkcfZnwEfQOWYsB2',
+            name: 'yareelvaldospin@gmail.com',
+        };
+        const userToSubmit = user || testUser;
 
-        if (!user || !selectedPlan) {
-            toast({ variant: 'destructive', title: 'Error', description: t('dashboard.mustLogin') });
+        if (!selectedPlan) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Por favor, selecciona un plan primero.' });
             return;
         }
 
@@ -83,8 +88,8 @@ const InvestmentPlans = ({ walletAddress }: { walletAddress: string }) => {
         const formData = new FormData();
         formData.append('amount', values.amount.toString());
         formData.append('proof', values.proof[0]);
-        formData.append('userId', user.uid);
-        formData.append('userName', user.name);
+        formData.append('userId', userToSubmit.uid);
+        formData.append('userName', userToSubmit.name);
 
         try {
             const result = await submitDeposit(formData);
@@ -92,7 +97,7 @@ const InvestmentPlans = ({ walletAddress }: { walletAddress: string }) => {
             if (result?.error) {
                 toast({ variant: 'destructive', title: t('dashboard.depositError'), description: result.error });
             } else {
-                toast({ title: t('dashboard.proofSent'), description: t('dashboard.proofReview') });
+                toast({ title: 'Solicitud enviada con éxito', description: t('dashboard.proofReview') });
                 form.reset();
                 setOpen(false);
             }

@@ -203,9 +203,9 @@ export async function toggleUserRole(values: z.infer<typeof toggleRoleSchema>) {
 
 export async function submitTestDeposit() {
   try {
-    // IMPORTANT: The user ID 'XA10iCiKFSf7S7i7A0hJFLp2vGj1' must exist in the 'users' collection for the approval to work.
+    // UID provided by user to test the flow. This user must exist in Firestore.
     await addDoc(collection(db, 'deposit_requests'), {
-      userId: 'XA10iCiKFSf7S7i7A0hJFLp2vGj1',
+      userId: 'XA10iCiKFscyFkcfZnwEfQOWYsB2',
       userName: 'yareelvaldospin@gmail.com',
       amount: 50,
       comprobanteURL: 'https://picsum.photos/seed/test-receipt/600/400',
