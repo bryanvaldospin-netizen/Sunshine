@@ -22,7 +22,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { getWalletAddress, submitDeposit } from '@/lib/actions';
+import { getWalletAddress, submitDeposit, submitTestDeposit } from '@/lib/actions';
 import { Copy, Upload, Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
@@ -306,6 +306,7 @@ const ActivePlanCard = ({ plan, loading, user }: { plan: Investment | null, load
 export default function TestPage() {
   const { user, loading } = useAuth();
   const { t, setLocale } = useTranslation();
+  const { toast } = useToast();
   const router = useRouter();
 
   const [stats, setStats] = useState({ totalInvested: 0, earnings: 0, withdrawals: 0 });
@@ -393,6 +394,16 @@ export default function TestPage() {
   const handleLogout = async () => {
     await logoutUser();
     router.push('/login');
+  };
+
+  const handleTestDeposit = async () => {
+    toast({ title: 'Enviando depósito de prueba...' });
+    const result = await submitTestDeposit();
+    if (result.error) {
+      toast({ variant: 'destructive', title: 'Error en depósito de prueba', description: result.error });
+    } else {
+      toast({ title: 'Depósito de prueba enviado', description: 'Revisa el panel de administrador para aprobarlo.' });
+    }
   };
 
   if (loading) {
@@ -548,6 +559,15 @@ export default function TestPage() {
 
         <div className="w-full max-w-5xl">
           <ActivePlanCard plan={activePlan} loading={planLoading} user={user} />
+        </div>
+
+        <div className="w-full max-w-5xl pt-4 mt-4 border-t border-dashed border-gray-700">
+            <Button onClick={handleTestDeposit} className="w-full bg-blue-900 hover:bg-blue-800 text-white">
+                Depósito de Prueba (Modo Dev)
+            </Button>
+            <p className="text-xs text-center text-gray-500 mt-2">
+                Este botón es solo para desarrollo. Simula un depósito de 50 USDT del usuario de prueba.
+            </p>
         </div>
 
       </div>
