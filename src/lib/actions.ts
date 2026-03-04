@@ -175,3 +175,28 @@ export async function approveDeposit(values: z.infer<typeof approveSchema>) {
         return { error: error.message };
     }
 }
+
+
+const toggleRoleSchema = z.object({
+  userId: z.string(),
+  currentRole: z.enum(['user', 'admin']),
+});
+
+export async function toggleUserRole(values: z.infer<typeof toggleRoleSchema>) {
+  try {
+    const { userId, currentRole } = toggleRoleSchema.parse(values);
+    
+    const userRef = doc(db, 'users', userId);
+    
+    const newRole = currentRole === 'admin' ? 'user' : 'admin';
+    
+    await updateDoc(userRef, { rol: newRole });
+    
+    return { success: true, newRole };
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return { error: error.errors.map(e => e.message).join(', ') };
+    }
+    return { error: error.message };
+  }
+}

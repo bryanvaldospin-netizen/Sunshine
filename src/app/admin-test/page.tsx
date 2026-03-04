@@ -9,10 +9,11 @@ import { useToast } from '@/hooks/use-toast';
 import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { UserProfile, DepositRequest } from '@/types';
-import { approveDeposit, rejectDeposit } from '@/lib/actions';
+import { approveDeposit, rejectDeposit, toggleUserRole } from '@/lib/actions';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
+import { Repeat } from 'lucide-react';
 
 const DepositsTab = () => {
   const { toast } = useToast();
@@ -97,18 +98,30 @@ const DepositsTab = () => {
 const UsersTab = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  const fetchUsers = async () => {
+    const usersCol = collection(db, 'users');
+    const userSnapshot = await getDocs(usersCol);
+    const userList = userSnapshot.docs.map(doc => doc.data() as UserProfile);
+    setUsers(userList);
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      setLoading(true);
-      const usersCol = collection(db, 'users');
-      const userSnapshot = await getDocs(usersCol);
-      const userList = userSnapshot.docs.map(doc => doc.data() as UserProfile);
-      setUsers(userList);
-      setLoading(false);
-    };
+    setLoading(true);
     fetchUsers();
   }, []);
+
+  const handleToggleRole = async (userId: string, currentRole: 'user' | 'admin') => {
+    const result = await toggleUserRole({ userId, currentRole });
+    if (result.error) {
+      toast({ variant: 'destructive', title: 'Error', description: result.error });
+    } else {
+      toast({ title: 'Éxito', description: `Rol del usuario actualizado a ${result.newRole}.` });
+      await fetchUsers();
+    }
+  };
 
   if (loading) {
     return <div className="text-center p-8 text-gray-400">Cargando usuarios...</div>;
@@ -138,8 +151,21 @@ const UsersTab = () => {
               <TableRow key={user.uid} className="border-gray-800">
                 <TableCell>{user.name}</TableCell>
                 <TableCell>{user.email}</TableCell>
-                <TableCell><Badge variant={user.rol === 'admin' ? 'destructive' : 'secondary'}>{user.rol}</Badge></TableCell>
-                <TableCell className="text-right font-mono text-golden">{formatCurrency(user.saldoUSDT)}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={user.rol === 'admin' ? 'destructive' : 'secondary'}>{user.rol}</Badge>
+                    <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        onClick={() => handleToggleRole(user.uid, user.rol)}
+                        title="Cambiar rol"
+                    >
+                        <Repeat className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
+                <TableCell className="text-right font-mono text-golden">{formatCurrency(user.saldoUSDT ?? 0)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
