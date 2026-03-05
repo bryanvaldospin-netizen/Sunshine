@@ -50,6 +50,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const unsubscribeFromAuth = onAuthStateChanged(auth, (currentFirebaseUser) => {
         unsubscribeFromSnapshot(); 
+        setLoading(true); // Always enter loading state when auth state changes.
 
         if (currentFirebaseUser) {
           setFirebaseUser(currentFirebaseUser);
@@ -66,7 +67,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
             setLoading(false);
           }, (error) => {
-            console.error('Carga interrumpida por:', error.message);
+            console.error('Error de Firestore al leer perfil:', error);
             setUser(null);
             setLoading(false);
           });
