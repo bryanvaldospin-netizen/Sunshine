@@ -18,6 +18,8 @@ import { useToast } from '@/hooks/use-toast';
 import { loginAdmin } from '@/lib/actions';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/hooks/use-auth';
+import { useEffect } from 'react';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Por favor, introduce un email válido.' }),
@@ -27,6 +29,16 @@ const formSchema = z.object({
 export default function AdminLoginPage() {
   const { toast } = useToast();
   const router = useRouter();
+  const { user, loading } = useAuth();
+
+  // If an admin is already logged in, redirect them away from the login page.
+  useEffect(() => {
+    if (!loading && user?.rol === 'admin') {
+      console.log('Usuario Admin detectado, redirigiendo...');
+      router.replace('/admin-test');
+    }
+  }, [user, loading, router]);
+
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -49,7 +61,9 @@ export default function AdminLoginPage() {
         title: '¡Login de Admin exitoso!',
         description: 'Redirigiendo al panel...',
       });
-      // The AuthLayout will handle the redirection to /admin-test
+      // The auth state might take a moment to update.
+      // We push directly to ensure a fast redirect.
+      router.push('/admin-test');
     }
   }
 
