@@ -19,7 +19,8 @@
     "language": "Language",
     "logout": "Logout",
     "codeCopied": "Code Copied",
-    "codeCopiedDesc": "Your invitation code has been copied to the clipboard."
+    "codeCopiedDesc": "Your invitation code has been copied to the clipboard.",
+    "yourInviteCode": "Your Invitation Code"
   },
   "dashboard": {
     "balance": "Current Balance",

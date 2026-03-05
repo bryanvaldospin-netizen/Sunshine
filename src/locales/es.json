@@ -19,7 +19,8 @@
     "language": "Idioma",
     "logout": "Cerrar Sesión",
     "codeCopied": "Código copiado",
-    "codeCopiedDesc": "Tu código de invitación ha sido copiado al portapapeles."
+    "codeCopiedDesc": "Tu código de invitación ha sido copiado al portapapeles.",
+    "yourInviteCode": "Tu Código de Invitación"
   },
   "dashboard": {
     "balance": "Saldo Actual",

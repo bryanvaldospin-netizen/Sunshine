@@ -23,7 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getWalletAddress, submitDeposit, submitTestDeposit, logoutUser } from '@/lib/actions';
-import { User as UserIcon, Copy, Upload, Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut } from 'lucide-react';
+import { Copy, Upload, Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -445,39 +445,6 @@ export default function TestPage() {
   return (
     <main className="bg-gray-900 text-white min-h-screen font-body p-4 md:p-8 relative">
        <div className="absolute top-4 right-4 md:top-8 md:right-8 flex items-center gap-2">
-        <Dialog>
-            <DialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-gray-700 w-9 h-9 p-0">
-                    <UserIcon className="h-5 w-5" />
-                </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-gray-800 border-golden text-white">
-                <DialogHeader>
-                    <DialogTitle>{t('profile.title')}</DialogTitle>
-                </DialogHeader>
-                {user && (
-                    <div className="space-y-6 pt-4">
-                        <div>
-                            <Label className="text-gray-400">{t('profile.name')}</Label>
-                            <p className="text-lg font-semibold">{user.name}</p>
-                        </div>
-                        <div>
-                            <Label className="text-gray-400">{t('profile.email')}</Label>
-                            <p className="text-muted-foreground">{user.email}</p>
-                        </div>
-                        <div>
-                            <Label className="text-gray-400">{t('auth.invitationCode')}</Label>
-                            <div className="flex items-center gap-2 mt-1">
-                                <p className="text-xl font-bold text-golden tracking-widest flex-grow bg-gray-900/50 p-2 rounded-md">{user.inviteCode || 'Generando...'}</p>
-                                <Button variant="outline" size="icon" onClick={handleCopyCode} disabled={!user.inviteCode} className="border-golden text-golden hover:bg-golden/10 hover:text-golden flex-shrink-0">
-                                    <Copy className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </DialogContent>
-        </Dialog>
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-gray-700 w-9 h-9 p-0">
@@ -496,8 +463,17 @@ export default function TestPage() {
       </div>
 
       <div className="flex flex-col items-center justify-start w-full h-full pt-16 sm:pt-8 space-y-8">
-        <div className="text-center">
+        <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold">{t('dashboard.greeting', { name: userName })}</h1>
+            {user?.inviteCode && (
+              <div className="inline-flex items-center justify-center gap-2 rounded-full bg-gray-800 px-3 py-1">
+                <span className="text-sm text-gray-400">{t('profile.yourInviteCode')}:</span>
+                <span className="font-mono text-base font-bold text-golden tracking-widest">{user.inviteCode}</span>
+                <Button variant="ghost" size="icon" onClick={handleCopyCode} className="h-7 w-7 text-gray-400 hover:text-golden hover:bg-gray-700">
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
         </div>
         
         <div className="w-full max-w-5xl">
