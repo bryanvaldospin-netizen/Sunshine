@@ -12,27 +12,35 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!loading) {
-      if (!firebaseUser) {
-        // Not logged in, redirect to login page
-        router.replace('/login');
-      } else if (user && user.rol !== 'admin') {
-        // Logged in but not an admin, redirect to user dashboard
-        toast({
-          variant: 'destructive',
-          title: 'Acceso restringido',
-          description: 'Solo personal autorizado puede acceder a esta área.',
-        });
-        router.replace('/test-page');
-      }
+    // No tomar decisiones mientras el estado de autenticación se está cargando.
+    if (loading) {
+      return;
+    }
+
+    // Si la carga ha finalizado y no hay usuario, redirigir al login.
+    if (!firebaseUser) {
+      router.replace('/login');
+      return;
+    }
+
+    // Si hay un usuario, pero su perfil de Firestore (con el rol) aún no se ha cargado
+    // o si su rol no es 'admin', redirigirlo.
+    if (user && user.rol !== 'admin') {
+      toast({
+        variant: 'destructive',
+        title: 'Acceso restringido',
+        description: 'Solo personal autorizado puede acceder a esta área.',
+      });
+      router.replace('/test-page');
     }
   }, [user, firebaseUser, loading, router, toast]);
 
-  if (loading || !user || user.rol !== 'admin') {
-    // Show splash screen while loading or before redirecting
+  // Mientras se carga o si el usuario no es un administrador válido, muestra una pantalla de carga.
+  // Esto previene mostrar la página de admin brevemente a usuarios no autorizados antes de la redirección.
+  if (loading || !firebaseUser || !user || user.rol !== 'admin') {
     return <SplashScreen />;
   }
 
-  // User is an admin, render the content
+  // Si todas las validaciones pasan, el usuario es un admin verificado.
   return <>{children}</>;
 }
