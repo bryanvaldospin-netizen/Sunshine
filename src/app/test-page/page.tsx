@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo, useId } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import SplashScreen from '@/components/splash-screen';
 import type { UserProfile, Investment } from '@/types';
 
 import { useForm } from 'react-hook-form';
@@ -318,40 +317,16 @@ const ActivePlanCard = ({ plan, loading, user }: { plan: Investment | null, load
 
 
 export default function TestPage() {
-  const { firebaseUser, loading: authLoading } = useAuth();
+  const { user: profile, loading } = useAuth();
   const { t, setLocale } = useTranslation();
   const { toast } = useToast();
   const router = useRouter();
 
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
   const [stats, setStats] = useState({ totalInvested: 0, earnings: 0, withdrawals: 0 });
   const [statsLoading, setStatsLoading] = useState(true);
   const [chartData, setChartData] = useState<any[]>([]);
   const [activePlan, setActivePlan] = useState<Investment | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
-
-  useEffect(() => {
-    if (firebaseUser?.uid) {
-      setProfileLoading(true);
-      const userDocRef = doc(db, 'users', firebaseUser.uid);
-      const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-          const userData = docSnap.data() as UserProfile;
-          console.log('Datos del usuario desde Firestore:', userData);
-          setProfile(userData);
-        } else {
-          setProfile(null);
-        }
-        setProfileLoading(false);
-      });
-      return () => unsubscribe();
-    } else if (!authLoading) {
-      setProfile(null);
-      setProfileLoading(false);
-    }
-  }, [firebaseUser, authLoading]);
-
 
   useEffect(() => {
     if (profile?.uid) {
@@ -408,14 +383,14 @@ export default function TestPage() {
       };
 
       fetchData();
-    } else if (!authLoading && !profileLoading) {
+    } else if (!loading) {
         setStatsLoading(false);
         setPlanLoading(false);
         setChartData([]);
         setStats({ totalInvested: 0, earnings: 0, withdrawals: 0 });
         setActivePlan(null);
     }
-  }, [profile, authLoading, profileLoading]);
+  }, [profile, loading]);
 
   const statItems = useMemo(() => [
     { title: t('dashboard.totalInvestment'), value: stats.totalInvested, icon: PiggyBank },
@@ -438,8 +413,6 @@ export default function TestPage() {
       toast({ title: 'Depósito de prueba enviado', description: 'Revisa el panel de administrador para aprobarlo.' });
     }
   };
-
-  const loading = authLoading || profileLoading;
   
   const balance = profile?.saldoUSDT ?? 0;
   const userName = profile?.name || t('dashboard.investor');
@@ -508,33 +481,31 @@ export default function TestPage() {
                 </CardHeader>
                 <CardContent className="space-y-3 pt-4">
                      {loading ? (
-                        <div className="space-y-4 text-sm">
-                            <div className="flex gap-2"><Skeleton className="h-5 w-20 bg-gray-700" /><Skeleton className="h-5 w-48 bg-gray-700" /></div>
-                            <div className="flex gap-2"><Skeleton className="h-5 w-20 bg-gray-700" /><Skeleton className="h-5 w-64 bg-gray-700" /></div>
-                            <div className="flex gap-2"><Skeleton className="h-5 w-20 bg-gray-700" /><Skeleton className="h-5 w-32 bg-gray-700" /></div>
-                            <div className="flex gap-2"><Skeleton className="h-5 w-20 bg-gray-700" /><Skeleton className="h-5 w-24 bg-gray-700" /></div>
-                            <div className="flex gap-2"><Skeleton className="h-5 w-20 bg-gray-700" /><Skeleton className="h-5 w-72 bg-gray-700" /></div>
-                        </div>
+                       <p className="text-gray-400">Cargando datos...</p>
                     ) : profile ? (
                         <ul className="space-y-2 text-sm list-none">
                             <li><strong className="text-gray-400 font-medium w-36 inline-block">Nombre:</strong> {profile.name}</li>
                             <li><strong className="text-gray-400 font-medium w-36 inline-block">Correo:</strong> {profile.email}</li>
                             <li className="flex items-center">
                                 <strong className="text-gray-400 font-medium w-36 inline-block flex-shrink-0">Código Invitación:</strong>
-                                <span className="font-mono text-golden">{profile.inviteCode || 'N/A'}</span>
-                                {profile.inviteCode && (
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => {
-                                        if (!profile.inviteCode) return;
-                                        navigator.clipboard.writeText(profile.inviteCode);
-                                        toast({ title: t('profile.codeCopied'), description: t('profile.codeCopiedDesc') });
-                                      }}
-                                      className="h-7 w-7 ml-2 text-gray-400 hover:text-golden hover:bg-gray-700"
-                                    >
-                                      <Copy className="h-4 w-4" />
-                                    </Button>
+                                {profile.inviteCode ? (
+                                    <>
+                                        <span className="font-mono text-golden">{profile.inviteCode}</span>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => {
+                                            if (!profile.inviteCode) return;
+                                            navigator.clipboard.writeText(profile.inviteCode);
+                                            toast({ title: t('profile.codeCopied'), description: t('profile.codeCopiedDesc') });
+                                          }}
+                                          className="h-7 w-7 ml-2 text-gray-400 hover:text-golden hover:bg-gray-700"
+                                        >
+                                          <Copy className="h-4 w-4" />
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <span className="text-gray-500">N/A</span>
                                 )}
                             </li>
                             <li><strong className="text-gray-400 font-medium w-36 inline-block">Saldo Actual:</strong> {formattedBalance}</li>

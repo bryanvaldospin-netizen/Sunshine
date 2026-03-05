@@ -48,18 +48,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           unsubscribeFromSnapshot = onSnapshot(userDocRef, (docSnap) => {
             if (docSnap.exists()) {
-              setUser(docSnap.data() as UserProfile);
+              const userData = docSnap.data() as UserProfile;
+              console.log('Datos del usuario desde Firestore:', userData);
+              setUser(userData);
             } else {
-              // This is an inconsistent state. User exists in Auth but not in Firestore.
               // This can happen if Firestore doc creation fails after Auth user creation,
               // or if a user authenticated with a provider (e.g. Google) without completing a profile.
-              // We treat them as not fully logged in by keeping user profile null.
               console.warn(`User ${currentFirebaseUser.uid} is authenticated but has no profile document in Firestore.`);
               setUser(null);
             }
             setLoading(false);
           }, (error) => {
-            console.error("AuthProvider: Error al obtener el perfil de usuario:", error);
+            console.error("Error de Firestore en AuthProvider:", error.message);
             setUser(null);
             setLoading(false);
           });
