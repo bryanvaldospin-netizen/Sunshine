@@ -5,6 +5,7 @@ export type UserProfile = {
   rol: 'user' | 'admin';
   saldoUSDT: number;
   invitadoPor?: string | null;
+  inviteCode?: string;
 };
 
 export type DepositRequest = {

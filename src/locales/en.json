@@ -17,7 +17,9 @@
     "role": "Role",
     "support": "Contact Support",
     "language": "Language",
-    "logout": "Logout"
+    "logout": "Logout",
+    "codeCopied": "Code Copied",
+    "codeCopiedDesc": "Your invitation code has been copied to the clipboard."
   },
   "dashboard": {
     "balance": "Current Balance",

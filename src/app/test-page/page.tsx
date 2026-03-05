@@ -23,7 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getWalletAddress, submitDeposit, submitTestDeposit, logoutUser } from '@/lib/actions';
-import { Copy, Upload, Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut } from 'lucide-react';
+import { User as UserIcon, Copy, Upload, Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -329,6 +329,12 @@ export default function TestPage() {
   const [activePlan, setActivePlan] = useState<Investment | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
 
+  const handleCopyCode = () => {
+    if (!user?.inviteCode) return;
+    navigator.clipboard.writeText(user.inviteCode);
+    toast({ title: t('profile.codeCopied'), description: t('profile.codeCopiedDesc') });
+  };
+
   useEffect(() => {
     if (user?.uid) {
       const fetchData = async () => {
@@ -439,6 +445,39 @@ export default function TestPage() {
   return (
     <main className="bg-gray-900 text-white min-h-screen font-body p-4 md:p-8 relative">
        <div className="absolute top-4 right-4 md:top-8 md:right-8 flex items-center gap-2">
+        <Dialog>
+            <DialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-gray-700 w-9 h-9 p-0">
+                    <UserIcon className="h-5 w-5" />
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-gray-800 border-golden text-white">
+                <DialogHeader>
+                    <DialogTitle>{t('profile.title')}</DialogTitle>
+                </DialogHeader>
+                {user && (
+                    <div className="space-y-6 pt-4">
+                        <div>
+                            <Label className="text-gray-400">{t('profile.name')}</Label>
+                            <p className="text-lg font-semibold">{user.name}</p>
+                        </div>
+                        <div>
+                            <Label className="text-gray-400">{t('profile.email')}</Label>
+                            <p className="text-muted-foreground">{user.email}</p>
+                        </div>
+                        <div>
+                            <Label className="text-gray-400">{t('auth.invitationCode')}</Label>
+                            <div className="flex items-center gap-2 mt-1">
+                                <p className="text-xl font-bold text-golden tracking-widest flex-grow bg-gray-900/50 p-2 rounded-md">{user.inviteCode || 'Generando...'}</p>
+                                <Button variant="outline" size="icon" onClick={handleCopyCode} disabled={!user.inviteCode} className="border-golden text-golden hover:bg-golden/10 hover:text-golden flex-shrink-0">
+                                    <Copy className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </DialogContent>
+        </Dialog>
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-gray-700 w-9 h-9 p-0">

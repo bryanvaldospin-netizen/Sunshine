@@ -2,7 +2,7 @@
 
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { onAuthStateChanged, User as FirebaseUser, setPersistence, browserLocalPersistence, getRedirectResult } from 'firebase/auth';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile } from '@/types';
 
@@ -17,6 +17,16 @@ export const AuthContext = createContext<AuthContextType>({
   firebaseUser: null,
   loading: true,
 });
+
+const generateInviteCode = (length = 6) => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
+
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -51,7 +61,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           unsubscribeFromSnapshot = onSnapshot(userDocRef, async (docSnap) => {
             if (docSnap.exists()) {
-              setUser(docSnap.data() as UserProfile);
+              const userData = docSnap.data() as UserProfile;
+               if (!userData.inviteCode) {
+                const newInviteCode = generateInviteCode();
+                await updateDoc(userDocRef, { inviteCode: newInviteCode });
+                // The snapshot will re-trigger with the updated data, so we don't need to setUser here.
+              } else {
+                setUser(userData);
+              }
             } else {
               // Si el usuario existe en Auth pero no en Firestore, lo creamos.
               const newUserProfile: UserProfile = {
@@ -61,6 +78,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   rol: 'user',
                   saldoUSDT: 0,
                   invitadoPor: null,
+                  inviteCode: generateInviteCode(),
               };
               try {
                   await setDoc(userDocRef, newUserProfile);

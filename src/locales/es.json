@@ -17,7 +17,9 @@
     "role": "Rol",
     "support": "Contactar a Soporte",
     "language": "Idioma",
-    "logout": "Cerrar Sesión"
+    "logout": "Cerrar Sesión",
+    "codeCopied": "Código copiado",
+    "codeCopiedDesc": "Tu código de invitación ha sido copiado al portapapeles."
   },
   "dashboard": {
     "balance": "Saldo Actual",
