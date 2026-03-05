@@ -118,27 +118,29 @@ export async function submitDeposit(formData: FormData) {
       return { error: 'No se ha especificado un nombre de plan.' };
     }
 
-    // Organized path using the master UID and original file name
-    const filePath = `comprobantes/${userId}/${proofFile.name}`;
+    // Convert file to ArrayBuffer for robust upload
+    const arrayBuffer = await proofFile.arrayBuffer();
+    
+    // Cache-busting: add a timestamp to the file name
+    const filePath = `comprobantes/${userId}/${Date.now()}_${proofFile.name}`;
     const storageRef = ref(storage, filePath);
 
-    // Upload the file with its original content type
-    const uploadResult = await uploadBytes(storageRef, proofFile);
-
-    // Strictly await the download URL
+    // Upload the ArrayBuffer
+    const uploadResult = await uploadBytes(storageRef, arrayBuffer, {
+      contentType: proofFile.type,
+    });
+    
     const comprobanteURL = await getDownloadURL(uploadResult.ref);
-
-    // Final validation
+    
     if (!comprobanteURL) {
       return { error: 'Error al obtener el enlace de la imagen. Intenta de nuevo.' };
     }
 
-    // Create the Firestore document only after getting the URL
     await addDoc(collection(db, 'deposit_requests'), {
       userId,
       userName,
       amount,
-      comprobanteURL, // The real download URL
+      comprobanteURL,
       date: new Date().toISOString(),
       status: 'Pendiente',
       planName,
@@ -146,14 +148,26 @@ export async function submitDeposit(formData: FormData) {
 
     return { success: true };
   } catch (error: any) {
-    console.error('Error en submitDeposit:', error);
-    if (error.code === 'storage/object-not-found') {
-        return { error: 'Error al subir el archivo, no se encontró el objeto.' };
+    console.error('Error detallado en submitDeposit:', error);
+    let errorMessage = 'Ocurrió un error inesperado al procesar tu depósito.';
+    switch (error.code) {
+        case 'storage/unauthorized':
+            errorMessage = 'Error de Autenticación: No tienes permiso para subir archivos. Verifica que las reglas de Storage y la configuración de CORS son correctas.';
+            break;
+        case 'storage/canceled':
+            errorMessage = 'Error de Red: La subida fue cancelada. Revisa tu conexión.';
+            break;
+        case 'storage/unknown':
+            errorMessage = "Error Desconocido de Storage: La configuración de CORS puede tardar en aplicarse o el nombre del archivo puede ser inválido. Inténtalo de nuevo en unos minutos.";
+            break;
+        case 'storage/object-not-found':
+             errorMessage = "Error de Archivo: No se encontró el objeto en Storage. El bucket puede no estar configurado correctamente.";
+             break;
+        default:
+             errorMessage = `Error Inesperado: ${error.message}`;
+             break;
     }
-    if (error.code === 'storage/unauthorized') {
-        return { error: 'No tienes permiso para subir archivos. Revisa las reglas de Storage y la configuración de CORS.' };
-    }
-    return { error: 'Ocurrió un error inesperado al procesar tu depósito.' };
+    return { error: errorMessage };
   }
 }
 
