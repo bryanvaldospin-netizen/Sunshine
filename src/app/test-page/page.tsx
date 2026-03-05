@@ -77,9 +77,16 @@ const InvestmentPlans = () => {
             toast({ variant: 'destructive', title: 'Monto Inválido', description: `El monto mínimo para el plan ${selectedPlan.name} es ${selectedPlan.min} USDT.` });
             return;
         }
+
+        if (!user) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Debes iniciar sesión para realizar un depósito.' });
+            return;
+        }
         
         setIsSubmitting(true);
         const formData = new FormData();
+        formData.append('userId', user.uid);
+        formData.append('userName', user.name);
         formData.append('amount', values.amount.toString());
         formData.append('proof', values.proof[0]);
         formData.append('planName', selectedPlan.name);

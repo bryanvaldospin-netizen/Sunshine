@@ -131,9 +131,12 @@ export async function getWalletAddress() {
 }
 
 export async function submitDeposit(formData: FormData) {
-  // Hardcode user info for development as requested.
-  const userId = 'XA10iCiKFscyFkcfZnwEfQOWYsB2';
-  const userName = 'yareelvaldospin@gmail.com'; // Default name for the hardcoded user
+  const userId = formData.get('userId') as string;
+  const userName = formData.get('userName') as string;
+  
+  if (!userId || !userName) {
+    return { error: 'Usuario no autenticado. Por favor, inicia sesión de nuevo.' };
+  }
 
   try {
     const amount = Number(formData.get('amount'));
@@ -147,14 +150,11 @@ export async function submitDeposit(formData: FormData) {
       return { error: 'No se ha especificado un nombre de plan.' };
     }
 
-    // Convert file to ArrayBuffer for robust upload
     const arrayBuffer = await proofFile.arrayBuffer();
     
-    // Cache-busting: add a timestamp to the file name
     const filePath = `comprobantes/${userId}/${Date.now()}_${proofFile.name}`;
     const storageRef = ref(storage, filePath);
 
-    // Upload the ArrayBuffer
     const uploadResult = await uploadBytes(storageRef, arrayBuffer, {
       contentType: proofFile.type,
     });
