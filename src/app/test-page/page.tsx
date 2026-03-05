@@ -331,8 +331,6 @@ export default function TestPage() {
   useEffect(() => {
     if (profile?.uid) {
       const fetchData = async () => {
-        setStatsLoading(true);
-        setPlanLoading(true);
         try {
           // Chart and Stats Data
           const depositsQuery = query(
@@ -385,8 +383,13 @@ export default function TestPage() {
       };
 
       fetchData();
+    } else if (!authLoading) {
+        // If authentication is finished and we still don't have a user profile,
+        // we need to stop the loading indicators for the page-specific data.
+        setStatsLoading(false);
+        setPlanLoading(false);
     }
-  }, [profile]);
+  }, [profile, authLoading]);
 
   const statItems = useMemo(() => [
     { title: t('dashboard.totalInvestment'), value: stats.totalInvested, icon: PiggyBank },
@@ -410,7 +413,6 @@ export default function TestPage() {
     }
   };
   
-  const loading = authLoading;
   const balance = profile?.saldoUSDT ?? 0;
   const userName = profile?.name || t('dashboard.investor');
 
@@ -462,7 +464,7 @@ export default function TestPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="py-6">
-              {loading ? (
+              {authLoading ? (
                  <Skeleton className="h-16 w-1/2 mx-auto bg-gray-700" />
               ) : (
                 <p className="text-6xl font-bold text-golden">{formattedBalance}</p>
@@ -477,7 +479,7 @@ export default function TestPage() {
                     <CardTitle>Información de Cuenta</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 pt-4">
-                     {loading ? (
+                     {authLoading ? (
                        <p className="text-gray-400">Cargando datos...</p>
                     ) : profile ? (
                         <ul className="space-y-2 text-sm list-none">
