@@ -323,6 +323,12 @@ export default function TestPage() {
   const { toast } = useToast();
   const router = useRouter();
 
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace('/login');
+    }
+  }, [user, loading, router]);
+
   const [stats, setStats] = useState({ totalInvested: 0, earnings: 0, withdrawals: 0 });
   const [statsLoading, setStatsLoading] = useState(true);
   const [chartData, setChartData] = useState<any[]>([]);
@@ -415,7 +421,7 @@ export default function TestPage() {
     }
   };
 
-  if (loading) {
+  if (loading || !user) {
     return <SplashScreen />;
   }
   

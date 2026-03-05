@@ -15,6 +15,8 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { Repeat, LogOut, LayoutDashboard } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/use-auth';
+import SplashScreen from '@/components/splash-screen';
 
 const DepositsTab = () => {
   const { toast } = useToast();
@@ -164,11 +166,22 @@ const UsersTab = () => {
 
 export default function AdminTestPage() {
     const router = useRouter();
+    const { firebaseUser, loading } = useAuth();
+
+    useEffect(() => {
+      if (!loading && !firebaseUser) {
+        router.replace('/login');
+      }
+    }, [firebaseUser, loading, router]);
 
     const handleLogout = async () => {
         await logoutUser();
         router.push('/login');
     };
+    
+    if (loading || !firebaseUser) {
+        return <SplashScreen />;
+    }
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 md:p-8 relative">

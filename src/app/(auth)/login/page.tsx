@@ -163,6 +163,12 @@ export default function LoginPage() {
           </Button>
         </Link>
         
+        <Link href="/admin-test" passHref>
+            <Button variant="link" className="w-full mt-1 text-muted-foreground underline">
+                Ingresar al Admin Dashboard
+            </Button>
+        </Link>
+        
       </CardContent>
     </Card>
   );
