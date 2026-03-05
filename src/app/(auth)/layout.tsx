@@ -12,16 +12,20 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { firebaseUser, loading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && firebaseUser) {
-      router.replace('/test-page');
+    if (!loading && user) {
+      if (user.rol === 'admin') {
+        router.replace('/admin-test');
+      } else {
+        router.replace('/test-page');
+      }
     }
-  }, [firebaseUser, loading, router]);
+  }, [user, loading, router]);
 
-  if (loading || firebaseUser) {
+  if (loading || user) {
     return <SplashScreen />;
   }
 

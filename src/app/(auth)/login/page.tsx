@@ -77,7 +77,7 @@ export default function LoginPage() {
         description: result.error,
       });
     } else if (result?.success) {
-      router.push('/test-page');
+      // The auth layout will handle the redirect.
     }
   }
 
@@ -157,8 +157,8 @@ export default function LoginPage() {
           Iniciar sesión con Google
         </Button>
 
-        <Button variant="outline" className="w-full mt-2" onClick={() => router.push('/admin-test')}>
-            Entrar como Admin (Modo Dev)
+        <Button variant="outline" className="w-full mt-2" onClick={() => router.push('/admin-login')}>
+            Login de Administrador
         </Button>
         
         <Link href="/guest-dashboard" passHref>

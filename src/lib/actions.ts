@@ -92,6 +92,35 @@ export async function loginUser(values: z.infer<typeof loginSchema>) {
   }
 }
 
+const adminLoginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
+export async function loginAdmin(values: z.infer<typeof adminLoginSchema>) {
+  try {
+    const { email, password } = adminLoginSchema.parse(values);
+
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    const userDocRef = doc(db, 'users', user.uid);
+    const userDoc = await getDoc(userDocRef);
+
+    if (!userDoc.exists() || userDoc.data().rol !== 'admin') {
+      await signOut(auth);
+      return { error: 'Acceso denegado. No tienes permisos de administrador.' };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    if (error.code === 'auth/invalid-credential') {
+      return { error: 'Credenciales incorrectas. Por favor, verifica tu email y contraseña.' };
+    }
+    return { error: 'Ocurrió un error durante el inicio de sesión de administrador.' };
+  }
+}
+
 export async function logoutUser() {
   await signOut(auth);
   return { success: true };
