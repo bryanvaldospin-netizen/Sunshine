@@ -65,7 +65,9 @@
     "unexpectedError": "Error inesperado",
     "formError": "Ocurrió un problema al enviar el formulario.",
     "mustLogin": "Debes iniciar sesión para depositar.",
-    "loadingAddress": "Cargando dirección..."
+    "loadingAddress": "Cargando dirección...",
+    "showInviteCode": "Mostrar Código de Invitación",
+    "noInviteCodeAssigned": "No tienes código asignado aún."
   },
   "admin": {
     "title": "Panel de Administrador",

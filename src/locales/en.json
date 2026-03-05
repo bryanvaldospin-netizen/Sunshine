@@ -65,7 +65,9 @@
     "unexpectedError": "Unexpected error",
     "formError": "There was a problem submitting the form.",
     "mustLogin": "You must be logged in to deposit.",
-    "loadingAddress": "Loading address..."
+    "loadingAddress": "Loading address...",
+    "showInviteCode": "Show Invitation Code",
+    "noInviteCodeAssigned": "You don't have a code assigned yet."
   },
   "admin": {
     "title": "Admin Dashboard",
