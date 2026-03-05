@@ -334,15 +334,8 @@ export default function TestPage() {
   useEffect(() => {
     if (authLoading) return; // Wait for auth to be ready
     if (!authUser) {
-        // Not logged in, clear all data and loading states
-        setProfile(null);
-        setProfileLoading(false);
-        setStatsLoading(false);
-        setPlanLoading(false);
-        setChartData([]);
-        setStats({ totalInvested: 0, earnings: 0, withdrawals: 0 });
-        setActivePlan(null);
-        return;
+      router.replace('/login');
+      return;
     }
 
     setProfileLoading(true);
@@ -359,13 +352,14 @@ export default function TestPage() {
         setProfileLoading(false);
     }, (error) => {
         console.error("Error de Firestore en TestPage:", error.message);
+        toast({ variant: 'destructive', title: 'Error de Red', description: 'No se pudo conectar a la base de datos para obtener el perfil.' });
         setProfile(null);
         setProfileLoading(false);
     });
 
     return () => unsubscribeProfile();
 
-  }, [authUser, authLoading]);
+  }, [authUser, authLoading, router, toast]);
 
 
   useEffect(() => {
@@ -481,6 +475,7 @@ export default function TestPage() {
             <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700 text-white">
                 <DropdownMenuItem onClick={() => setLocale('es')} className="focus:bg-gray-700 cursor-pointer">Español</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setLocale('en')} className="focus:bg-gray-700 cursor-pointer">English</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setLocale('en-GB')} className="focus:bg-gray-700 cursor-pointer">English (UK)</DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
         <Button onClick={handleLogout} variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-gray-700">

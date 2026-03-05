@@ -48,13 +48,14 @@ export default function ProfilePage() {
           
           <div className="space-y-2">
             <Label htmlFor="language">{t('profile.language')}</Label>
-            <Select value={locale} onValueChange={(value) => setLocale(value as 'es' | 'en')}>
+            <Select value={locale} onValueChange={(value) => setLocale(value as 'es' | 'en' | 'en-GB')}>
               <SelectTrigger id="language">
                 <SelectValue placeholder="Seleccionar idioma" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="es">Español</SelectItem>
                 <SelectItem value="en">English</SelectItem>
+                <SelectItem value="en-GB">English (UK)</SelectItem>
               </SelectContent>
             </Select>
           </div>
