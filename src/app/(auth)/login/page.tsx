@@ -77,7 +77,8 @@ export default function LoginPage() {
         description: result.error,
       });
     } else if (result?.success) {
-      // The auth layout will handle the redirect.
+      // Force redirect to test page to avoid router state issues.
+      window.location.href = '/test-page';
     }
   }
 
@@ -159,7 +160,7 @@ export default function LoginPage() {
         
         <Link href="/admin-test" passHref>
             <Button variant="link" className="w-full mt-2 text-muted-foreground underline">
-                Acceso al Panel
+                Admin Dashboard
             </Button>
         </Link>
         

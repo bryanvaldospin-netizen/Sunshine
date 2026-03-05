@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Logo } from '@/components/logo';
 import SplashScreen from '@/components/splash-screen';
@@ -13,13 +12,12 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   const { user, loading } = useAuth();
-  const router = useRouter();
 
   useEffect(() => {
     if (!loading && user) {
-      router.replace('/test-page');
+      window.location.href = '/test-page';
     }
-  }, [user, loading, router]);
+  }, [user, loading]);
 
   if (loading || user) {
     return <SplashScreen />;
