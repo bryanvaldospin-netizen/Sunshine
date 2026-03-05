@@ -102,55 +102,58 @@ export async function getWalletAddress() {
 }
 
 export async function submitDeposit(formData: FormData) {
-  // Bypass: Hardcode user info for development
-  const userId = 'XA10iCiKFscyFkcfZnwEfQOWYsB2'; 
-  const userName = 'yareelvaldospin@gmail.com'; 
+  // Hardcode user info for development as requested.
+  const userId = 'XA10iCiKFscyFkcfZnwEfQOWYsB2';
+  const userName = 'yareelvaldospin@gmail.com'; // Default name for the hardcoded user
 
   try {
     const amount = Number(formData.get('amount'));
     const proofFile = formData.get('proof') as File;
-    
-    if (!amount || !proofFile) {
-      throw new Error('Faltan datos en la solicitud (monto o comprobante).');
-    }
-    
-    console.log('Iniciando subida forzada...');
-    
-    const fileName = `public_test/comprobantes/${Date.now()}_${proofFile.name}`;
-    const storageRef = ref(storage, fileName);
+    const planName = formData.get('planName') as string;
 
-    // Convert file to ArrayBuffer for a more robust upload
-    const fileBuffer = await proofFile.arrayBuffer();
-    
-    const uploadResult = await uploadBytes(storageRef, fileBuffer, {
-      contentType: proofFile.type || 'application/octet-stream', // Use file's type or a generic one
-    });
-    
+    if (!amount || !proofFile) {
+      return { error: 'Faltan datos en la solicitud (monto o comprobante).' };
+    }
+     if (!planName) {
+      return { error: 'No se ha especificado un nombre de plan.' };
+    }
+
+    // Organized path using the master UID and original file name
+    const filePath = `comprobantes/${userId}/${proofFile.name}`;
+    const storageRef = ref(storage, filePath);
+
+    // Upload the file with its original content type
+    const uploadResult = await uploadBytes(storageRef, proofFile);
+
+    // Strictly await the download URL
     const comprobanteURL = await getDownloadURL(uploadResult.ref);
 
+    // Final validation
     if (!comprobanteURL) {
-      throw new Error('Error al obtener el enlace de la imagen. Intenta de nuevo.');
+      return { error: 'Error al obtener el enlace de la imagen. Intenta de nuevo.' };
     }
 
-    console.log('¡Imagen en la nube! URL:', comprobanteURL);
-
+    // Create the Firestore document only after getting the URL
     await addDoc(collection(db, 'deposit_requests'), {
       userId,
       userName,
       amount,
-      comprobanteURL,
+      comprobanteURL, // The real download URL
       date: new Date().toISOString(),
       status: 'Pendiente',
+      planName,
     });
 
     return { success: true };
   } catch (error: any) {
-    console.error('Error detallado en submitDeposit:', error);
-    // Give a more helpful error message for the most likely cause
-    if (error.code === 'storage/unknown') {
-      return { error: 'Error de Storage. Verifica la configuración CORS de tu bucket de GCS.' };
+    console.error('Error en submitDeposit:', error);
+    if (error.code === 'storage/object-not-found') {
+        return { error: 'Error al subir el archivo, no se encontró el objeto.' };
     }
-    return { error: error.message || 'Error al procesar la solicitud.' };
+    if (error.code === 'storage/unauthorized') {
+        return { error: 'No tienes permiso para subir archivos. Revisa las reglas de Storage.' };
+    }
+    return { error: 'Ocurrió un error inesperado al procesar tu depósito.' };
   }
 }
 

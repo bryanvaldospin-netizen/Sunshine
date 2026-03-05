@@ -82,6 +82,7 @@ const InvestmentPlans = () => {
         const formData = new FormData();
         formData.append('amount', values.amount.toString());
         formData.append('proof', values.proof[0]);
+        formData.append('planName', selectedPlan.name);
         
         try {
             const result = await submitDeposit(formData);
