@@ -148,11 +148,12 @@ export default function LoginPage() {
           Iniciar sesión con Google
         </Button>
         
-        <Link href="/admin-test" passHref>
-            <Button variant="link" className="w-full mt-2 text-muted-foreground underline">
-                Admin Dashboard
-            </Button>
-        </Link>
+        <Button
+          className="w-full mt-4 bg-gray-800 hover:bg-gray-700 text-white"
+          onClick={() => (window.location.href = '/admin-test')}
+        >
+          Panel de Control Maestro
+        </Button>
         
       </CardContent>
     </Card>
