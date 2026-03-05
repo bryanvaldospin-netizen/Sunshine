@@ -25,7 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getWalletAddress, submitDeposit, submitTestDeposit, logoutUser } from '@/lib/actions';
 import { Copy, Upload, Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AreaChart, Area, CartesianGrid, XAxis, YAxis } from 'recharts';
@@ -48,15 +48,15 @@ const depositFormSchema = z.object({
     .refine((files) => files?.[0]?.size <= 5000000, `El tamaño máximo del archivo es 5MB.`),
 });
 
-const InvestmentPlans = () => {
+const InvestmentPlans = ({ userProfile }: { userProfile: UserProfile | null }) => {
     const { t } = useTranslation();
     const { toast } = useToast();
-    const { user } = useAuth();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [open, setOpen] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<{name: string, investment: string, min: number} | null>(null);
     const [walletAddress, setWalletAddress] = useState('');
     const descriptionId = useId();
+    const user = userProfile;
 
     useEffect(() => {
         getWalletAddress().then(setWalletAddress);
@@ -318,11 +318,13 @@ const ActivePlanCard = ({ plan, loading, user }: { plan: Investment | null, load
 
 
 export default function TestPage() {
-  const { user, loading } = useAuth();
+  const { firebaseUser, loading: authLoading } = useAuth();
   const { t, setLocale } = useTranslation();
   const { toast } = useToast();
   const router = useRouter();
 
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
   const [stats, setStats] = useState({ totalInvested: 0, earnings: 0, withdrawals: 0 });
   const [statsLoading, setStatsLoading] = useState(true);
   const [chartData, setChartData] = useState<any[]>([]);
@@ -330,14 +332,36 @@ export default function TestPage() {
   const [planLoading, setPlanLoading] = useState(true);
 
   useEffect(() => {
-    if (user?.uid) {
+    if (firebaseUser?.uid) {
+      setProfileLoading(true);
+      const userDocRef = doc(db, 'users', firebaseUser.uid);
+      const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const userData = docSnap.data() as UserProfile;
+          console.log('Datos del usuario desde Firestore:', userData);
+          setProfile(userData);
+        } else {
+          setProfile(null);
+        }
+        setProfileLoading(false);
+      });
+      return () => unsubscribe();
+    } else if (!authLoading) {
+      setProfile(null);
+      setProfileLoading(false);
+    }
+  }, [firebaseUser, authLoading]);
+
+
+  useEffect(() => {
+    if (profile?.uid) {
       const fetchData = async () => {
         setStatsLoading(true);
         setPlanLoading(true);
         try {
           const depositsQuery = query(
             collection(db, 'deposit_requests'),
-            where('userId', '==', user.uid),
+            where('userId', '==', profile.uid),
             where('status', '==', 'Aprobado'),
             orderBy('date', 'asc')
           );
@@ -363,7 +387,7 @@ export default function TestPage() {
           
           const investmentsQuery = query(
             collection(db, 'investments'),
-            where('userId', '==', user.uid),
+            where('userId', '==', profile.uid),
             where('status', '==', 'Activo'),
             limit(1)
           );
@@ -384,14 +408,14 @@ export default function TestPage() {
       };
 
       fetchData();
-    } else if (!loading) {
+    } else if (!authLoading && !profileLoading) {
         setStatsLoading(false);
         setPlanLoading(false);
         setChartData([]);
         setStats({ totalInvested: 0, earnings: 0, withdrawals: 0 });
         setActivePlan(null);
     }
-  }, [user, loading]);
+  }, [profile, authLoading, profileLoading]);
 
   const statItems = useMemo(() => [
     { title: t('dashboard.totalInvestment'), value: stats.totalInvested, icon: PiggyBank },
@@ -415,11 +439,10 @@ export default function TestPage() {
     }
   };
 
-  // NOTE: Authentication checks have been removed as an emergency measure
-  // to bypass redirection loops.
+  const loading = authLoading || profileLoading;
   
-  const balance = user?.saldoUSDT ?? 0;
-  const userName = user?.name || t('dashboard.investor');
+  const balance = profile?.saldoUSDT ?? 0;
+  const userName = profile?.name || t('dashboard.investor');
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -459,16 +482,18 @@ export default function TestPage() {
       <div className="flex flex-col items-center justify-start w-full h-full pt-16 sm:pt-8 space-y-8">
         <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold">{t('dashboard.greeting', { name: userName })}</h1>
-            {user && user.inviteCode ? (
+            {loading ? (
+              <Skeleton className="h-8 w-48 bg-gray-800 mx-auto" />
+            ) : profile && profile.inviteCode ? (
               <div className="inline-flex items-center justify-center gap-2 rounded-full bg-gray-800 px-3 py-1">
                 <span className="text-sm text-gray-400">{t('profile.yourInviteCode')}:</span>
-                <span className="font-mono text-base font-bold text-golden tracking-widest">{user.inviteCode}</span>
+                <span className="font-mono text-base font-bold text-golden tracking-widest">{profile.inviteCode}</span>
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => {
-                    if (!user.inviteCode) return;
-                    navigator.clipboard.writeText(user.inviteCode);
+                    if (!profile.inviteCode) return;
+                    navigator.clipboard.writeText(profile.inviteCode);
                     toast({ title: t('profile.codeCopied'), description: t('profile.codeCopiedDesc') });
                   }}
                   className="h-7 w-7 text-gray-400 hover:text-golden hover:bg-gray-700"
@@ -476,9 +501,7 @@ export default function TestPage() {
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>
-            ) : !loading && (
-              <p className="text-sm text-gray-400">{t('dashboard.noInviteCodeAssigned')}</p>
-            )}
+            ) : null }
         </div>
         
         <div className="w-full max-w-5xl">
@@ -489,7 +512,11 @@ export default function TestPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="py-6">
-              <p className="text-6xl font-bold text-golden">{formattedBalance}</p>
+              {loading ? (
+                 <Skeleton className="h-16 w-1/2 mx-auto bg-gray-700" />
+              ) : (
+                <p className="text-6xl font-bold text-golden">{formattedBalance}</p>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -519,7 +546,7 @@ export default function TestPage() {
         </div>
         
         <div className="w-full max-w-5xl">
-            <InvestmentPlans />
+            <InvestmentPlans userProfile={profile} />
         </div>
 
         <div className="w-full max-w-5xl">
@@ -586,7 +613,7 @@ export default function TestPage() {
         </div>
 
         <div className="w-full max-w-5xl">
-          <ActivePlanCard plan={activePlan} loading={planLoading} user={user} />
+          <ActivePlanCard plan={activePlan} loading={planLoading} user={profile} />
         </div>
 
         <div className="w-full max-w-5xl pt-4 mt-4 border-t border-dashed border-gray-700">
