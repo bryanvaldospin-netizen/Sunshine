@@ -62,12 +62,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           unsubscribeFromSnapshot = onSnapshot(userDocRef, async (docSnap) => {
             if (docSnap.exists()) {
               const userData = docSnap.data() as UserProfile;
+              setUser(userData); // Carga los datos del usuario inmediatamente.
+
                if (!userData.inviteCode) {
                 const newInviteCode = generateInviteCode();
+                // Esta actualización disparará el onSnapshot de nuevo, actualizando la UI con el código.
                 await updateDoc(userDocRef, { inviteCode: newInviteCode });
-                // The snapshot will re-trigger with the updated data, so we don't need to setUser here.
-              } else {
-                setUser(userData);
               }
             } else {
               // Si el usuario existe en Auth pero no en Firestore, lo creamos.
