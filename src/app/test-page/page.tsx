@@ -490,7 +490,7 @@ export default function TestPage() {
         <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold">{t('dashboard.greeting', { name: userName })}</h1>
             {codeStatus === 'hidden' && (
-              <Button variant="outline" className="border-golden text-golden hover:bg-golden/10 hover:text-golden" onClick={handleShowCode} disabled={loading || !user}>
+              <Button variant="outline" className="border-golden text-golden hover:bg-golden/10 hover:text-golden" onClick={handleShowCode}>
                 {t('dashboard.showInviteCode')}
               </Button>
             )}
