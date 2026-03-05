@@ -116,19 +116,22 @@ export async function submitDeposit(formData: FormData) {
     
     console.log('Iniciando subida forzada...');
     
-    // Use a unique but simple name in the root directory to avoid overwrites
-    const fileName = `comprobante_test_${Date.now()}.png`;
+    const fileName = `public_test/comprobantes/${Date.now()}_${proofFile.name}`;
     const storageRef = ref(storage, fileName);
+
+    // Convert file to ArrayBuffer for a more robust upload
+    const fileBuffer = await proofFile.arrayBuffer();
     
-    const metadata = { contentType: 'image/png' };
-      
-    const uploadResult = await uploadBytes(storageRef, proofFile, metadata);
+    const uploadResult = await uploadBytes(storageRef, fileBuffer, {
+      contentType: proofFile.type || 'application/octet-stream', // Use file's type or a generic one
+    });
+    
     const comprobanteURL = await getDownloadURL(uploadResult.ref);
 
     if (!comprobanteURL) {
       throw new Error('Error al obtener el enlace de la imagen. Intenta de nuevo.');
     }
-    
+
     console.log('¡Imagen en la nube! URL:', comprobanteURL);
 
     await addDoc(collection(db, 'deposit_requests'), {
@@ -143,6 +146,10 @@ export async function submitDeposit(formData: FormData) {
     return { success: true };
   } catch (error: any) {
     console.error('Error detallado en submitDeposit:', error);
+    // Give a more helpful error message for the most likely cause
+    if (error.code === 'storage/unknown') {
+      return { error: 'Error de Storage. Verifica la configuración CORS de tu bucket de GCS.' };
+    }
     return { error: error.message || 'Error al procesar la solicitud.' };
   }
 }
