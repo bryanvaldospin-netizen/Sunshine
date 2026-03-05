@@ -21,7 +21,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { getWalletAddress, submitDeposit, submitTestDeposit, logoutUser } from '@/lib/actions';
+import { getWalletAddress, submitDeposit, logoutUser } from '@/lib/actions';
 import { Copy, Upload, Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, getDocs, orderBy, limit, onSnapshot, doc } from 'firebase/firestore';
@@ -402,16 +402,6 @@ export default function TestPage() {
     router.push('/login');
   };
 
-  const handleTestDeposit = async () => {
-    toast({ title: 'Enviando depósito de prueba...' });
-    const result = await submitTestDeposit();
-    if (result.error) {
-      toast({ variant: 'destructive', title: 'Error en depósito de prueba', description: result.error });
-    } else {
-      toast({ title: 'Depósito de prueba enviado', description: 'Revisa el panel de administrador para aprobarlo.' });
-    }
-  };
-  
   const balance = profile?.saldoUSDT ?? 0;
   const userName = profile?.name || t('dashboard.investor');
 
@@ -612,15 +602,6 @@ export default function TestPage() {
 
         <div className="w-full max-w-5xl">
           <ActivePlanCard plan={activePlan} loading={planLoading} user={profile} />
-        </div>
-
-        <div className="w-full max-w-5xl pt-4 mt-4 border-t border-dashed border-gray-700">
-            <Button onClick={handleTestDeposit} className="w-full bg-blue-900 hover:bg-blue-800 text-white">
-                Depósito de Prueba (Modo Dev)
-            </Button>
-            <p className="text-xs text-center text-gray-500 mt-2">
-                Este botón es solo para desarrollo. Simula un depósito de 50 USDT del usuario de prueba.
-            </p>
         </div>
 
       </div>
