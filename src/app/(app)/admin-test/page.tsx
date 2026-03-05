@@ -48,7 +48,7 @@ export default function AdminTestPage() {
       unsubscribeUsers();
       unsubscribeDeposits();
     };
-  }, [toast]);
+  }, []);
 
   const handleApprove = async (requestId: string, userId: string, amount: number) => {
     const result = await approveDeposit({ requestId, userId, amount });
