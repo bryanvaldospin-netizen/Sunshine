@@ -102,51 +102,48 @@ export async function getWalletAddress() {
 }
 
 export async function submitDeposit(formData: FormData) {
+  // Bypass: Hardcode user info for development
+  const userId = 'XA10iCiKFscyFkcfZnwEfQOWYsB2'; 
+  const userName = 'yareelvaldospin@gmail.com'; 
+
   try {
     const amount = Number(formData.get('amount'));
     const proofFile = formData.get('proof') as File;
     
-    // Bypass: Hardcode user info for development
-    const userId = 'XA10iCiKFscyFkcfZnwEfQOWYsB2'; 
-    const userName = 'yareelvaldospin@gmail.com'; 
-
     if (!amount || !proofFile) {
       throw new Error('Faltan datos en la solicitud (monto o comprobante).');
     }
     
-    console.log('Iniciando subida forzada (Script de Emergencia)...');
+    console.log('Iniciando subida forzada...');
+    
+    // Use a unique but simple name in the root directory to avoid overwrites
+    const fileName = `comprobante_test_${Date.now()}.png`;
+    const storageRef = ref(storage, fileName);
+    
+    const metadata = { contentType: 'image/png' };
+      
+    const uploadResult = await uploadBytes(storageRef, proofFile, metadata);
+    const comprobanteURL = await getDownloadURL(uploadResult.ref);
 
-    let comprobanteURL = '';
-    try {
-      // Ruta Raíz y nombre fijo
-      const storageRef = ref(storage, 'comprobante_test.png');
-      
-      // Metadatos Genéricos
-      const metadata = { contentType: 'image/png' };
-      
-      const uploadResult = await uploadBytes(storageRef, proofFile, metadata);
-      comprobanteURL = await getDownloadURL(uploadResult.ref);
-      console.log('¡Imagen en la nube! URL:', comprobanteURL);
-    } catch (error: any) {
-      // Captura de Error Profunda
-      console.error('Error detallado de Storage (Bypass Total):', error);
-      // Plan B: La URL quedará vacía si la subida falla.
+    if (!comprobanteURL) {
+      throw new Error('Error al obtener el enlace de la imagen. Intenta de nuevo.');
     }
+    
+    console.log('¡Imagen en la nube! URL:', comprobanteURL);
 
-    // Plan B (continuación): Crear el documento en Firestore incluso si la subida falló.
     await addDoc(collection(db, 'deposit_requests'), {
       userId,
       userName,
       amount,
-      comprobanteURL, // Será la URL real o una cadena vacía
+      comprobanteURL,
       date: new Date().toISOString(),
       status: 'Pendiente',
     });
 
     return { success: true };
   } catch (error: any) {
-    console.error('Error en la acción submitDeposit (Bypass Total):', error.message);
-    return { error: error.message };
+    console.error('Error detallado en submitDeposit:', error);
+    return { error: error.message || 'Error al procesar la solicitud.' };
   }
 }
 

@@ -54,7 +54,7 @@
     "processingPayment": "Payment processing",
     "copied": "Wallet address copied to clipboard.",
     "selectFile": "Select file",
-    "sending": "Sending...",
+    "sending": "Uploading...",
     "proofSent": "Proof sent!",
     "proofReview": "Your deposit request is being reviewed.",
     "depositError": "Error on deposit",

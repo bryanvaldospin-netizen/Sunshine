@@ -83,21 +83,27 @@ const InvestmentPlans = () => {
         formData.append('amount', values.amount.toString());
         formData.append('proof', values.proof[0]);
         
-        console.log('Iniciando subida forzada desde el cliente...');
-
         try {
             const result = await submitDeposit(formData);
 
             if (result?.error) {
-                toast({ variant: 'destructive', title: t('dashboard.depositError'), description: result.error });
+                toast({ 
+                    variant: 'destructive', 
+                    title: 'Error al subir el comprobante', 
+                    description: result.error
+                });
             } else {
-                alert('¡Imagen en la nube!');
-                toast({ title: 'Solicitud enviada con éxito', description: t('dashboard.proofReview') });
+                toast({ title: 'Solicitud enviada con éxito', description: 'Tu comprobante está siendo revisado.' });
                 form.reset();
                 setOpen(false);
             }
         } catch(error: any) {
-            toast({ variant: 'destructive', title: t('dashboard.unexpectedError'), description: error.message || t('dashboard.formError') });
+            toast({ 
+                variant: 'destructive', 
+                title: 'Error inesperado', 
+                description: 'Ocurrió un problema al enviar el formulario. Revisa la consola.' 
+            });
+            console.error("Error en submit:", error);
         } finally {
             setIsSubmitting(false);
         }
@@ -196,7 +202,7 @@ const InvestmentPlans = () => {
                                         id="proof-upload"
                                         type="file" 
                                         className="hidden" 
-                                        accept="image/*"
+                                        accept="*/*"
                                         onBlur={onBlur}
                                         name={name}
                                         ref={ref}
