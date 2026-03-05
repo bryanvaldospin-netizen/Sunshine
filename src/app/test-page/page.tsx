@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useId } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -317,10 +317,13 @@ const ActivePlanCard = ({ plan, loading, user }: { plan: Investment | null, load
 
 
 export default function TestPage() {
-  const { user: profile, loading } = useAuth();
+  const { user: authUser, loading: authLoading } = useAuth();
   const { t, setLocale } = useTranslation();
   const { toast } = useToast();
   const router = useRouter();
+
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
 
   const [stats, setStats] = useState({ totalInvested: 0, earnings: 0, withdrawals: 0 });
   const [statsLoading, setStatsLoading] = useState(true);
@@ -329,11 +332,49 @@ export default function TestPage() {
   const [planLoading, setPlanLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return; // Wait for auth to be ready
+    if (!authUser) {
+        // Not logged in, clear all data and loading states
+        setProfile(null);
+        setProfileLoading(false);
+        setStatsLoading(false);
+        setPlanLoading(false);
+        setChartData([]);
+        setStats({ totalInvested: 0, earnings: 0, withdrawals: 0 });
+        setActivePlan(null);
+        return;
+    }
+
+    setProfileLoading(true);
+    const userDocRef = doc(db, 'users', authUser.uid);
+    const unsubscribeProfile = onSnapshot(userDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+            const userData = docSnap.data() as UserProfile;
+            console.log('Datos del usuario desde Firestore:', userData);
+            setProfile(userData);
+        } else {
+            console.warn(`User ${authUser.uid} has no profile document in Firestore.`);
+            setProfile(null);
+        }
+        setProfileLoading(false);
+    }, (error) => {
+        console.error("Error de Firestore en TestPage:", error.message);
+        setProfile(null);
+        setProfileLoading(false);
+    });
+
+    return () => unsubscribeProfile();
+
+  }, [authUser, authLoading]);
+
+
+  useEffect(() => {
     if (profile?.uid) {
       const fetchData = async () => {
         setStatsLoading(true);
         setPlanLoading(true);
         try {
+          // Chart and Stats Data
           const depositsQuery = query(
             collection(db, 'deposit_requests'),
             where('userId', '==', profile.uid),
@@ -360,6 +401,7 @@ export default function TestPage() {
             withdrawals: 0, // Placeholder
           });
           
+          // Active Plan Data
           const investmentsQuery = query(
             collection(db, 'investments'),
             where('userId', '==', profile.uid),
@@ -383,14 +425,8 @@ export default function TestPage() {
       };
 
       fetchData();
-    } else if (!loading) {
-        setStatsLoading(false);
-        setPlanLoading(false);
-        setChartData([]);
-        setStats({ totalInvested: 0, earnings: 0, withdrawals: 0 });
-        setActivePlan(null);
     }
-  }, [profile, loading]);
+  }, [profile]);
 
   const statItems = useMemo(() => [
     { title: t('dashboard.totalInvestment'), value: stats.totalInvested, icon: PiggyBank },
@@ -414,6 +450,7 @@ export default function TestPage() {
     }
   };
   
+  const loading = authLoading || profileLoading;
   const balance = profile?.saldoUSDT ?? 0;
   const userName = profile?.name || t('dashboard.investor');
 
