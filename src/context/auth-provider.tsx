@@ -34,10 +34,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Primero, intenta establecer la persistencia.
     setPersistence(auth, browserLocalPersistence).then(() => {
       
-      // Segundo, maneja el resultado de una redirección de inicio de sesión (ej. Google)
       getRedirectResult(auth)
         .then((result) => {
           if (result) {
@@ -51,7 +49,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       let unsubscribeFromSnapshot: () => void = () => {};
 
-      // Tercero, establece el observador principal del estado de autenticación.
       const unsubscribeFromAuth = onAuthStateChanged(auth, (currentFirebaseUser) => {
         unsubscribeFromSnapshot(); // Limpia la suscripción anterior a Firestore.
 
@@ -62,12 +59,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           unsubscribeFromSnapshot = onSnapshot(userDocRef, async (docSnap) => {
             if (docSnap.exists()) {
               const userData = docSnap.data() as UserProfile;
-              setUser(userData); // Carga los datos del usuario inmediatamente.
-
-               if (!userData.inviteCode) {
-                const newInviteCode = generateInviteCode();
-                // Esta actualización disparará el onSnapshot de nuevo, actualizando la UI con el código.
-                await updateDoc(userDocRef, { inviteCode: newInviteCode });
+              
+              if (!userData.inviteCode) {
+                // Si falta el código, genéralo y guárdalo.
+                try {
+                  const newInviteCode = generateInviteCode();
+                  console.log('Código de invitación generado y guardado');
+                  await updateDoc(userDocRef, { inviteCode: newInviteCode });
+                  // El listener de onSnapshot se volverá a ejecutar con el documento actualizado,
+                  // por lo que no llamamos a setUser aquí para evitar un parpadeo con datos antiguos.
+                } catch (e) {
+                  console.error("No se pudo agregar el código de invitación:", e);
+                  setUser(userData); // Establece el usuario incluso si la actualización falla.
+                  setLoading(false);
+                }
+              } else {
+                // Si el código existe, los datos del usuario están completos.
+                setUser(userData);
+                setLoading(false);
               }
             } else {
               // Si el usuario existe en Auth pero no en Firestore, lo creamos.
@@ -81,14 +90,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                   inviteCode: generateInviteCode(),
               };
               try {
+                  console.log('Creando nuevo perfil con código de invitación.');
                   await setDoc(userDocRef, newUserProfile);
-                  setUser(newUserProfile);
+                  // onSnapshot será activado por setDoc, así que no es necesario llamar a setUser aquí.
               } catch (error) {
                   console.error("AuthProvider: Error creando perfil de usuario:", error);
                   setUser(null);
+                  setLoading(false);
               }
             }
-            setLoading(false);
           }, (error) => {
             console.error("AuthProvider: Error al obtener el perfil de usuario:", error);
             setUser(null);
