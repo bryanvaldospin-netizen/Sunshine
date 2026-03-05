@@ -475,7 +475,6 @@ export default function TestPage() {
             <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700 text-white">
                 <DropdownMenuItem onClick={() => setLocale('es')} className="focus:bg-gray-700 cursor-pointer">Español</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setLocale('en')} className="focus:bg-gray-700 cursor-pointer">English</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setLocale('en-GB')} className="focus:bg-gray-700 cursor-pointer">English (UK)</DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
         <Button onClick={handleLogout} variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-gray-700">

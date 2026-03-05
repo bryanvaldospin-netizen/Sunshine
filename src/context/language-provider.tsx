@@ -3,9 +3,8 @@
 import React, { createContext, useState, ReactNode, useMemo, useCallback, useEffect } from 'react';
 import es from '@/locales/es.json';
 import en from '@/locales/en.json';
-import enGB from '@/locales/en-GB.json';
 
-type Locale = 'en' | 'es' | 'en-GB';
+type Locale = 'en' | 'es';
 
 interface LanguageContextType {
   locale: Locale;
@@ -13,7 +12,7 @@ interface LanguageContextType {
   t: (key: string, values?: Record<string, any>) => string;
 }
 
-const translations = { es, en, 'en-GB': enGB };
+const translations = { es, en };
 
 export const LanguageContext = createContext<LanguageContextType>({
   locale: 'es',
@@ -26,7 +25,7 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const storedLocale = localStorage.getItem('locale') as Locale | null;
-    if (storedLocale && ['es', 'en', 'en-GB'].includes(storedLocale)) {
+    if (storedLocale && ['es', 'en'].includes(storedLocale)) {
       setLocaleState(storedLocale);
     }
   }, []);
