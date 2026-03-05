@@ -465,15 +465,19 @@ export default function TestPage() {
       <div className="flex flex-col items-center justify-start w-full h-full pt-16 sm:pt-8 space-y-8">
         <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold">{t('dashboard.greeting', { name: userName })}</h1>
-            {user?.inviteCode && (
-              <div className="inline-flex items-center justify-center gap-2 rounded-full bg-gray-800 px-3 py-1">
-                <span className="text-sm text-gray-400">{t('profile.yourInviteCode')}:</span>
-                <span className="font-mono text-base font-bold text-golden tracking-widest">{user.inviteCode}</span>
-                <Button variant="ghost" size="icon" onClick={handleCopyCode} className="h-7 w-7 text-gray-400 hover:text-golden hover:bg-gray-700">
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
+            {user ? (
+              user.inviteCode ? (
+                <div className="inline-flex items-center justify-center gap-2 rounded-full bg-gray-800 px-3 py-1">
+                  <span className="text-sm text-gray-400">{t('profile.yourInviteCode')}:</span>
+                  <span className="font-mono text-base font-bold text-golden tracking-widest">{user.inviteCode}</span>
+                  <Button variant="ghost" size="icon" onClick={handleCopyCode} className="h-7 w-7 text-gray-400 hover:text-golden hover:bg-gray-700">
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">{t('profile.noInviteCode')}</p>
+              )
+            ) : null}
         </div>
         
         <div className="w-full max-w-5xl">

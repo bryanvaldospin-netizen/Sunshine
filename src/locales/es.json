@@ -20,7 +20,8 @@
     "logout": "Cerrar Sesión",
     "codeCopied": "Código copiado",
     "codeCopiedDesc": "Tu código de invitación ha sido copiado al portapapeles.",
-    "yourInviteCode": "Tu Código de Invitación"
+    "yourInviteCode": "Tu Código de Invitación",
+    "noInviteCode": "No tienes código de invitación asignado"
   },
   "dashboard": {
     "balance": "Saldo Actual",

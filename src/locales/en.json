@@ -20,7 +20,8 @@
     "logout": "Logout",
     "codeCopied": "Code Copied",
     "codeCopiedDesc": "Your invitation code has been copied to the clipboard.",
-    "yourInviteCode": "Your Invitation Code"
+    "yourInviteCode": "Your Invitation Code",
+    "noInviteCode": "You don't have an invitation code assigned"
   },
   "dashboard": {
     "balance": "Current Balance",
