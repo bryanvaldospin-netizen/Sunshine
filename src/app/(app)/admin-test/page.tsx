@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { collection, query, onSnapshot, where } from 'firebase/firestore';
-import { approveDeposit, rejectDeposit } from '@/lib/actions';
+import { approveDeposit, rejectDeposit, logoutUser } from '@/lib/actions';
 import type { UserProfile, DepositRequest } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { Eye, CheckCircle, XCircle } from 'lucide-react';
+import { Eye, CheckCircle, XCircle, LogOut } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AdminTestPage() {
@@ -67,6 +67,11 @@ export default function AdminTestPage() {
       toast({ variant: 'destructive', title: 'Error', description: result.error });
     }
   };
+
+  const handleLogout = async () => {
+    await logoutUser();
+    window.location.href = '/login';
+  };
   
   const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -75,7 +80,13 @@ export default function AdminTestPage() {
 
   return (
     <div className="container mx-auto p-4 md:p-8">
-      <h1 className="text-3xl font-bold mb-6">Panel de Control Maestro</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Panel de Control Maestro</h1>
+        <Button variant="destructive" onClick={handleLogout}>
+          <LogOut className="mr-2 h-4 w-4" />
+          Cerrar Sesión
+        </Button>
+      </div>
       <Tabs defaultValue="deposits" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="deposits">Solicitudes de Depósito ({deposits.length})</TabsTrigger>
