@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useId } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -54,7 +54,6 @@ const InvestmentPlans = ({ userProfile }: { userProfile: UserProfile | null }) =
     const [open, setOpen] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<{name: string, investment: string, min: number} | null>(null);
     const [walletAddress, setWalletAddress] = useState('');
-    const descriptionId = useId();
     const user = userProfile;
 
     useEffect(() => {
@@ -159,10 +158,10 @@ const InvestmentPlans = ({ userProfile }: { userProfile: UserProfile | null }) =
                 </CardContent>
             </Card>
 
-            <DialogContent aria-describedby={descriptionId} className="bg-gray-800 border-golden text-white">
+            <DialogContent className="bg-gray-800 border-golden text-white">
                 <DialogHeader>
                     <DialogTitle>Realizar Depósito para {selectedPlan?.name}</DialogTitle>
-                    <DialogDescription id={descriptionId}>
+                    <DialogDescription>
                         Transfiere el monto exacto a la billetera USDT (TRC-20) a continuación y sube el comprobante de la transacción.
                     </DialogDescription>
                 </DialogHeader>

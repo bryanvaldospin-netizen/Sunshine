@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { Eye, CheckCircle, XCircle, LogOut } from 'lucide-react';
@@ -127,6 +127,9 @@ export default function AdminTestPage() {
                         <DialogContent className="max-w-3xl">
                           <DialogHeader>
                             <DialogTitle>Comprobante de {deposit.userName}</DialogTitle>
+                            <DialogDescription>
+                              Comprobante de transferencia subido por el usuario para validar la solicitud de depósito.
+                            </DialogDescription>
                           </DialogHeader>
                           <div className="relative h-[70vh]">
                             <Image
