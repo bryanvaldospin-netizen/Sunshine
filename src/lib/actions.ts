@@ -151,7 +151,7 @@ export async function submitDeposit(formData: FormData) {
         return { error: 'Error al subir el archivo, no se encontró el objeto.' };
     }
     if (error.code === 'storage/unauthorized') {
-        return { error: 'No tienes permiso para subir archivos. Revisa las reglas de Storage.' };
+        return { error: 'No tienes permiso para subir archivos. Revisa las reglas de Storage y la configuración de CORS.' };
     }
     return { error: 'Ocurrió un error inesperado al procesar tu depósito.' };
   }
