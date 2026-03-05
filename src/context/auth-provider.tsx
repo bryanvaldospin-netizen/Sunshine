@@ -2,7 +2,7 @@
 
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { onAuthStateChanged, User as FirebaseUser, setPersistence, browserLocalPersistence, getRedirectResult } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile } from '@/types';
 
@@ -17,16 +17,6 @@ export const AuthContext = createContext<AuthContextType>({
   firebaseUser: null,
   loading: true,
 });
-
-const generateInviteCode = (length = 6) => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-};
-
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -56,50 +46,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setFirebaseUser(currentFirebaseUser);
           const userDocRef = doc(db, 'users', currentFirebaseUser.uid);
           
-          unsubscribeFromSnapshot = onSnapshot(userDocRef, async (docSnap) => {
+          unsubscribeFromSnapshot = onSnapshot(userDocRef, (docSnap) => {
             if (docSnap.exists()) {
-              const userData = docSnap.data() as UserProfile;
-              
-              if (!userData.inviteCode) {
-                // Si falta el código, genéralo y guárdalo.
-                try {
-                  const newInviteCode = generateInviteCode();
-                  console.log(`Código ${newInviteCode} asignado exitosamente al usuario ${currentFirebaseUser.uid}`);
-                  await updateDoc(userDocRef, { inviteCode: newInviteCode });
-                  // El listener de onSnapshot se volverá a ejecutar con el documento actualizado,
-                  // por lo que no llamamos a setUser aquí para evitar un parpadeo con datos antiguos.
-                } catch (e) {
-                  console.error("No se pudo agregar el código de invitación:", e);
-                  setUser(userData); // Establece el usuario incluso si la actualización falla.
-                  setLoading(false);
-                }
-              } else {
-                // Si el código existe, los datos del usuario están completos.
-                setUser(userData);
-                setLoading(false);
-              }
+              setUser(docSnap.data() as UserProfile);
             } else {
-              // Si el usuario existe en Auth pero no en Firestore, lo creamos.
-              const newInviteCode = generateInviteCode();
-              console.log(`Código ${newInviteCode} asignado exitosamente al usuario ${currentFirebaseUser.uid}`);
-              const newUserProfile: UserProfile = {
-                  uid: currentFirebaseUser.uid,
-                  email: currentFirebaseUser.email!,
-                  name: currentFirebaseUser.displayName || 'New User',
-                  rol: 'user',
-                  saldoUSDT: 0,
-                  invitadoPor: null,
-                  inviteCode: newInviteCode,
-              };
-              try {
-                  await setDoc(userDocRef, newUserProfile);
-                  // onSnapshot será activado por setDoc, así que no es necesario llamar a setUser aquí.
-              } catch (error) {
-                  console.error("AuthProvider: Error creando perfil de usuario:", error);
-                  setUser(null);
-                  setLoading(false);
-              }
+              // This is an inconsistent state. User exists in Auth but not in Firestore.
+              // This can happen if Firestore doc creation fails after Auth user creation,
+              // or if a user authenticated with a provider (e.g. Google) without completing a profile.
+              // We treat them as not fully logged in by keeping user profile null.
+              console.warn(`User ${currentFirebaseUser.uid} is authenticated but has no profile document in Firestore.`);
+              setUser(null);
             }
+            setLoading(false);
           }, (error) => {
             console.error("AuthProvider: Error al obtener el perfil de usuario:", error);
             setUser(null);

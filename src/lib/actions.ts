@@ -22,40 +22,18 @@ const registerSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
   password: z.string().min(6),
-  codigoInvitacion: z.string().optional(),
+  inviteCode: z.string().min(1, 'El código de invitación no puede estar vacío.'),
 });
-
-const generateInviteCode = (length = 6) => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let result = '';
-  for (let i = 0; i < length; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-};
 
 export async function registerUser(values: z.infer<typeof registerSchema>) {
   try {
     const validatedValues = registerSchema.parse(values);
-    const { email, password, codigoInvitacion, name } = validatedValues;
-
-    let invitadoPor: string | null = null;
-
-    if (codigoInvitacion && codigoInvitacion.length > 0) {
-      const codeRef = doc(db, 'codigos_invitacion', codigoInvitacion);
-      const codeSnap = await getDoc(codeRef);
-
-      if (!codeSnap.exists() || codeSnap.data().used) {
-        return { error: 'Código de invitación no válido o ya ha sido utilizado.' };
-      }
-      invitadoPor = codigoInvitacion;
-    }
+    const { email, password, name, inviteCode } = validatedValues;
 
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
-    
-    const newInviteCode = generateInviteCode();
-    console.log(`Código ${newInviteCode} asignado exitosamente al usuario ${user.uid}`);
+
+    console.log(`Código ${inviteCode} asignado exitosamente al usuario ${user.uid}`);
 
     await setDoc(doc(db, 'users', user.uid), {
       uid: user.uid,
@@ -63,18 +41,10 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
       email,
       rol: 'user',
       saldoUSDT: 0,
-      invitadoPor: invitadoPor,
-      inviteCode: newInviteCode,
+      invitadoPor: null,
+      inviteCode: inviteCode,
     });
 
-    if (invitadoPor) {
-      const codeRef = doc(db, 'codigos_invitacion', invitadoPor);
-      await updateDoc(codeRef, {
-        used: true,
-        usedBy: user.uid,
-        usedDate: new Date().toISOString(),
-      });
-    }
     return { success: true };
   } catch (error: any) {
     if (error.code === 'auth/email-already-in-use') {

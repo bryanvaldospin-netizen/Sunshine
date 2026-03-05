@@ -27,7 +27,7 @@ const formSchema = z.object({
   name: z.string().min(2, { message: 'El nombre debe tener al menos 2 caracteres.' }),
   email: z.string().email({ message: 'Por favor, introduce un email válido.' }),
   password: z.string().min(6, { message: 'La contraseña debe tener al menos 6 caracteres.' }),
-  codigoInvitacion: z.string().optional(),
+  inviteCode: z.string().min(1, { message: 'Debes crear un código de invitación.' }),
   terms: z.literal(true, {
     errorMap: () => ({ message: 'Debes aceptar los términos y condiciones.' }),
   }),
@@ -44,7 +44,7 @@ export default function RegisterPage() {
       name: '',
       email: '',
       password: '',
-      codigoInvitacion: '',
+      inviteCode: '',
     },
   });
 
@@ -117,15 +117,15 @@ export default function RegisterPage() {
             />
             <FormField
               control={form.control}
-              name="codigoInvitacion"
+              name="inviteCode"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('auth.invitationCode')}</FormLabel>
+                  <FormLabel>Crea tu código de invitación</FormLabel>
                   <FormControl>
-                    <Input placeholder="CODE123" {...field} value={field.value ?? ''} />
+                    <Input placeholder="EJ: SUNSHINE777" {...field} />
                   </FormControl>
-                  <FormDescription className="text-xs text-muted-foreground">
-                    (Opcional - Úsalo si tienes un referido)
+                   <FormDescription className="text-xs text-muted-foreground">
+                    Este será tu código único para referir a otros. (EJEMPLO: SUNSHINE XXX58)
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
