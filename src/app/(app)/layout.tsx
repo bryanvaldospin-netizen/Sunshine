@@ -16,11 +16,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [firebaseUser, loading, router]);
 
-  if (loading) {
-    return <SplashScreen />;
-  }
-
-  if (!firebaseUser) {
+  if (loading || !firebaseUser) {
     return <SplashScreen />;
   }
 

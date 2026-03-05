@@ -173,11 +173,6 @@ export default function AdminTestPage() {
         router.replace('/login');
       }
     }, [firebaseUser, loading, router]);
-
-    const handleLogout = async () => {
-        await logoutUser();
-        router.push('/login');
-    };
     
     if (loading || !firebaseUser) {
         return <SplashScreen />;
@@ -192,7 +187,7 @@ export default function AdminTestPage() {
                 Volver al Dashboard
             </Button>
             </Link>
-            <Button onClick={handleLogout} variant="ghost" size="sm" className="text-gray-300 hover:bg-gray-700 hover:text-white">
+            <Button onClick={() => logoutUser().then(() => router.push('/login'))} variant="ghost" size="sm" className="text-gray-300 hover:bg-gray-700 hover:text-white">
                 <LogOut className="mr-2 h-4 w-4" />
                 Cerrar Sesión
             </Button>
