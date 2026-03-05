@@ -16,7 +16,6 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { loginAdmin } from '@/lib/actions';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import { useEffect } from 'react';
@@ -28,16 +27,15 @@ const formSchema = z.object({
 
 export default function AdminLoginPage() {
   const { toast } = useToast();
-  const router = useRouter();
   const { user, loading } = useAuth();
 
   // If an admin is already logged in, redirect them away from the login page.
   useEffect(() => {
     if (!loading && user?.rol === 'admin') {
       console.log('Usuario Admin detectado, redirigiendo...');
-      router.replace('/admin-test');
+      window.location.href = '/admin-test';
     }
-  }, [user, loading, router]);
+  }, [user, loading]);
 
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -61,9 +59,8 @@ export default function AdminLoginPage() {
         title: '¡Login de Admin exitoso!',
         description: 'Redirigiendo al panel...',
       });
-      // The auth state might take a moment to update.
-      // We push directly to ensure a fast redirect.
-      router.push('/admin-test');
+      // Force redirect to bypass any Next.js router issues.
+      window.location.href = '/admin-test';
     }
   }
 

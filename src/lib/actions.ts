@@ -273,7 +273,7 @@ export async function toggleUserRole(values: z.infer<typeof toggleRoleSchema>) {
 export async function submitTestDeposit() {
   try {
     await addDoc(collection(db, 'deposit_requests'), {
-      userId: 'XA10iCiKFscyFkcfZnwEfQOWYsB2',
+      userId: 'H4ole6Nze8UtuwUCVMun6awxOPu1',
       userName: 'yareelvaldospin@gmail.com',
       amount: 50,
       comprobanteURL: 'https://picsum.photos/seed/test-receipt/600/400',
