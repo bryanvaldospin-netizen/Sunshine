@@ -158,8 +158,8 @@ export default function AdminTestPage() {
                 <TableBody>
                   {loading && users.length === 0 ? (
                      <>
-                        <TableRow><TableCell colSpan={3}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
-                        <TableRow><TableCell colSpan={3}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                        <TableRow key="skeleton-row-1"><TableCell colSpan={3}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
+                        <TableRow key="skeleton-row-2"><TableCell colSpan={3}><Skeleton className="h-8 w-full" /></TableCell></TableRow>
                      </>
                   ) : users.map((user) => (
                     <TableRow key={user.uid}>
