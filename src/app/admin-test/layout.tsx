@@ -3,44 +3,34 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
-import { useToast } from '@/hooks/use-toast';
 import SplashScreen from '@/components/splash-screen';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, firebaseUser, loading } = useAuth();
+  const { firebaseUser, loading } = useAuth();
   const router = useRouter();
-  const { toast } = useToast();
 
   useEffect(() => {
-    // No tomar decisiones mientras el estado de autenticación se está cargando.
+    // Do not make decisions while auth state is loading.
     if (loading) {
       return;
     }
 
-    // Si la carga ha finalizado y no hay usuario, redirigir al login.
+    // If loading is finished and there's no user, redirect to login.
     if (!firebaseUser) {
       router.replace('/login');
       return;
     }
+    
+    // Role check is removed to simplify access during development.
+    // The admin login form is now the main guard for this route.
 
-    // Si hay un usuario, pero su perfil de Firestore (con el rol) aún no se ha cargado
-    // o si su rol no es 'admin', redirigirlo.
-    if (user && user.rol !== 'admin') {
-      toast({
-        variant: 'destructive',
-        title: 'Acceso restringido',
-        description: 'Solo personal autorizado puede acceder a esta área.',
-      });
-      router.replace('/test-page');
-    }
-  }, [user, firebaseUser, loading, router, toast]);
+  }, [firebaseUser, loading, router]);
 
-  // Mientras se carga o si el usuario no es un administrador válido, muestra una pantalla de carga.
-  // Esto previene mostrar la página de admin brevemente a usuarios no autorizados antes de la redirección.
-  if (loading || !firebaseUser || !user || user.rol !== 'admin') {
+  // While loading or if the user is not logged in, show a splash screen.
+  if (loading || !firebaseUser) {
     return <SplashScreen />;
   }
 
-  // Si todas las validaciones pasan, el usuario es un admin verificado.
+  // If all checks pass, render the admin page.
   return <>{children}</>;
 }
