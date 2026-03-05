@@ -482,26 +482,6 @@ export default function TestPage() {
       <div className="flex flex-col items-center justify-start w-full h-full pt-16 sm:pt-8 space-y-8">
         <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold">{t('dashboard.greeting', { name: userName })}</h1>
-            {loading ? (
-              <Skeleton className="h-8 w-48 bg-gray-800 mx-auto" />
-            ) : profile && profile.inviteCode ? (
-              <div className="inline-flex items-center justify-center gap-2 rounded-full bg-gray-800 px-3 py-1">
-                <span className="text-sm text-gray-400">{t('profile.yourInviteCode')}:</span>
-                <span className="font-mono text-base font-bold text-golden tracking-widest">{profile.inviteCode}</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    if (!profile.inviteCode) return;
-                    navigator.clipboard.writeText(profile.inviteCode);
-                    toast({ title: t('profile.codeCopied'), description: t('profile.codeCopiedDesc') });
-                  }}
-                  className="h-7 w-7 text-gray-400 hover:text-golden hover:bg-gray-700"
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : null }
         </div>
         
         <div className="w-full max-w-5xl">
@@ -519,6 +499,55 @@ export default function TestPage() {
               )}
             </CardContent>
           </Card>
+        </div>
+        
+        <div className="w-full max-w-5xl">
+            <Card className="bg-gray-800 border-gray-700 text-white">
+                <CardHeader>
+                    <CardTitle>Información de Cuenta</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 pt-4">
+                     {loading ? (
+                        <div className="space-y-4 text-sm">
+                            <div className="flex gap-2"><Skeleton className="h-5 w-20 bg-gray-700" /><Skeleton className="h-5 w-48 bg-gray-700" /></div>
+                            <div className="flex gap-2"><Skeleton className="h-5 w-20 bg-gray-700" /><Skeleton className="h-5 w-64 bg-gray-700" /></div>
+                            <div className="flex gap-2"><Skeleton className="h-5 w-20 bg-gray-700" /><Skeleton className="h-5 w-32 bg-gray-700" /></div>
+                            <div className="flex gap-2"><Skeleton className="h-5 w-20 bg-gray-700" /><Skeleton className="h-5 w-24 bg-gray-700" /></div>
+                            <div className="flex gap-2"><Skeleton className="h-5 w-20 bg-gray-700" /><Skeleton className="h-5 w-72 bg-gray-700" /></div>
+                        </div>
+                    ) : profile ? (
+                        <ul className="space-y-2 text-sm list-none">
+                            <li><strong className="text-gray-400 font-medium w-36 inline-block">Nombre:</strong> {profile.name}</li>
+                            <li><strong className="text-gray-400 font-medium w-36 inline-block">Correo:</strong> {profile.email}</li>
+                            <li className="flex items-center">
+                                <strong className="text-gray-400 font-medium w-36 inline-block flex-shrink-0">Código Invitación:</strong>
+                                <span className="font-mono text-golden">{profile.inviteCode || 'N/A'}</span>
+                                {profile.inviteCode && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => {
+                                        if (!profile.inviteCode) return;
+                                        navigator.clipboard.writeText(profile.inviteCode);
+                                        toast({ title: t('profile.codeCopied'), description: t('profile.codeCopiedDesc') });
+                                      }}
+                                      className="h-7 w-7 ml-2 text-gray-400 hover:text-golden hover:bg-gray-700"
+                                    >
+                                      <Copy className="h-4 w-4" />
+                                    </Button>
+                                )}
+                            </li>
+                            <li><strong className="text-gray-400 font-medium w-36 inline-block">Saldo Actual:</strong> {formattedBalance}</li>
+                            <li className="flex items-start">
+                                <strong className="text-gray-400 font-medium w-36 inline-block flex-shrink-0">UID:</strong>
+                                <span className="break-all">{profile.uid}</span>
+                            </li>
+                        </ul>
+                    ) : (
+                        <p className="text-gray-500">No se pudo cargar la información del perfil.</p>
+                    )}
+                </CardContent>
+            </Card>
         </div>
 
         <div className="w-full max-w-5xl">
