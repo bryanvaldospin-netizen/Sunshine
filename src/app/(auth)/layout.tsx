@@ -17,8 +17,6 @@ export default function AuthLayout({
 
   useEffect(() => {
     if (!loading && user) {
-       // Simplified logic: always redirect any logged-in user to the main test page.
-       // The admin can navigate to the admin login manually.
       router.replace('/test-page');
     }
   }, [user, loading, router]);

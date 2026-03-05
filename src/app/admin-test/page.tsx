@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { UserProfile, DepositRequest } from '@/types';
-import { approveDeposit, rejectDeposit, toggleUserRole, logoutUser } from '@/lib/actions';
+import { approveDeposit, rejectDeposit, logoutUser } from '@/lib/actions';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -118,16 +118,6 @@ const UsersTab = () => {
     fetchUsers();
   }, []);
 
-  const handleToggleRole = async (userId: string, currentRole: 'user' | 'admin') => {
-    const result = await toggleUserRole({ userId, currentRole });
-    if (result.error) {
-      toast({ variant: 'destructive', title: 'Error', description: result.error });
-    } else {
-      toast({ title: 'Éxito', description: `Rol del usuario actualizado a ${result.newRole}.` });
-      await fetchUsers();
-    }
-  };
-
   if (loading) {
     return <div className="text-center p-8 text-gray-400">Cargando usuarios...</div>;
   }
@@ -159,15 +149,6 @@ const UsersTab = () => {
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <Badge variant={user.rol === 'admin' ? 'destructive' : 'secondary'}>{user.rol}</Badge>
-                    <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        onClick={() => handleToggleRole(user.uid, user.rol)}
-                        title="Cambiar rol"
-                    >
-                        <Repeat className="h-4 w-4" />
-                    </Button>
                   </div>
                 </TableCell>
                 <TableCell className="text-right font-mono text-golden">{formatCurrency(user.saldoUSDT ?? 0)}</TableCell>

@@ -92,43 +92,6 @@ export async function loginUser(values: z.infer<typeof loginSchema>) {
   }
 }
 
-const adminLoginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-});
-
-export async function loginAdmin(values: z.infer<typeof adminLoginSchema>) {
-  try {
-    const { email, password } = adminLoginSchema.parse(values);
-
-    // Master Key: Check for special credentials
-    if (email === 'sunshine@database.com' && password === 'sunshine.2020') {
-      await signInWithEmailAndPassword(auth, email, password);
-      return { success: true }; // Bypass role check
-    }
-
-    // Standard admin login
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-
-    const userDocRef = doc(db, 'users', user.uid);
-    const userDoc = await getDoc(userDocRef);
-
-    if (!userDoc.exists() || userDoc.data().rol !== 'admin') {
-      await signOut(auth);
-      return { error: 'Acceso denegado. No tienes permisos de administrador.' };
-    }
-
-    return { success: true };
-  } catch (error: any) {
-    if (error.code === 'auth/invalid-credential') {
-      return { error: 'Credenciales incorrectas. Por favor, verifica tu email y contraseña.' };
-    }
-    return { error: 'Ocurrió un error durante el inicio de sesión de administrador.' };
-  }
-}
-
-
 export async function logoutUser() {
   await signOut(auth);
   return { success: true };
@@ -250,31 +213,6 @@ export async function approveDeposit(values: z.infer<typeof approveSchema>) {
     } catch (error: any) {
         return { error: error.message };
     }
-}
-
-
-const toggleRoleSchema = z.object({
-  userId: z.string(),
-  currentRole: z.enum(['user', 'admin']),
-});
-
-export async function toggleUserRole(values: z.infer<typeof toggleRoleSchema>) {
-  try {
-    const { userId, currentRole } = toggleRoleSchema.parse(values);
-    
-    const userRef = doc(db, 'users', userId);
-    
-    const newRole = currentRole === 'admin' ? 'user' : 'admin';
-    
-    await updateDoc(userRef, { rol: newRole });
-    
-    return { success: true, newRole };
-  } catch (error: any) {
-    if (error instanceof z.ZodError) {
-      return { error: error.errors.map(e => e.message).join(', ') };
-    }
-    return { error: error.message };
-  }
 }
 
 export async function submitTestDeposit() {
