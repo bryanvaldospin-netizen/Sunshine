@@ -157,15 +157,9 @@ export default function LoginPage() {
           Iniciar sesión con Google
         </Button>
         
-        <Link href="/guest-dashboard" passHref>
-           <Button variant="link" className="w-full mt-2 text-muted-foreground">
-            Explorar como Invitado
-          </Button>
-        </Link>
-        
         <Link href="/admin-test" passHref>
-            <Button variant="link" className="w-full mt-1 text-muted-foreground underline">
-                Ingresar al Admin Dashboard
+            <Button variant="link" className="w-full mt-2 text-muted-foreground underline">
+                Acceso al Panel
             </Button>
         </Link>
         
