@@ -25,6 +25,15 @@ const registerSchema = z.object({
   codigoInvitacion: z.string().optional(),
 });
 
+const generateInviteCode = (length = 6) => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+};
+
 export async function registerUser(values: z.infer<typeof registerSchema>) {
   try {
     const validatedValues = registerSchema.parse(values);
@@ -44,6 +53,9 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
 
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
+    
+    const newInviteCode = generateInviteCode();
+    console.log(`Código ${newInviteCode} asignado exitosamente al usuario ${user.uid}`);
 
     await setDoc(doc(db, 'users', user.uid), {
       uid: user.uid,
@@ -52,6 +64,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
       rol: 'user',
       saldoUSDT: 0,
       invitadoPor: invitadoPor,
+      inviteCode: newInviteCode,
     });
 
     if (invitadoPor) {

@@ -25,8 +25,8 @@ import { useToast } from '@/hooks/use-toast';
 import { getWalletAddress, submitDeposit, submitTestDeposit, logoutUser } from '@/lib/actions';
 import { Copy, Upload, Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { collection, query, where, getDocs, orderBy, limit, getDoc, doc } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AreaChart, Area, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
@@ -329,36 +329,6 @@ export default function TestPage() {
   const [activePlan, setActivePlan] = useState<Investment | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
 
-  const [inviteCode, setInviteCode] = useState<string | null>(null);
-  const [codeStatus, setCodeStatus] = useState<'hidden' | 'loading' | 'visible' | 'not_found'>('hidden');
-
-  const handleCopyCode = () => {
-    if (!inviteCode) return;
-    navigator.clipboard.writeText(inviteCode);
-    toast({ title: t('profile.codeCopied'), description: t('profile.codeCopiedDesc') });
-  };
-  
-  const handleShowCode = async () => {
-    if (!user) return;
-    setCodeStatus('loading');
-    console.log('Buscando inviteCode...');
-    try {
-      const userDocRef = doc(db, 'users', user.uid);
-      const userDoc = await getDoc(userDocRef);
-      if (userDoc.exists() && userDoc.data().inviteCode) {
-        const code = userDoc.data().inviteCode;
-        setInviteCode(code);
-        setCodeStatus('visible');
-      } else {
-        setCodeStatus('not_found');
-      }
-    } catch (error) {
-      console.error("Error fetching invite code:", error);
-      setCodeStatus('not_found');
-      toast({ variant: 'destructive', title: 'Error', description: 'No se pudo buscar el código.' });
-    }
-  };
-
   useEffect(() => {
     if (user?.uid) {
       const fetchData = async () => {
@@ -489,27 +459,25 @@ export default function TestPage() {
       <div className="flex flex-col items-center justify-start w-full h-full pt-16 sm:pt-8 space-y-8">
         <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold">{t('dashboard.greeting', { name: userName })}</h1>
-            {codeStatus === 'hidden' && (
-              <Button variant="outline" className="border-golden text-golden hover:bg-golden/10 hover:text-golden" onClick={handleShowCode}>
-                {t('dashboard.showInviteCode')}
-              </Button>
-            )}
-            {codeStatus === 'loading' && (
-               <div className="inline-flex items-center justify-center gap-2 rounded-full bg-gray-800 px-3 py-1 h-9">
-                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-golden border-t-transparent" />
-               </div>
-            )}
-            {codeStatus === 'visible' && inviteCode && (
+            {user && user.inviteCode ? (
               <div className="inline-flex items-center justify-center gap-2 rounded-full bg-gray-800 px-3 py-1">
                 <span className="text-sm text-gray-400">{t('profile.yourInviteCode')}:</span>
-                <span className="font-mono text-base font-bold text-golden tracking-widest">{inviteCode}</span>
-                <Button variant="ghost" size="icon" onClick={handleCopyCode} className="h-7 w-7 text-gray-400 hover:text-golden hover:bg-gray-700">
+                <span className="font-mono text-base font-bold text-golden tracking-widest">{user.inviteCode}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    if (!user.inviteCode) return;
+                    navigator.clipboard.writeText(user.inviteCode);
+                    toast({ title: t('profile.codeCopied'), description: t('profile.codeCopiedDesc') });
+                  }}
+                  className="h-7 w-7 text-gray-400 hover:text-golden hover:bg-gray-700"
+                >
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>
-            )}
-            {codeStatus === 'not_found' && (
-              <p className="text-sm text-red-400">{t('dashboard.noInviteCodeAssigned')}</p>
+            ) : !loading && (
+              <p className="text-sm text-gray-400">{t('dashboard.noInviteCodeAssigned')}</p>
             )}
         </div>
         
