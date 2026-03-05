@@ -24,7 +24,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getWalletAddress, submitDeposit, submitTestDeposit, logoutUser } from '@/lib/actions';
 import { Copy, Upload, Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit, onSnapshot, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AreaChart, Area, CartesianGrid, XAxis, YAxis } from 'recharts';
@@ -317,7 +317,7 @@ const ActivePlanCard = ({ plan, loading, user }: { plan: Investment | null, load
 
 
 export default function TestPage() {
-  const { user: profile, firebaseUser, loading: authLoading } = useAuth();
+  const { user: profile, loading: authLoading } = useAuth();
   const { t, setLocale } = useTranslation();
   const { toast } = useToast();
   const router = useRouter();
@@ -327,14 +327,6 @@ export default function TestPage() {
   const [chartData, setChartData] = useState<any[]>([]);
   const [activePlan, setActivePlan] = useState<Investment | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
-
-  useEffect(() => {
-    if (authLoading) return; // Wait for auth to be ready
-    if (!firebaseUser) {
-      router.replace('/login');
-    }
-  }, [firebaseUser, authLoading, router]);
-
 
   useEffect(() => {
     if (profile?.uid) {

@@ -2,7 +2,7 @@
 
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { onAuthStateChanged, User as FirebaseUser, setPersistence, browserLocalPersistence, getRedirectResult } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile } from '@/types';
 
@@ -17,6 +17,15 @@ export const AuthContext = createContext<AuthContextType>({
   firebaseUser: null,
   loading: true,
 });
+
+function generateInviteCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -40,7 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       let unsubscribeFromSnapshot: () => void = () => {};
 
       const unsubscribeFromAuth = onAuthStateChanged(auth, (currentFirebaseUser) => {
-        unsubscribeFromSnapshot(); // Limpia la suscripción anterior a Firestore.
+        unsubscribeFromSnapshot(); 
 
         if (currentFirebaseUser) {
           setFirebaseUser(currentFirebaseUser);
@@ -52,19 +61,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               console.log('Datos del usuario desde Firestore:', userData);
               setUser(userData);
             } else {
-              // This can happen if Firestore doc creation fails after Auth user creation,
-              // or if a user authenticated with a provider (e.g. Google) without completing a profile.
               console.warn(`User ${currentFirebaseUser.uid} is authenticated but has no profile document in Firestore.`);
               setUser(null);
             }
             setLoading(false);
           }, (error) => {
-            console.error("Error de Firestore en AuthProvider:", error.message);
+            console.error('Carga interrumpida por:', error.message);
             setUser(null);
             setLoading(false);
           });
         } else {
-          // No hay usuario logueado.
           setUser(null);
           setFirebaseUser(null);
           setLoading(false);
