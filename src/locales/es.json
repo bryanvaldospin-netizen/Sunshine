@@ -68,24 +68,5 @@
     "loadingAddress": "Cargando dirección...",
     "showInviteCode": "Mostrar Código de Invitación",
     "noInviteCodeAssigned": "No tienes código asignado aún."
-  },
-  "admin": {
-    "title": "Panel de Administrador",
-    "users": "Usuarios",
-    "deposits": "Depósitos",
-    "insights": "Análisis IA",
-    "userName": "Nombre de Usuario",
-    "userEmail": "Correo",
-    "userRole": "Rol",
-    "userCode": "Invitado por",
-    "noRequests": "No hay solicitudes de depósito pendientes.",
-    "approve": "Aprobar",
-    "reject": "Rechazar",
-    "viewProof": "Ver Comprobante",
-    "selectUser": "Selecciona un usuario para obtener análisis",
-    "getInsights": "Obtener Análisis",
-    "summary": "Resumen",
-    "unusualPatterns": "Patrones Inusuales",
-    "unusualPatternsDesc": "Descripción"
   }
 }

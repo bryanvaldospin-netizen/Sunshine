@@ -20,6 +20,7 @@ import Link from 'next/link';
 import { GoogleAuthProvider, signInWithRedirect } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
+import { loginUser } from '@/lib/actions';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Por favor, introduce un email válido.' }),
@@ -68,8 +69,16 @@ export default function LoginPage() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    // Emergency change to force entry, bypassing actual login.
-    window.location.replace('/test-page');
+    const result = await loginUser(values);
+    if (result.error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error de inicio de sesión',
+        description: result.error,
+      });
+    } else {
+      router.push('/test-page');
+    }
   }
 
   async function handleGoogleSignIn() {
@@ -147,14 +156,6 @@ export default function LoginPage() {
           <GoogleIcon className="mr-2" />
           Iniciar sesión con Google
         </Button>
-        
-        <Button
-          className="w-full mt-4 bg-gray-800 hover:bg-gray-700 text-white"
-          onClick={() => (window.location.href = '/admin-test')}
-        >
-          Panel de Control Maestro
-        </Button>
-        
       </CardContent>
     </Card>
   );

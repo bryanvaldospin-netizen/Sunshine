@@ -68,24 +68,5 @@
     "loadingAddress": "Loading address...",
     "showInviteCode": "Show Invitation Code",
     "noInviteCodeAssigned": "You don't have a code assigned yet."
-  },
-  "admin": {
-    "title": "Admin Dashboard",
-    "users": "Users",
-    "deposits": "Deposits",
-    "insights": "AI Insights",
-    "userName": "User Name",
-    "userEmail": "Email",
-    "userRole": "Role",
-    "userCode": "Invited By",
-    "noRequests": "No pending deposit requests.",
-    "approve": "Approve",
-    "reject": "Reject",
-    "viewProof": "View Proof",
-    "selectUser": "Select a user to get insights",
-    "getInsights": "Get Insights",
-    "summary": "Summary",
-    "unusualPatterns": "Unusual Patterns",
-    "unusualPatternsDesc": "Description"
   }
 }

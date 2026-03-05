@@ -9,10 +9,8 @@ import {
   doc,
   getDoc,
   setDoc,
-  runTransaction,
   collection,
   addDoc,
-  updateDoc
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage } from '@/lib/firebase';
@@ -33,8 +31,6 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    console.log(`Código ${inviteCode} asignado exitosamente al usuario ${user.uid}`);
-
     await setDoc(doc(db, 'users', user.uid), {
       uid: user.uid,
       name,
@@ -44,6 +40,8 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
       invitadoPor: null,
       inviteCode: inviteCode,
     });
+    
+    console.log(`Código ${inviteCode} asignado exitosamente al usuario ${user.uid}`);
 
     return { success: true };
   } catch (error: any) {
@@ -150,69 +148,5 @@ export async function submitDeposit(formData: FormData) {
              break;
     }
     return { error: errorMessage };
-  }
-}
-
-
-const idSchema = z.object({ requestId: z.string() });
-
-export async function rejectDeposit(values: z.infer<typeof idSchema>) {
-  try {
-    const { requestId } = idSchema.parse(values);
-    const requestRef = doc(db, 'deposit_requests', requestId);
-    await updateDoc(requestRef, { status: 'Rechazado' });
-    return { success: true };
-  } catch (error: any) {
-    return { error: error.message };
-  }
-}
-
-const approveSchema = z.object({
-  requestId: z.string(),
-  userId: z.string(),
-  amount: z.number().positive(),
-});
-
-export async function approveDeposit(values: z.infer<typeof approveSchema>) {
-    try {
-        const { requestId, userId, amount } = approveSchema.parse(values);
-        
-        await runTransaction(db, async (transaction) => {
-            const requestRef = doc(db, 'deposit_requests', requestId);
-            const userRef = doc(db, 'users', userId);
-
-            const userDoc = await transaction.get(userRef);
-            if (!userDoc.exists()) {
-                throw new Error("User not found");
-            }
-
-            const newBalance = (userDoc.data().saldoUSDT || 0) + amount;
-            
-            transaction.update(userRef, { saldoUSDT: newBalance });
-            transaction.update(requestRef, { status: 'Aprobado' });
-        });
-
-        return { success: true };
-    } catch (error: any) {
-        return { error: error.message };
-    }
-}
-
-export async function submitTestDeposit() {
-  try {
-    await addDoc(collection(db, 'deposit_requests'), {
-      userId: 'H4ole6Nze8UtuwUCVMun6awxOPu1',
-      userName: 'yareelvaldospin@gmail.com',
-      amount: 50,
-      comprobanteURL: 'https://picsum.photos/seed/test-receipt/600/400',
-      date: new Date().toISOString(),
-      status: 'Pendiente',
-      planName: 'Nivel 3 (Oro)',
-    });
-
-    return { success: true };
-  } catch (error: any) {
-    console.error("Error submitting test deposit:", error);
-    return { error: error.message };
   }
 }
