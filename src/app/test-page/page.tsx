@@ -100,7 +100,10 @@ const InvestmentPlans = ({ userProfile }: { userProfile: UserProfile | null }) =
                                 <CardTitle className={`text-lg ${plan.textColor}`}>{plan.name}</CardTitle>
                             </CardHeader>
                             <CardContent className="flex-grow text-center">
-                                <p className="text-2xl font-bold">{plan.investment}</p>
+                                <p className="text-2xl font-bold">
+                                    {plan.investment.split(' ')[0]}{' '}
+                                    <span className="text-white">{plan.investment.split(' ')[1]}</span>
+                                </p>
                             </CardContent>
                             <CardFooter>
                                 <DialogTrigger asChild>
