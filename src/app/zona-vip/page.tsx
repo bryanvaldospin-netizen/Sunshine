@@ -1,37 +1,75 @@
 'use client';
 
-import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import SplashScreen from '@/components/splash-screen';
-
-const ADMIN_UID = 'daNNsN4y5lgsTtrioMXNXcX24ZH2';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ZonaVipPage() {
-  const { firebaseUser, loading } = useAuth();
-  const router = useRouter();
+  const [uid, setUid] = useState('');
+  const [clave, setClave] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { toast } = useToast();
 
-  useEffect(() => {
-    if (!loading) {
-      if (!firebaseUser) {
-        // Not logged in, redirect to login
-        router.replace('/login');
-      } else if (firebaseUser.uid !== ADMIN_UID) {
-        // Logged in but not the admin, redirect to test page
-        router.replace('/test-page');
-      }
+  const handleLogin = () => {
+    if (uid === 'daNNsN4y5lgsTtrioMXNXcX24ZH2' && clave === '0986051804') {
+      setIsAuthenticated(true);
+    } else {
+      toast({
+        variant: 'destructive',
+        title: 'Acceso Denegado',
+        description: 'UID o Clave incorrectos.',
+      });
     }
-  }, [loading, firebaseUser, router]);
+  };
 
-  // While loading, or if the user is not the correct admin yet, show a splash screen.
-  if (loading || !firebaseUser || firebaseUser.uid !== ADMIN_UID) {
-    return <SplashScreen />;
+  if (isAuthenticated) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-gray-900 text-white">
+        <h1 className="text-5xl font-bold">Bienvenido Jefe Brayan</h1>
+      </div>
+    );
   }
 
-  // If we are here, user is loaded and is the admin
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-gray-900 text-white">
-      <h1 className="text-5xl font-bold">Bienvenido Jefe Brayan</h1>
+    <div className="flex h-screen w-screen items-center justify-center bg-gray-900">
+      <Card className="w-full max-w-md bg-gray-800 border-golden text-white">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold text-center text-golden">Acceso Maestro</CardTitle>
+          <CardDescription className="text-center text-gray-400">
+            Ingresa las credenciales de administrador.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="uid-admin">UID Admin</Label>
+            <Input
+              id="uid-admin"
+              type="text"
+              value={uid}
+              onChange={(e) => setUid(e.target.value)}
+              className="bg-gray-700 border-gray-600 focus:ring-golden"
+              placeholder="daNNsN4y5lgsTtrioMXNXcX24ZH2"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="clave">Clave</Label>
+            <Input
+              id="clave"
+              type="password"
+              value={clave}
+              onChange={(e) => setClave(e.target.value)}
+              className="bg-gray-700 border-gray-600 focus:ring-golden"
+              placeholder="••••••••"
+            />
+          </div>
+          <Button onClick={handleLogin} className="w-full bg-gradient-to-r from-golden to-red-800 text-white">
+            Validar y Entrar
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

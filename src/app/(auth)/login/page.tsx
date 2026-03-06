@@ -77,7 +77,7 @@ export default function LoginPage() {
         description: result.error,
       });
     } else {
-      router.push('/test-page');
+      // The redirect logic is handled in the AuthLayout
     }
   }
 
@@ -156,6 +156,11 @@ export default function LoginPage() {
           <GoogleIcon className="mr-2" />
           Iniciar sesión con Google
         </Button>
+        <div className="mt-4 text-center text-xs">
+          <Link href="/zona-vip" className="underline text-muted-foreground hover:text-accent">
+            Acceso Administrativo
+          </Link>
+        </div>
       </CardContent>
     </Card>
   );
