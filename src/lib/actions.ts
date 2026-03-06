@@ -2,7 +2,6 @@
 
 import {
   createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth';
 import {
@@ -50,24 +49,6 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
     }
     if (error instanceof z.ZodError) {
       return { error: error.errors.map(e => e.message).join(', ') };
-    }
-    return { error: error.message };
-  }
-}
-
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-});
-
-export async function loginUser(values: z.infer<typeof loginSchema>) {
-  try {
-    const { email, password } = loginSchema.parse(values);
-    await signInWithEmailAndPassword(auth, email, password);
-    return { success: true };
-  } catch (error: any) {
-     if (error.code === 'auth/invalid-credential') {
-      return { error: 'Credenciales incorrectas. Por favor, verifica tu email y contraseña.' };
     }
     return { error: error.message };
   }

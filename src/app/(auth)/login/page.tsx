@@ -17,10 +17,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from '@/hooks/use-translation';
 import Link from 'next/link';
-import { GoogleAuthProvider, signInWithRedirect } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithRedirect, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { useRouter } from 'next/navigation';
-import { loginUser } from '@/lib/actions';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Por favor, introduce un email válido.' }),
@@ -58,7 +56,6 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export default function LoginPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
-  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -69,15 +66,19 @@ export default function LoginPage() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    const result = await loginUser(values);
-    if (result.error) {
+    try {
+      await signInWithEmailAndPassword(auth, values.email, values.password);
+      // Redirection is handled by the AuthLayout, which listens to auth state changes.
+    } catch (error: any) {
+      let description = 'Ha ocurrido un error inesperado. Por favor, inténtalo de nuevo.';
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+          description = 'Credenciales incorrectas. Por favor, verifica tu email y contraseña.';
+      }
       toast({
         variant: 'destructive',
         title: 'Error de inicio de sesión',
-        description: result.error,
+        description,
       });
-    } else {
-      // The redirect logic is handled in the AuthLayout
     }
   }
 
