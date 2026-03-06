@@ -11,22 +11,19 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { firebaseUser, loading } = useAuth();
+  const { firebaseUser, loading, isAdmin } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    // Si la carga ha terminado y el usuario SÍ existe, redirigir.
     if (!loading && firebaseUser) {
-        router.replace('/test-page');
+        router.replace(isAdmin ? '/admin-test' : '/test-page');
     }
-  }, [loading, firebaseUser, router]);
+  }, [loading, firebaseUser, router, isAdmin]);
 
-  // Muestra una pantalla de carga mientras se verifica la sesión o antes de redirigir.
   if (loading || firebaseUser) {
     return <SplashScreen />;
   }
 
-  // Si no hay usuario, muestra el contenido de login/registro.
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4">
       <div className="absolute top-8 left-8">

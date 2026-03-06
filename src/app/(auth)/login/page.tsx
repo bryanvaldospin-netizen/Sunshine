@@ -21,6 +21,7 @@ import { GoogleAuthProvider, signInWithRedirect } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { loginUser } from '@/lib/actions';
+import { useAuth } from '@/hooks/use-auth';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Por favor, introduce un email válido.' }),
@@ -58,6 +59,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
   const router = useRouter();
+  const { isAdmin } = useAuth();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -76,7 +78,7 @@ export default function LoginPage() {
         description: result.error,
       });
     } else {
-      router.push('/test-page');
+       // Redirection is handled by the AuthLayout
     }
   }
 

@@ -12,6 +12,7 @@ import {
   addDoc,
   getDoc,
   updateDoc,
+  runTransaction,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage } from '@/lib/firebase';
@@ -119,7 +120,7 @@ export async function submitDeposit(formData: FormData) {
       return { error: 'Error al obtener el enlace de la imagen. Intenta de nuevo.' };
     }
 
-    await addDoc(collection(db, 'deposit_requests'), {
+    const newDeposit = {
       userId,
       userName,
       amount,
@@ -127,7 +128,14 @@ export async function submitDeposit(formData: FormData) {
       date: new Date().toISOString(),
       status: 'Pendiente',
       planName,
-    });
+    };
+    
+    // Create the document in deposit_requests
+    const depositDocRef = await addDoc(collection(db, 'deposit_requests'), newDeposit);
+    
+    // Now create the same document in the user's subcollection
+    await setDoc(doc(db, 'users', userId, 'deposit_requests', depositDocRef.id), newDeposit);
+
 
     return { success: true };
   } catch (error: any) {
@@ -151,5 +159,70 @@ export async function submitDeposit(formData: FormData) {
              break;
     }
     return { error: errorMessage };
+  }
+}
+
+// ADMIN ACTIONS
+export async function updateUserBalance(userId: string, newBalance: number) {
+  try {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, { saldoUSDT: newBalance });
+    return { success: true };
+  } catch (error: any) {
+    return { error: 'No se pudo actualizar el saldo del usuario.' };
+  }
+}
+
+export async function approveDeposit(depositId: string, userId: string, amount: number) {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const depositRef = doc(db, 'deposit_requests', depositId);
+    const userSubCollectionDepositRef = doc(db, 'users', userId, 'deposit_requests', depositId);
+
+    await runTransaction(db, async (transaction) => {
+      const userDoc = await transaction.get(userRef);
+      if (!userDoc.exists()) {
+        throw new Error('El usuario no existe.');
+      }
+
+      const currentBalance = userDoc.data().saldoUSDT || 0;
+      const newBalance = currentBalance + amount;
+
+      transaction.update(userRef, { saldoUSDT: newBalance });
+      transaction.update(depositRef, { status: 'Aprobado' });
+      
+      // Also update the subcollection document
+      transaction.update(userSubCollectionDepositRef, { status: 'Aprobado' });
+
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error al aprobar depósito:', error);
+    return { error: error.message };
+  }
+}
+
+export async function rejectDeposit(depositId: string) {
+   try {
+    // This needs to find the deposit document to get the userId to update the subcollection
+    const depositRef = doc(db, 'deposit_requests', depositId);
+    const depositSnap = await getDoc(depositRef);
+
+    if (!depositSnap.exists()) {
+        throw new Error("No se encontró la solicitud de depósito.");
+    }
+
+    const userId = depositSnap.data().userId;
+    const userSubCollectionDepositRef = doc(db, 'users', userId, 'deposit_requests', depositId);
+
+    // Update both documents
+    await updateDoc(depositRef, { status: 'Rechazado' });
+    await updateDoc(userSubCollectionDepositRef, { status: 'Rechazado' });
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error al rechazar depósito:', error);
+    return { error: error.message };
   }
 }
