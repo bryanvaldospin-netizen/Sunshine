@@ -75,8 +75,9 @@ export default function LoginPage() {
         title: 'Error de inicio de sesión',
         description: result.error,
       });
+    } else {
+      router.push('/test-page');
     }
-    // La redirección se maneja en AuthLayout
   }
 
   async function handleGoogleSignIn() {
