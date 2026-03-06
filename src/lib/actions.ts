@@ -2,7 +2,6 @@
 
 import {
   createUserWithEmailAndPassword,
-  signOut,
 } from 'firebase/auth';
 import {
   doc,
@@ -52,11 +51,6 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
     }
     return { error: error.message };
   }
-}
-
-export async function logoutUser() {
-  await signOut(auth);
-  return { success: true };
 }
 
 export async function getWalletAddress() {

@@ -21,11 +21,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { getWalletAddress, submitDeposit, logoutUser } from '@/lib/actions';
+import { getWalletAddress, submitDeposit } from '@/lib/actions';
 import { Copy, Upload, Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, getDocs, orderBy, limit, onSnapshot, doc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
+import { signOut } from 'firebase/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AreaChart, Area, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
@@ -397,8 +398,12 @@ export default function TestPage() {
 
 
   const handleLogout = async () => {
-    await logoutUser();
-    router.push('/login');
+    try {
+      await signOut(auth);
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out: ', error);
+    }
   };
 
   const balance = profile?.saldoUSDT ?? 0;

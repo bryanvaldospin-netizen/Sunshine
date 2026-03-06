@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Mail, LogOut } from 'lucide-react';
-import { logoutUser } from '@/lib/actions';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 
 export default function ProfilePage() {
@@ -18,8 +19,12 @@ export default function ProfilePage() {
   if (!user) return null;
 
   const handleLogout = async () => {
-    await logoutUser();
-    router.push('/login');
+    try {
+      await signOut(auth);
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out: ', error);
+    }
   };
 
   const supportEmail = 'bryan_valdospin@hotmail.com';

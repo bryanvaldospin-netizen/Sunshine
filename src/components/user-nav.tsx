@@ -12,7 +12,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/use-auth';
-import { logoutUser } from '@/lib/actions';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { useTranslation } from '@/hooks/use-translation';
 import { LogOut, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
@@ -24,8 +25,12 @@ export function UserNav() {
   const router = useRouter();
 
   const handleLogout = async () => {
-    await logoutUser();
-    router.push('/login');
+    try {
+      await signOut(auth);
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out: ', error);
+    }
   };
   
   const getInitials = (name: string) => {
