@@ -1,31 +1,21 @@
 /**
- * Core Philosophy: This ruleset implements a highly secure, role-based access control model centered on
- * the principle of "Authorization Independence." Administrative privileges are determined by the existence
- * of a document in the `/admins` collection, which is a fast, atomic check (`exists()`) that avoids
- * slow and costly `get()` calls in rules. This provides a clear separation between user data and
- * authorization data.
+ * Core Philosophy: This ruleset implements a secure model where users can only access their own data.
+ * All administrative functions have been removed for a user-focused application.
  *
  * Data Structure:
  * - /users/{userId}: Stores public and private user profile information. Users can manage their own
- *   profile, while administrators have read/write access to all profiles.
- * - /admins/{adminId}: A simple collection where the document ID is a user's UID. Its existence grants
- *   that user admin privileges across the entire database. This collection is not writable by clients.
+ *   profile.
  * - /invitation_codes/{invitationCodeId}: Stores invitation codes required for registration. These are
- *   publicly readable for verification but are managed exclusively by administrators.
+ *   publicly readable for verification.
  * - /users/{userId}/deposit_requests/{reqId}: A user-specific subcollection for managing financial
- *   deposit requests. Users have full control over their own requests, and admins can review and
- *   process requests across all users, often via Collection Group queries.
+ *   deposit requests. Users have full control to create and read their own requests.
  *
  * Key Security Decisions:
- * - Admin Access: The `isAdmin()` function, checking for `exists(/databases/$(database)/documents/admins/$(request.auth.uid))`,
- *   is the cornerstone of the security model.
+ * - No Admin Access: There is no concept of an admin role. All users have the same permissions.
  * - User Profile Security: Regular users are explicitly forbidden from modifying sensitive fields like
- *   `role` or `saldoUSDT` on their own profile. These can only be changed by an administrator.
- * - User Enumeration: Listing documents in the top-level `/users` collection is prohibited for non-admins
+ *   `role` or `saldoUSDT` on their own profile.
+ * - User Enumeration Prevention: Listing documents in the top-level `/users` collection is prohibited
  *   to prevent scraping of user data.
- * - Denormalization for Authorization: User-owned documents in subcollections (e.g., DepositRequest)
- *   contain a denormalized `userId` field to allow for secure, self-contained authorization checks
- *   that support both direct access and Collection Group queries by administrators.
  * - Prototyping Flexibility: Data shapes are not strictly enforced (e.g., checking for all required fields
  *   or exact data types), allowing for rapid frontend development. However, authorization logic and
  *   the integrity of relational IDs (like `userId`) are strictly validated.
@@ -42,10 +32,6 @@ service cloud.firestore {
     // Checks if the request's user ID matches the wildcard document ID.
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
-    }
-    
-    function isAdmin() {
-      return exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
     // Verifies that a document exists before an update or delete operation.
@@ -86,10 +72,10 @@ service cloud.firestore {
      * @path /users/{userId}
      */
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
+      allow get: if isOwner(userId);
+      allow list: if false; // Prevent user enumeration
       allow create: if isOwner(userId) && isValidNewUserProfile(request.resource.data, userId);
-      allow update: if (isExistingOwner(userId) && userCanUpdateOwnProfile(request.resource.data, resource.data)) || isAdmin();
+      allow update: if isExistingOwner(userId) && userCanUpdateOwnProfile(request.resource.data, resource.data);
       allow delete: if false;
     }
 
@@ -100,16 +86,9 @@ service cloud.firestore {
     match /users/{userId}/deposit_requests/{depositRequestId} {
       allow get, list: if isOwner(userId);
       allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isAdmin();
+      // Updates and deletes are not allowed for users. This would be an admin function.
+      allow update: if false;
       allow delete: if false;
-    }
-
-    /**
-     * @description Collection group rules for all deposit requests.
-     * Allows admins to query across all users' deposit_requests subcollections.
-     */
-    match /{path=**}/deposit_requests/{depositRequestId} {
-      allow get, list: if isAdmin();
     }
 
     /**
@@ -122,16 +101,6 @@ service cloud.firestore {
       allow create: if false;
       allow update: if false;
       allow delete: if false;
-    }
-    
-    /**
-     * @description Rules for the admins collection.
-     * @path /admins/{adminId}
-     * Admin documents should only be created/managed via the Firebase Console.
-     */
-    match /admins/{adminId} {
-        allow read: if isAdmin();
-        allow write: if false;
     }
   }
 }
