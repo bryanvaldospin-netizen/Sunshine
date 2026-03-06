@@ -21,7 +21,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { getWalletAddress, submitDeposit } from '@/lib/actions';
+import { getWalletAddress } from '@/lib/actions';
 import { Copy, Upload, Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, getDocs, orderBy, limit, onSnapshot, doc } from 'firebase/firestore';
@@ -116,24 +116,26 @@ const InvestmentPlans = ({ userProfile }: { userProfile: UserProfile | null }) =
         formData.append('planName', selectedPlan.name);
         
         try {
-            const result = await submitDeposit(formData);
+            const response = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
 
-            if (result?.error) {
-                toast({ 
-                    variant: 'destructive', 
-                    title: 'Error al subir el comprobante', 
-                    description: result.error
-                });
-            } else {
-                toast({ title: 'Solicitud enviada con éxito', description: 'Tu comprobante está siendo revisado.' });
-                form.reset();
-                setOpen(false);
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Ocurrió un error en el servidor.');
             }
-        } catch(error: any) {
+
+            toast({ title: 'Solicitud enviada con éxito', description: 'Tu comprobante está siendo revisado.' });
+            form.reset();
+            setOpen(false);
+
+        } catch (error: any) {
             toast({ 
                 variant: 'destructive', 
-                title: 'Error inesperado', 
-                description: 'Ocurrió un problema al enviar el formulario. Revisa la consola.' 
+                title: 'Error al enviar la solicitud', 
+                description: error.message || 'No se pudo completar la subida. Por favor, intenta de nuevo.' 
             });
             console.error("Error en submit:", error);
         } finally {
