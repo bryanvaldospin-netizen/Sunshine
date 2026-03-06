@@ -6,23 +6,12 @@ import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import type { UserProfile, Investment } from '@/types';
 
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 import { Button } from '@/components/ui/button';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getWalletAddress } from '@/lib/actions';
-import { Copy, Upload, Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut } from 'lucide-react';
+import { Copy, Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, getDocs, orderBy, limit, onSnapshot, doc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -39,14 +28,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 
-
-const depositFormSchema = z.object({
-  amount: z.coerce.number().positive({ message: 'El monto debe ser mayor a 0.' }),
-  proof: z
-    .any()
-    .refine((files) => files?.length == 1, 'Debes subir un comprobante.')
-    .refine((files) => files?.[0]?.size <= 5000000, `El tamaño máximo del archivo es 5MB.`),
-});
 
 const FlagsMarquee = () => {
     const flags = [
@@ -76,77 +57,23 @@ const FlagsMarquee = () => {
 const InvestmentPlans = ({ userProfile }: { userProfile: UserProfile | null }) => {
     const { t } = useTranslation();
     const { toast } = useToast();
-    const [isSubmitting, setIsSubmitting] = useState(false);
     const [open, setOpen] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<{name: string, investment: string, min: number} | null>(null);
     const [walletAddress, setWalletAddress] = useState('');
-    const user = userProfile;
 
     useEffect(() => {
         getWalletAddress().then(setWalletAddress);
     }, []);
 
-    const form = useForm<z.infer<typeof depositFormSchema>>({
-        resolver: zodResolver(depositFormSchema),
-        defaultValues: { amount: '' as any, proof: undefined },
-    });
-    
-    async function onSubmit(values: z.infer<typeof depositFormSchema>) {
-        if (!selectedPlan) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Por favor, selecciona un plan primero.' });
-            return;
-        }
-
-        if (values.amount < selectedPlan.min) {
-            toast({ variant: 'destructive', title: 'Monto Inválido', description: `El monto mínimo para el plan ${selectedPlan.name} es ${selectedPlan.min} USDT.` });
-            return;
-        }
-
-        if (!user) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Debes iniciar sesión para realizar un depósito.' });
-            return;
-        }
-        
-        setIsSubmitting(true);
-        const formData = new FormData();
-        formData.append('userId', user.uid);
-        formData.append('userName', user.name);
-        formData.append('amount', values.amount.toString());
-        formData.append('proof', values.proof[0]);
-        formData.append('planName', selectedPlan.name);
-        
-        try {
-            const response = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData,
-            });
-
-            const result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result.error || 'Ocurrió un error en el servidor.');
-            }
-
-            toast({ title: 'Solicitud enviada con éxito', description: 'Tu comprobante está siendo revisado.' });
-            form.reset();
-            setOpen(false);
-
-        } catch (error: any) {
-            toast({ 
-                variant: 'destructive', 
-                title: 'Error al enviar la solicitud', 
-                description: error.message || 'No se pudo completar la subida. Por favor, intenta de nuevo.' 
-            });
-            console.error("Error en submit:", error);
-        } finally {
-            setIsSubmitting(false);
-        }
-    }
-    
     const handleCopy = () => {
         if (!walletAddress) return;
         navigator.clipboard.writeText(walletAddress);
         toast({ title: t('dashboard.copy'), description: t('dashboard.copied') });
+    };
+
+    const handleContinue = () => {
+        window.open('https://form.jotform.com/260646464495063', '_blank');
+        setOpen(false);
     };
 
     const plans = [
@@ -190,7 +117,7 @@ const InvestmentPlans = ({ userProfile }: { userProfile: UserProfile | null }) =
                 <DialogHeader>
                     <DialogTitle>Realizar Depósito para {selectedPlan?.name}</DialogTitle>
                     <DialogDescription>
-                        Transfiere el monto exacto a la billetera USDT (TRC-20) a continuación y sube el comprobante de la transacción.
+                        Transfiere el monto a la billetera USDT (TRC-20) y luego haz clic en el botón para completar tu solicitud en nuestro formulario seguro.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
@@ -203,56 +130,9 @@ const InvestmentPlans = ({ userProfile }: { userProfile: UserProfile | null }) =
                             </Button>
                         </div>
                     </div>
-                    <Form {...form}>
-                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <FormField
-                          control={form.control}
-                          name="amount"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>{t('dashboard.amount')}</FormLabel>
-                              <FormControl>
-                                <Input type="number" placeholder={`${selectedPlan?.min || 100}.00`} {...field} className="bg-gray-700 border-gray-600" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                         <FormField
-                          control={form.control}
-                          name="proof"
-                          render={({ field: { onChange, onBlur, name, ref } }) => (
-                            <FormItem>
-                              <FormLabel>{t('dashboard.proof')}</FormLabel>
-                              <FormControl>
-                                <div className="relative">
-                                    <Button asChild variant="outline" className="w-full border-dashed border-gray-500 hover:border-golden text-gray-300">
-                                        <label htmlFor="proof-upload" className="cursor-pointer flex items-center justify-center">
-                                            <Upload className="mr-2 h-4 w-4" />
-                                            <span className="truncate">{form.watch('proof')?.[0]?.name || t('dashboard.selectFile')}</span>
-                                        </label>
-                                    </Button>
-                                    <Input 
-                                        id="proof-upload"
-                                        type="file" 
-                                        className="hidden" 
-                                        accept="*/*"
-                                        onBlur={onBlur}
-                                        name={name}
-                                        ref={ref}
-                                        onChange={(e) => onChange(e.target.files)}
-                                    />
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <Button type="submit" className="w-full bg-gradient-to-r from-golden to-red-800 text-white text-lg py-6" disabled={isSubmitting}>
-                          {isSubmitting ? t('dashboard.sending') : t('dashboard.sendProof')}
-                        </Button>
-                      </form>
-                    </Form>
+                    <Button onClick={handleContinue} className="w-full bg-gradient-to-r from-golden to-red-800 text-white text-lg py-6">
+                      Completar Solicitud de Depósito
+                    </Button>
                 </div>
             </DialogContent>
         </Dialog>
