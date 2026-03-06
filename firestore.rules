@@ -43,6 +43,10 @@ service cloud.firestore {
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
+    
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
 
     // Verifies that a document exists before an update or delete operation.
     function isExistingDoc() {
@@ -82,22 +86,30 @@ service cloud.firestore {
      * @path /users/{userId}
      */
     match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false;
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
       allow create: if isOwner(userId) && isValidNewUserProfile(request.resource.data, userId);
-      allow update: if isExistingOwner(userId) && userCanUpdateOwnProfile(request.resource.data, resource.data);
+      allow update: if (isExistingOwner(userId) && userCanUpdateOwnProfile(request.resource.data, resource.data)) || isAdmin();
       allow delete: if false;
     }
 
     /**
-     * @description Rules for a user's deposit requests.
+     * @description Rules for a user's deposit requests (subcollection).
      * @path /users/{userId}/deposit_requests/{depositRequestId}
      */
     match /users/{userId}/deposit_requests/{depositRequestId} {
       allow get, list: if isOwner(userId);
       allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if false;
+      allow update: if isAdmin();
       allow delete: if false;
+    }
+
+    /**
+     * @description Collection group rules for all deposit requests.
+     * Allows admins to query across all users' deposit_requests subcollections.
+     */
+    match /{path=**}/deposit_requests/{depositRequestId} {
+      allow get, list: if isAdmin();
     }
 
     /**
@@ -110,6 +122,16 @@ service cloud.firestore {
       allow create: if false;
       allow update: if false;
       allow delete: if false;
+    }
+    
+    /**
+     * @description Rules for the admins collection.
+     * @path /admins/{adminId}
+     * Admin documents should only be created/managed via the Firebase Console.
+     */
+    match /admins/{adminId} {
+        allow read: if isAdmin();
+        allow write: if false;
     }
   }
 }

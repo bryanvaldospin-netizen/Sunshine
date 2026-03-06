@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, doc, updateDoc, getDoc, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, doc, updateDoc, getDoc, writeBatch, collectionGroup } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -129,7 +129,7 @@ function DepositsTable() {
   const { toast } = useToast();
 
   useEffect(() => {
-    const q = collection(db, 'deposit_requests');
+    const q = collectionGroup(db, 'deposit_requests');
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const requestsData: DepositRequestWithId[] = [];
       querySnapshot.forEach((doc) => {
