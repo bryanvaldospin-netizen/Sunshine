@@ -77,7 +77,8 @@ export async function submitDeposit(formData: FormData) {
       return { error: 'No se ha especificado un nombre de plan.' };
     }
     
-    const uniqueFileName = `${Date.now()}_${proofFile.name}`;
+    const extension = proofFile.name.split('.').pop() || 'jpg';
+    const uniqueFileName = `comprobante_${userId}_${Date.now()}.${extension}`;
     const filePath = `comprobantes/${userId}/${uniqueFileName}`;
     const storageRef = ref(storage, filePath);
 
