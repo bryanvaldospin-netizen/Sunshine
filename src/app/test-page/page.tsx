@@ -333,8 +333,7 @@ export default function TestPage() {
         try {
           // Chart and Stats Data
           const depositsQuery = query(
-            collection(db, 'deposit_requests'),
-            where('userId', '==', profile.uid),
+            collection(db, 'users', profile.uid, 'deposit_requests'),
             where('status', '==', 'Aprobado'),
             orderBy('date', 'asc')
           );

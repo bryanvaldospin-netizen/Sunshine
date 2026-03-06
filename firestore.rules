@@ -77,6 +77,13 @@ service cloud.firestore {
     match /{path=**}/deposit_requests/{reqId} {
         allow read, list, update: if isAdmin();
     }
+    
+    match /investments/{investmentId} {
+      // Admins can read/write everything
+      // Users can only read their own
+      allow read: if isAdmin() || request.auth.uid == resource.data.userId;
+      allow write: if isAdmin();
+    }
 
     // Rules for invitation codes
     match /invitation_codes/{invitationCodeId} {
