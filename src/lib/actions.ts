@@ -37,7 +37,7 @@ export async function loginAdmin(values: z.infer<typeof adminLoginSchema>) {
     // 2. If valid, perform an "invisible" login with the master admin credentials.
     // These credentials must correspond to the UID: daNNsN4y5lgsTtrioMXNXcX24ZH2
     const adminEmail = process.env.ADMIN_EMAIL || 'admin@sunshine.com';
-    const adminPassword = process.env.ADMIN_PASSWORD || 'SunshineAdmin_0986051804!';
+    const adminPassword = process.env.ADMIN_PASSWORD || '0986051804';
     
     await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
 
@@ -100,11 +100,8 @@ const loginSchema = z.object({
 export async function loginUser(values: z.infer<typeof loginSchema>) {
   try {
     const { email, password } = loginSchema.parse(values);
-    const userDoc = await getDoc(doc(db, 'users', (await signInWithEmailAndPassword(auth, email, password)).user.uid));
-    if (userDoc.data()?.rol === 'admin') {
-      await signOut(auth);
-      return { error: 'Las cuentas de administrador no pueden iniciar sesión aquí. Utilice el acceso de administrador.' };
-    }
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    router.push('/test-page');
     return { success: true };
   } catch (error: any) {
      if (error.code === 'auth/invalid-credential') {
