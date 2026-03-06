@@ -1,0 +1,218 @@
+{
+  "entities": {
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserProfile",
+      "type": "object",
+      "description": "Represents a user's profile in the Sunshine application, including their role, financial balance, and other personal settings. This entity stores information for both regular users and administrators, distinguished by the 'role' property.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserProfile entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of the user within the application (e.g., 'user', 'admin')."
+        },
+        "saldoUSDT": {
+          "type": "number",
+          "description": "The user's current investment balance in USDT (Tether). This field is read-only for regular users and editable only by administrators, enforced by Firestore security rules."
+        },
+        "preferredLanguage": {
+          "type": "string",
+          "description": "The user's preferred language for the application interface (e.g., 'es' for Spanish, 'en' for English)."
+        },
+        "termsAccepted": {
+          "type": "boolean",
+          "description": "Indicates whether the user has accepted the 'Términos y Condiciones de Inversión de Sunshine' during registration."
+        },
+        "invitationCodeUsedId": {
+          "type": "string",
+          "description": "Reference to the InvitationCode entity that was used by this user during registration. (Relationship: InvitationCode 1:N UserProfile)"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "role",
+        "saldoUSDT",
+        "termsAccepted",
+        "invitationCodeUsedId"
+      ]
+    },
+    "InvitationCode": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "InvitationCode",
+      "type": "object",
+      "description": "Represents an invitation code required for new user registration in the Sunshine application. Each code can be used only once.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The unique invitation code string itself, serving as its identifier (e.g., 'SUNSHINE2023')."
+        },
+        "isUsed": {
+          "type": "boolean",
+          "description": "Indicates whether this invitation code has been used to register a user."
+        },
+        "usedByUserId": {
+          "type": "string",
+          "description": "Reference to the UserProfile entity that used this invitation code. Only present if 'isUsed' is true. (Relationship: UserProfile 1:1 InvitationCode)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The date and time when this invitation code was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "isUsed",
+        "createdAt"
+      ]
+    },
+    "DepositRequest": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DepositRequest",
+      "type": "object",
+      "description": "Represents a user's request to deposit USDT into their Sunshine investment account, awaiting administrator review and approval.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the DepositRequest entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the UserProfile entity that made this deposit request. (Relationship: UserProfile 1:N DepositRequest)"
+        },
+        "amountUSDT": {
+          "type": "number",
+          "description": "The amount of USDT (Tether) the user intends to deposit."
+        },
+        "comprobanteURL": {
+          "type": "string",
+          "description": "The URL to the uploaded proof of transfer (comprobante) for the deposit.",
+          "format": "uri"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the deposit request (e.g., 'pending', 'approved', 'rejected')."
+        },
+        "requestDate": {
+          "type": "string",
+          "description": "The date and time when the deposit request was submitted.",
+          "format": "date-time"
+        },
+        "adminNotes": {
+          "type": "string",
+          "description": "Optional internal notes added by an administrator regarding the approval or rejection of the request."
+        },
+        "processedByAdminId": {
+          "type": "string",
+          "description": "Reference to the UserProfile entity (admin) who processed this request. Only present if status is 'approved' or 'rejected'. (Relationship: UserProfile 1:N DepositRequest)"
+        },
+        "processedDate": {
+          "type": "string",
+          "description": "The date and time when the deposit request was processed by an administrator.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "amountUSDT",
+        "comprobanteURL",
+        "status",
+        "requestDate"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores individual user profiles. Each document ID (`userId`) corresponds to a Firebase Authentication UID. 'saldoUSDT' is read-only for regular users and editable only by administrators. Includes the 'role' field for display, but admin authorization for security rules is determined by the existence of a document in the '/admins/{userId}' collection for Authorization Independence.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique Firebase Authentication User ID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/admins/{adminId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "A top-level collection used *solely* for Database Access Control (DBAC). The existence of a document with a user's UID here grants administrator privileges in Firestore security rules. This ensures Authorization Independence, allowing atomic checks without `get()` operations.",
+          "params": [
+            {
+              "name": "adminId",
+              "description": "The Firebase Authentication User ID of an administrator."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/invitation_codes/{invitationCodeId}",
+        "definition": {
+          "entityName": "InvitationCode",
+          "schema": {
+            "$ref": "#/backend/entities/InvitationCode"
+          },
+          "description": "Stores unique invitation codes. Unauthenticated users can perform a `get()` to verify a specific code during registration. Administrators can create, read, and list all codes. Registration atomically updates `isUsed` and `usedByUserId` fields.",
+          "params": [
+            {
+              "name": "invitationCodeId",
+              "description": "The unique invitation code string itself."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/deposit_requests/{depositRequestId}",
+        "definition": {
+          "entityName": "DepositRequest",
+          "schema": {
+            "$ref": "#/backend/entities/DepositRequest"
+          },
+          "description": "Stores deposit requests specific to a user. The 'userId' field within each document denormalizes ownership context, ensuring Authorization Independence for security rules. Users can create and read their own requests. Administrators can read all requests (via collection group queries) and modify their status.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The Firebase Authentication User ID of the user submitting the request."
+            },
+            {
+              "name": "depositRequestId",
+              "description": "The unique identifier for the deposit request."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The proposed Firestore structure prioritizes secure, scalable, and debuggable authorization by strictly adhering to the core design principles and mandates. A critical aspect is achieving Authorization Independence to eliminate slow and complex `get()` calls in security rules.\n\n**Authorization Independence via Denormalization:**\n1.  **Admin Role:** Instead of relying on a `role` field within the `users` collection and performing a `get()` call to ascertain admin status for every protected resource, a dedicated top-level collection `/admins/{adminId}` is introduced. The mere *existence* of a document with the authenticated user's UID in this collection signifies administrative privileges. This allows security rules to check `exists(/admins/$(request.auth.uid))` which is atomic and highly performant, fully satisfying Authorization Independence for global roles.\n2.  **User-Owned Subcollections:** For user-specific data like `DepositRequest`, the `userId` is explicitly included as a field within each `DepositRequest` document (`/users/{userId}/deposit_requests/{depositRequestId}`). This denormalizes the ownership context, allowing rules to directly evaluate `resource.data.userId == request.auth.uid` without needing to inspect the parent `users/{userId}` document. This ensures that creating or updating a `DepositRequest` is an atomic operation and not dependent on the parent document's attributes for authorization.\n\n**Support for Query-Able Access Patterns (QAPs):**\n1.  **User Data (UserProfile):** Individual users can access their own profile at `/users/$(request.auth.uid)`. Administrators need to list all users. This can be achieved with a direct collection query on `/users` combined with a security rule that checks `isAdmin()` (i.e., `exists(/admins/$(request.auth.uid))`). The structural segregation principle is respected as all documents in `/users` share the `UserProfile` schema and generally similar read/write access patterns (self-read/admin-write).\n2.  **Invitation Codes (InvitationCode):** The `/invitation_codes/{invitationCodeId}` collection allows unauthenticated users to perform a `get()` operation on a specific code during registration to verify its existence and `isUsed` status. Administrators can perform `list` operations on this collection to manage all codes, authorized by `isAdmin()`. The specific update to mark a code as used is handled by rules ensuring atomicity and preventing reuse.\n3.  **Deposit Requests (DepositRequest):** Users can `list` their own deposit requests at `/users/$(request.auth.uid)/deposit_requests`. For administrators, listing all pending deposit requests across *all* users is a common requirement. This is facilitated by using a **Collection Group Query** on `deposit_requests` (e.g., `db.collectionGroup('deposit_requests').where('status', '==', 'pending')`). The security rules can then allow `list` on this collection group if `isAdmin()`, without needing to perform `get()` calls to parent documents or filtering results on the client-side. The denormalized `userId` in each `DepositRequest` document ensures individual document reads for both users and admins are also highly efficient and secure.\n\n**Structural Segregation and Consistency:**\n*   Each collection adheres to a homogeneous security posture. `users` holds all user profiles, `admins` explicitly marks administrators, `invitation_codes` manages code lifecycle, and `deposit_requests` (within user subcollections) manages user-specific deposit activities. This simplifies security rules greatly by associating clear access patterns with specific paths."
+  }
+}

@@ -1,0 +1,153 @@
+/**
+ * Core Philosophy: This ruleset implements a highly secure, role-based access control model centered on
+ * the principle of "Authorization Independence." Administrative privileges are determined by the existence
+ * of a document in the `/admins` collection, which is a fast, atomic check (`exists()`) that avoids
+ * slow and costly `get()` calls in rules. This provides a clear separation between user data and
+ * authorization data.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores public and private user profile information. Users can manage their own
+ *   profile, while administrators have read/write access to all profiles.
+ * - /admins/{adminId}: A simple collection where the document ID is a user's UID. Its existence grants
+ *   that user admin privileges across the entire database. This collection is not writable by clients.
+ * - /invitation_codes/{invitationCodeId}: Stores invitation codes required for registration. These are
+ *   publicly readable for verification but are managed exclusively by administrators.
+ * - /users/{userId}/deposit_requests/{reqId}: A user-specific subcollection for managing financial
+ *   deposit requests. Users have full control over their own requests, and admins can review and
+ *   process requests across all users, often via Collection Group queries.
+ *
+ * Key Security Decisions:
+ * - Admin Access: The `isAdmin()` function, checking for `exists(/databases/$(database)/documents/admins/$(request.auth.uid))`,
+ *   is the cornerstone of the security model.
+ * - User Profile Security: Regular users are explicitly forbidden from modifying sensitive fields like
+ *   `role` or `saldoUSDT` on their own profile. These can only be changed by an administrator.
+ * - User Enumeration: Listing documents in the top-level `/users` collection is prohibited for non-admins
+ *   to prevent scraping of user data.
+ * - Denormalization for Authorization: User-owned documents in subcollections (e.g., DepositRequest)
+ *   contain a denormalized `userId` field to allow for secure, self-contained authorization checks
+ *   that support both direct access and Collection Group queries by administrators.
+ * - Prototyping Flexibility: Data shapes are not strictly enforced (e.g., checking for all required fields
+ *   or exact data types), allowing for rapid frontend development. However, authorization logic and
+ *   the integrity of relational IDs (like `userId`) are strictly validated.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for DRY and readable rules
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the currently authenticated user is an administrator.
+     * Admin status is granted by the existence of a document in the /admins collection
+     * with the user's UID as the document ID. This is a fast and secure check.
+     */
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Checks if the request's user ID matches the wildcard document ID.
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Verifies that a document exists before an update or delete operation.
+    function isExistingDoc() {
+      return resource != null;
+    }
+
+    // A convenience function combining ownership and existence checks for state-changing operations.
+    function isExistingOwner(userId) {
+      return isOwner(userId) && isExistingDoc();
+    }
+
+    /**
+     * Validates the initial state of a user-created profile.
+     * Ensures critical fields like ID, role, and initial balance are set correctly
+     * and cannot be manipulated by the client on creation.
+     */
+    function isValidNewUserProfile(data, userId) {
+      return data.id == userId
+          && data.role == 'user'
+          // Users cannot set their own balance on creation; it must start at 0.
+          && data.saldoUSDT == 0;
+    }
+
+    /**
+     * Validates a profile update made by the user themselves.
+     * Prevents users from escalating privileges or changing immutable/admin-only fields.
+     */
+    function userCanUpdateOwnProfile(requestData, existingData) {
+      // Users cannot change their balance, role, or unique ID.
+      return requestData.saldoUSDT == existingData.saldoUSDT
+          && requestData.role == existingData.role
+          && requestData.id == existingData.id;
+    }
+
+    /**
+     * @description Rules for UserProfile documents.
+     * @path /users/{userId}
+     * @allow (get) An authenticated user can read their own profile.
+     * @allow (update) An administrator can update any user's profile, including sensitive fields.
+     * @deny (list) A regular user cannot list all documents in the /users collection.
+     * @deny (update) A regular user cannot change their own 'saldoUSDT' or 'role'.
+     * @principle Restricts access to a user's own data tree and grants admins privileged write access.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && isValidNewUserProfile(request.resource.data, userId);
+      allow update: if (isExistingOwner(userId) && userCanUpdateOwnProfile(request.resource.data, resource.data)) || (isAdmin() && isExistingDoc());
+      allow delete: if isAdmin() && isExistingDoc();
+    }
+
+    /**
+     * @description Rules for a user's deposit requests.
+     * @path /users/{userId}/deposit_requests/{depositRequestId}
+     * @allow (create) An authenticated user can create a deposit request for themselves.
+     * @allow (list) An administrator can list all deposit requests across all users (via collection group query).
+     * @deny (update) A user cannot update another user's deposit request.
+     * @deny (delete) A regular user cannot delete their own request once submitted; only an admin can.
+     * @principle Enforces document ownership and supports admin oversight via collection group queries.
+     */
+    match /users/{userId}/deposit_requests/{depositRequestId} {
+      allow get, list: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      allow update: if isAdmin() && isExistingDoc();
+      allow delete: if isAdmin() && isExistingDoc();
+    }
+
+    /**
+     * @description Defines the admin role lookup collection.
+     * @path /admins/{adminId}
+     * @allow (get) An admin can check if another user is also an admin.
+     * @deny (create, update, delete) This collection is read-only from client applications to prevent privilege escalation. It should only be managed from a trusted server environment.
+     * @principle Provides a secure, read-only mechanism for the isAdmin() function to check privileges.
+     */
+    match /admins/{adminId} {
+      allow get, list: if isAdmin();
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Rules for invitation codes used in user registration.
+     * @path /invitation_codes/{invitationCodeId}
+     * @allow (get) Any user (including unauthenticated) can fetch a single code to verify it.
+     * @allow (create) An administrator can create new invitation codes.
+     * @deny (list) Only administrators can list all available invitation codes.
+     * @deny (update) A regular user cannot change the status of an invitation code.
+     * @principle Implements public read for verification with admin-only write/management access.
+     */
+    match /invitation_codes/{invitationCodeId} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin() && isExistingDoc();
+      allow delete: if isAdmin() && isExistingDoc();
+    }
+  }
+}
