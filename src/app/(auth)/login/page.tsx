@@ -21,17 +21,6 @@ import { GoogleAuthProvider, signInWithRedirect } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { loginUser } from '@/lib/actions';
-import { useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Por favor, introduce un email válido.' }),
@@ -65,78 +54,6 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-function AdminLoginDialog() {
-  const [id, setId] = useState('');
-  const [key, setKey] = useState('');
-  const [open, setOpen] = useState(false);
-  const { toast } = useToast();
-  const router = useRouter();
-
-  const handleAdminLogin = () => {
-    if (id === '0986051804' && key === '0986051804') {
-      toast({
-        title: 'Acceso concedido',
-        description: 'Redirigiendo al panel de administrador.',
-      });
-      setOpen(false);
-      router.push('/admin-test');
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Acceso denegado',
-        description: 'ID o Clave incorrectos.',
-      });
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="link" className="w-full mt-2 text-muted-foreground text-xs">
-          Ingresar al Admin Test
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Acceso de Administrador</DialogTitle>
-          <DialogDescription>
-            Ingresa el ID y la Clave para acceder al panel de pruebas.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="admin-id" className="text-right">
-              ID
-            </Label>
-            <Input
-              id="admin-id"
-              value={id}
-              onChange={(e) => setId(e.target.value)}
-              className="col-span-3"
-            />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="admin-key" className="text-right">
-              CLAVE
-            </Label>
-            <Input
-              id="admin-key"
-              type="password"
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-              className="col-span-3"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button onClick={handleAdminLogin}>Validar</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-
 export default function LoginPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
@@ -158,9 +75,8 @@ export default function LoginPage() {
         title: 'Error de inicio de sesión',
         description: result.error,
       });
-    } else if (result.success) {
-      router.push('/test-page');
     }
+    // La redirección se maneja en AuthLayout
   }
 
   async function handleGoogleSignIn() {
@@ -238,9 +154,6 @@ export default function LoginPage() {
           <GoogleIcon className="mr-2" />
           Iniciar sesión con Google
         </Button>
-        <div className="mt-2">
-            <AdminLoginDialog />
-        </div>
       </CardContent>
     </Card>
   );

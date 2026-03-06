@@ -2,87 +2,105 @@
 
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { onAuthStateChanged, User as FirebaseUser, setPersistence, browserLocalPersistence, getRedirectResult } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile } from '@/types';
 
 interface AuthContextType {
   user: UserProfile | null;
   firebaseUser: FirebaseUser | null;
+  isAdmin: boolean;
   loading: boolean;
 }
 
 export const AuthContext = createContext<AuthContextType>({
   user: null,
   firebaseUser: null,
+  isAdmin: false,
   loading: true,
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setPersistence(auth, browserLocalPersistence).then(() => {
-      
-      getRedirectResult(auth)
-        .then((result) => {
-          if (result) {
-            // El usuario acaba de iniciar sesión a través de una redirección.
-            // El observador onAuthStateChanged se encargará del resto.
-          }
-        })
-        .catch((error) => {
-          console.error("Error al obtener el resultado de la redirección:", error);
-        });
+    const setAuthPersistence = async () => {
+      try {
+        await setPersistence(auth, browserLocalPersistence);
+        await getRedirectResult(auth);
+      } catch (error) {
+        console.error("Auth setup error:", error);
+      }
+    };
+    
+    setAuthPersistence();
 
-      let unsubscribeFromSnapshot: () => void = () => {};
+    let unsubscribeFromSnapshot: () => void = () => {};
 
-      const unsubscribeFromAuth = onAuthStateChanged(auth, async (currentFirebaseUser) => {
-        unsubscribeFromSnapshot(); 
-        setLoading(true);
+    const unsubscribeFromAuth = onAuthStateChanged(auth, async (currentFirebaseUser) => {
+      unsubscribeFromSnapshot();
+      setLoading(true);
+      setIsAdmin(false); // Reset on auth state change
 
-        if (currentFirebaseUser) {
-          setFirebaseUser(currentFirebaseUser);
-          
-          const userDocRef = doc(db, 'users', currentFirebaseUser.uid);
-          
+      if (currentFirebaseUser) {
+        setFirebaseUser(currentFirebaseUser);
+
+        // Parallelize Firestore checks
+        const adminDocRef = doc(db, 'admins', currentFirebaseUser.uid);
+        const userDocRef = doc(db, 'users', currentFirebaseUser.uid);
+
+        try {
+          const [adminDoc] = await Promise.all([
+             getDoc(adminDocRef),
+          ]);
+
+          const isAdminUser = adminDoc.exists();
+          setIsAdmin(isAdminUser);
+
+          // Once we know the admin status, start listening to the user profile
           unsubscribeFromSnapshot = onSnapshot(userDocRef, (docSnap) => {
             if (docSnap.exists()) {
               const userData = docSnap.data() as UserProfile;
-              console.log('Datos del usuario desde Firestore:', userData);
               setUser(userData);
             } else {
-              console.warn(`User ${currentFirebaseUser.uid} is authenticated but has no profile document in Firestore.`);
+              console.warn(`User ${currentFirebaseUser.uid} authenticated but has no profile document.`);
               setUser(null);
             }
-            setLoading(false);
+            setLoading(false); // Finished loading
           }, (error) => {
-            console.error('Error de Firestore al leer perfil:', error);
+            console.error('Firestore snapshot error on user profile:', error);
             setUser(null);
             setLoading(false);
           });
-        } else {
-          setUser(null);
-          setFirebaseUser(null);
-          setLoading(false);
-        }
-      });
 
-      return () => {
-        unsubscribeFromAuth();
-        unsubscribeFromSnapshot();
-      };
-      
-    }).catch((error) => {
-      console.error("Error al establecer la persistencia de Auth:", error);
-      setLoading(false);
+        } catch (error) {
+            console.error('Error fetching admin status or user profile:', error);
+            setUser(null);
+            setIsAdmin(false);
+            setLoading(false);
+        }
+
+      } else {
+        // No user logged in
+        setUser(null);
+        setFirebaseUser(null);
+        setIsAdmin(false);
+        setLoading(false);
+      }
     });
+
+    return () => {
+      unsubscribeFromAuth();
+      unsubscribeFromSnapshot();
+    };
+    
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, firebaseUser, loading }}>
+    <AuthContext.Provider value={{ user, firebaseUser, isAdmin, loading }}>
       {children}
     </AuthContext.Provider>
   );

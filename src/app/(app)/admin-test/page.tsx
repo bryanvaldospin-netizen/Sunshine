@@ -13,6 +13,10 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { approveDeposit, rejectDeposit, updateUserBalance } from '@/lib/actions';
 import type { UserProfile, DepositRequest } from '@/types';
+import { useAuth } from '@/hooks/use-auth';
+import { useRouter } from 'next/navigation';
+import SplashScreen from '@/components/splash-screen';
+
 
 type UserProfileWithId = UserProfile & { id: string };
 type DepositRequestWithId = DepositRequest & { id: string };
@@ -87,9 +91,12 @@ function UsersTable() {
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const usersData: UserProfileWithId[] = [];
       querySnapshot.forEach((doc) => {
-        usersData.push({ id: doc.id, ...(doc.data() as UserProfile) });
+        usersData.push({ id: doc.id, ...(doc.data() as UserProfile) } as UserProfileWithId);
       });
       setUsers(usersData);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching users:", error);
       setLoading(false);
     });
     return () => unsubscribe();
@@ -139,9 +146,14 @@ function DepositsTable() {
       requestsData.sort((a, b) => {
         if (a.status === 'Pendiente' && b.status !== 'Pendiente') return -1;
         if (a.status !== 'Pendiente' && b.status === 'Pendiente') return 1;
-        return new Date(b.date).getTime() - new Date(a.date).getTime();
+        const dateA = a.date ? new Date(a.date).getTime() : 0;
+        const dateB = b.date ? new Date(b.date).getTime() : 0;
+        return dateB - dateA;
       });
       setRequests(requestsData);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching deposit requests:", error);
       setLoading(false);
     });
     return () => unsubscribe();
@@ -209,6 +221,19 @@ function DepositsTable() {
 
 
 export default function AdminTestPage() {
+  const { isAdmin, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !isAdmin) {
+      router.replace('/test-page');
+    }
+  }, [isAdmin, loading, router]);
+
+  if (loading || !isAdmin) {
+    return <SplashScreen />;
+  }
+
   return (
     <div className="bg-gray-900 text-white min-h-screen p-8">
        <header className="mb-8">
