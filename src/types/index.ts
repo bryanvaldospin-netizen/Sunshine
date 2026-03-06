@@ -2,7 +2,7 @@ export type UserProfile = {
   uid: string;
   email: string;
   name: string;
-  rol: 'user' | 'admin';
+  rol: 'user';
   saldoUSDT: number;
   invitadoPor?: string | null;
   inviteCode?: string;

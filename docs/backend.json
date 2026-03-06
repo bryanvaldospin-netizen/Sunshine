@@ -4,7 +4,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "UserProfile",
       "type": "object",
-      "description": "Represents a user's profile in the Sunshine application, including their role, financial balance, and other personal settings. This entity stores information for both regular users and administrators, distinguished by the 'role' property.",
+      "description": "Represents a user's profile in the Sunshine application, including their financial balance and other personal settings.",
       "properties": {
         "id": {
           "type": "string",
@@ -21,11 +21,12 @@
         },
         "role": {
           "type": "string",
-          "description": "The role of the user within the application (e.g., 'user', 'admin')."
+          "description": "The role of the user within the application, which is always 'user'.",
+          "enum": ["user"]
         },
         "saldoUSDT": {
           "type": "number",
-          "description": "The user's current investment balance in USDT (Tether). This field is read-only for regular users and editable only by administrators, enforced by Firestore security rules."
+          "description": "The user's current investment balance in USDT (Tether). This field is read-only for users and can only be modified through approved deposit requests."
         },
         "preferredLanguage": {
           "type": "string",
@@ -151,27 +152,11 @@
           "schema": {
             "$ref": "#/backend/entities/UserProfile"
           },
-          "description": "Stores individual user profiles. Each document ID (`userId`) corresponds to a Firebase Authentication UID. 'saldoUSDT' is read-only for regular users and editable only by administrators. Includes the 'role' field for display, but admin authorization for security rules is determined by the existence of a document in the '/admins/{userId}' collection for Authorization Independence.",
+          "description": "Stores individual user profiles. Each document ID (`userId`) corresponds to a Firebase Authentication UID. 'saldoUSDT' is read-only for users.",
           "params": [
             {
               "name": "userId",
               "description": "The unique Firebase Authentication User ID."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/admins/{adminId}",
-        "definition": {
-          "entityName": "UserProfile",
-          "schema": {
-            "$ref": "#/backend/entities/UserProfile"
-          },
-          "description": "A top-level collection used *solely* for Database Access Control (DBAC). The existence of a document with a user's UID here grants administrator privileges in Firestore security rules. This ensures Authorization Independence, allowing atomic checks without `get()` operations.",
-          "params": [
-            {
-              "name": "adminId",
-              "description": "The Firebase Authentication User ID of an administrator."
             }
           ]
         }
@@ -183,7 +168,7 @@
           "schema": {
             "$ref": "#/backend/entities/InvitationCode"
           },
-          "description": "Stores unique invitation codes. Unauthenticated users can perform a `get()` to verify a specific code during registration. Administrators can create, read, and list all codes. Registration atomically updates `isUsed` and `usedByUserId` fields.",
+          "description": "Stores unique invitation codes. Unauthenticated users can perform a `get()` to verify a specific code during registration.",
           "params": [
             {
               "name": "invitationCodeId",
@@ -199,7 +184,7 @@
           "schema": {
             "$ref": "#/backend/entities/DepositRequest"
           },
-          "description": "Stores deposit requests specific to a user. The 'userId' field within each document denormalizes ownership context, ensuring Authorization Independence for security rules. Users can create and read their own requests. Administrators can read all requests (via collection group queries) and modify their status.",
+          "description": "Stores deposit requests specific to a user. The 'userId' field within each document denormalizes ownership context for security rules. Users can create and read their own requests.",
           "params": [
             {
               "name": "userId",
@@ -213,7 +198,6 @@
         }
       }
     ],
-    "reasoning": "The proposed Firestore structure prioritizes secure, scalable, and debuggable authorization by strictly adhering to the core design principles and mandates. A critical aspect is achieving Authorization Independence to eliminate slow and complex `get()` calls in security rules.\n\n**Authorization Independence via Denormalization:**\n1.  **Admin Role:** Instead of relying on a `role` field within the `users` collection and performing a `get()` call to ascertain admin status for every protected resource, a dedicated top-level collection `/admins/{adminId}` is introduced. The mere *existence* of a document with the authenticated user's UID in this collection signifies administrative privileges. This allows security rules to check `exists(/admins/$(request.auth.uid))` which is atomic and highly performant, fully satisfying Authorization Independence for global roles.\n2.  **User-Owned Subcollections:** For user-specific data like `DepositRequest`, the `userId` is explicitly included as a field within each `DepositRequest` document (`/users/{userId}/deposit_requests/{depositRequestId}`). This denormalizes the ownership context, allowing rules to directly evaluate `resource.data.userId == request.auth.uid` without needing to inspect the parent `users/{userId}` document. This ensures that creating or updating a `DepositRequest` is an atomic operation and not dependent on the parent document's attributes for authorization.\n\n**Support for Query-Able Access Patterns (QAPs):**\n1.  **User Data (UserProfile):** Individual users can access their own profile at `/users/$(request.auth.uid)`. Administrators need to list all users. This can be achieved with a direct collection query on `/users` combined with a security rule that checks `isAdmin()` (i.e., `exists(/admins/$(request.auth.uid))`). The structural segregation principle is respected as all documents in `/users` share the `UserProfile` schema and generally similar read/write access patterns (self-read/admin-write).\n2.  **Invitation Codes (InvitationCode):** The `/invitation_codes/{invitationCodeId}` collection allows unauthenticated users to perform a `get()` operation on a specific code during registration to verify its existence and `isUsed` status. Administrators can perform `list` operations on this collection to manage all codes, authorized by `isAdmin()`. The specific update to mark a code as used is handled by rules ensuring atomicity and preventing reuse.\n3.  **Deposit Requests (DepositRequest):** Users can `list` their own deposit requests at `/users/$(request.auth.uid)/deposit_requests`. For administrators, listing all pending deposit requests across *all* users is a common requirement. This is facilitated by using a **Collection Group Query** on `deposit_requests` (e.g., `db.collectionGroup('deposit_requests').where('status', '==', 'pending')`). The security rules can then allow `list` on this collection group if `isAdmin()`, without needing to perform `get()` calls to parent documents or filtering results on the client-side. The denormalized `userId` in each `DepositRequest` document ensures individual document reads for both users and admins are also highly efficient and secure.\n\n**Structural Segregation and Consistency:**\n*   Each collection adheres to a homogeneous security posture. `users` holds all user profiles, `admins` explicitly marks administrators, `invitation_codes` manages code lifecycle, and `deposit_requests` (within user subcollections) manages user-specific deposit activities. This simplifies security rules greatly by associating clear access patterns with specific paths."
+    "reasoning": "The proposed Firestore structure prioritizes secure, scalable, and debuggable authorization by adhering to core design principles. A critical aspect is achieving Authorization Independence to eliminate slow and complex `get()` calls in security rules.\n\n**Authorization Independence via Denormalization:**\n1.  **User-Owned Subcollections:** For user-specific data like `DepositRequest`, the `userId` is explicitly included as a field within each `DepositRequest` document (`/users/{userId}/deposit_requests/{depositRequestId}`). This denormalizes the ownership context, allowing rules to directly evaluate `resource.data.userId == request.auth.uid` without needing to inspect the parent `users/{userId}` document. This ensures that creating or updating a `DepositRequest` is an atomic operation and not dependent on the parent document's attributes for authorization.\n\n**Support for Query-Able Access Patterns (QAPs):**\n1.  **User Data (UserProfile):** Individual users can access their own profile at `/users/$(request.auth.uid)`.\n2.  **Invitation Codes (InvitationCode):** The `/invitation_codes/{invitationCodeId}` collection allows unauthenticated users to perform a `get()` operation on a specific code during registration to verify its existence and `isUsed` status.\n3.  **Deposit Requests (DepositRequest):** Users can `list` their own deposit requests at `/users/$(request.auth.uid)/deposit_requests`.\n\n**Structural Segregation and Consistency:**\n*   Each collection adheres to a homogeneous security posture. `users` holds all user profiles, `invitation_codes` manages code lifecycle, and `deposit_requests` (within user subcollections) manages user-specific deposit activities. This simplifies security rules greatly by associating clear access patterns with specific paths."
   }
 }
-    

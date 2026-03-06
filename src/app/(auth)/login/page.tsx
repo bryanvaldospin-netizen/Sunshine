@@ -77,11 +77,7 @@ export default function LoginPage() {
         description: result.error,
       });
     } else if (result.success) {
-      if (result.isAdmin) {
-        router.push('/admin-test');
-      } else {
-        router.push('/test-page');
-      }
+      router.push('/test-page');
     }
   }
 

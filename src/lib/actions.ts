@@ -7,7 +7,6 @@ import {
 } from 'firebase/auth';
 import {
   doc,
-  getDoc,
   setDoc,
   collection,
   addDoc,
@@ -63,14 +62,8 @@ const loginSchema = z.object({
 export async function loginUser(values: z.infer<typeof loginSchema>) {
   try {
     const { email, password } = loginSchema.parse(values);
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-    
-    const adminDocRef = doc(db, 'admins', user.uid);
-    const adminDocSnap = await getDoc(adminDocRef);
-    const isAdmin = adminDocSnap.exists();
-    
-    return { success: true, isAdmin };
+    await signInWithEmailAndPassword(auth, email, password);
+    return { success: true };
   } catch (error: any) {
      if (error.code === 'auth/invalid-credential') {
       return { error: 'Credenciales incorrectas. Por favor, verifica tu email y contraseña.' };
