@@ -353,69 +353,118 @@ export default function TestPage() {
   const [activePlan, setActivePlan] = useState<Investment | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
 
+  // Effect for Stats, based on real-time profile
+  useEffect(() => {
+    if (profile) {
+      setStats({
+        totalInvested: profile.saldoUSDT,
+        earnings: 0, // Placeholder
+        withdrawals: 0, // Placeholder
+      });
+      setStatsLoading(false);
+    } else if (!authLoading) {
+      // No profile, not loading, so finish loading stats
+      setStats({ totalInvested: 0, earnings: 0, withdrawals: 0 });
+      setStatsLoading(false);
+    }
+  }, [profile, authLoading]);
+
+  // Effect for Chart Data, based on real-time profile.saldoUSDT
+  useEffect(() => {
+    if (authLoading) return; // Wait for auth to be resolved
+
+    if (!profile) {
+      setChartData([]); // Clear data if user logs out or has no profile
+      return;
+    }
+
+    const newBalance = profile.saldoUSDT;
+    const now = new Date();
+    const timeLabel = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+    setChartData(prevData => {
+      // On first load with a balance, simulate history
+      if (prevData.length === 0 && newBalance > 0) {
+        const simulatedData = [];
+        const points = 7;
+        for (let i = 0; i < points - 1; i++) {
+          const pastTime = new Date(now.getTime() - (points - 1 - i) * 60000 * 30); // 30 mins apart
+          const randomFactor = 0.8 + Math.random() * 0.2;
+          simulatedData.push({
+            date: pastTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+            balance: Math.max(0, (newBalance / points) * (i + 1) * randomFactor),
+          });
+        }
+        // Add the actual current balance as the last point
+        simulatedData.push({
+          date: timeLabel,
+          balance: newBalance,
+        });
+        return simulatedData;
+      }
+
+      // Do nothing if chart is empty and balance is 0
+      if (prevData.length === 0 && newBalance === 0) {
+        return [];
+      }
+
+      // Add a new data point only if the balance has changed
+      const lastBalance = prevData.length > 0 ? prevData[prevData.length - 1].balance : -1;
+      if (newBalance !== lastBalance) {
+        // Avoid adding duplicate time entries if balance updates quickly
+        const lastTime = prevData.length > 0 ? prevData[prevData.length - 1].date : null;
+        if (lastTime === timeLabel) {
+          const updatedData = [...prevData];
+          updatedData[updatedData.length - 1] = { date: timeLabel, balance: newBalance };
+          return updatedData; // Replace last point instead of adding a new one
+        }
+        return [...prevData, { date: timeLabel, balance: newBalance }];
+      }
+
+      return prevData; // No change
+    });
+  }, [profile, authLoading]); // Reruns whenever the profile (with saldoUSDT) from useAuth changes
+
+  // Effect for Active Plan
   useEffect(() => {
     if (profile?.uid) {
-      const fetchData = async () => {
-        try {
-          // Chart and Stats Data
-          const depositsQuery = query(
-            collection(db, 'users', profile.uid, 'deposit_requests'),
-            where('status', '==', 'Aprobado')
-          );
-          
-          const querySnapshot = await getDocs(depositsQuery);
-          const approvedDepositsData = querySnapshot.docs.map(doc => doc.data() as { amount: number, date: string });
+      setPlanLoading(true);
+      const investmentsQuery = query(
+        collection(db, 'investments'),
+        where('userId', '==', profile.uid),
+        where('status', '==', 'Activo'),
+        limit(1)
+      );
 
-          // Sort the results on the client side
-          const approvedDeposits = approvedDepositsData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-          let accumulatedBalance = 0;
-          const processedChartData = approvedDeposits.map(deposit => {
-            accumulatedBalance += deposit.amount;
-            return {
-              date: new Date(deposit.date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }),
-              balance: accumulatedBalance,
-            };
-          });
-          setChartData(processedChartData);
-
-          setStats({
-            totalInvested: accumulatedBalance,
-            earnings: 0, // Placeholder
-            withdrawals: 0, // Placeholder
-          });
-          
-          // Active Plan Data
-          const investmentsQuery = query(
-            collection(db, 'investments'),
-            where('userId', '==', profile.uid),
-            where('status', '==', 'Activo'),
-            limit(1)
-          );
-          const planSnapshot = await getDocs(investmentsQuery);
+      const unsubscribe = onSnapshot(
+        investmentsQuery,
+        (planSnapshot) => {
           if (!planSnapshot.empty) {
             const planDoc = planSnapshot.docs[0];
             setActivePlan({ id: planDoc.id, ...planDoc.data() } as Investment);
           } else {
             setActivePlan(null);
           }
-
-        } catch (error) {
-          console.error("Error fetching dashboard data:", error);
-        } finally {
-          setStatsLoading(false);
+          setPlanLoading(false);
+        },
+        (error) => {
+          console.error('Error fetching active plan:', error);
+          toast({
+            variant: 'destructive',
+            title: 'Error de Plan',
+            description: 'No se pudo cargar la información de tu plan activo.',
+          });
           setPlanLoading(false);
         }
-      };
+      );
 
-      fetchData();
+      return () => unsubscribe();
     } else if (!authLoading) {
-        // If authentication is finished and we still don't have a user profile,
-        // we need to stop the loading indicators for the page-specific data.
-        setStatsLoading(false);
-        setPlanLoading(false);
+      // Not loading and no user, so stop loading and clear plan
+      setPlanLoading(false);
+      setActivePlan(null);
     }
-  }, [profile, authLoading]);
+  }, [profile?.uid, authLoading, toast]);
 
   const statItems = useMemo(() => [
     { title: t('dashboard.totalInvestment'), value: stats.totalInvested, icon: PiggyBank },
