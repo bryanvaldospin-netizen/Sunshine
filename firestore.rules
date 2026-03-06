@@ -15,7 +15,7 @@ service cloud.firestore {
     match /users/{userId} {
       // A user can read, create and update their own document.
       allow get, create: if isOwner(userId);
-      allow update: if isOwner(userId) && request.resource.data.saldoUSDT == resource.data.saldoUSDT && request.resource.data.rol == resource.data.rol;
+      allow update: if isOwner(userId) && request.resource.data.rol == resource.data.rol;
       
       // Nobody can list or delete users.
       allow list, delete: if false;

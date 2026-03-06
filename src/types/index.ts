@@ -6,6 +6,7 @@ export type UserProfile = {
   saldoUSDT: number;
   invitadoPor?: string | null;
   inviteCode?: string;
+  ultimoCheckIn?: string;
 };
 
 export type DepositRequest = {

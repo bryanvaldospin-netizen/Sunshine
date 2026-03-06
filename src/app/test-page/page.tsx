@@ -11,9 +11,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getWalletAddress } from '@/lib/actions';
-import { Copy, Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut } from 'lucide-react';
+import { Copy, Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { collection, query, where, getDocs, orderBy, limit, onSnapshot, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -101,7 +101,7 @@ const InvestmentPlans = ({ userProfile }: { userProfile: UserProfile | null }) =
                             </CardHeader>
                             <CardContent className="flex-grow text-center">
                                 <p className="text-2xl font-bold">
-                                    {plan.investment.split(' ')[0]}{' '}
+                                    <span className="text-white">{plan.investment.split(' ')[0]}</span>{' '}
                                     <span className="text-white">{plan.investment.split(' ')[1]}</span>
                                 </p>
                             </CardContent>
@@ -224,6 +224,72 @@ const ActivePlanCard = ({ plan, loading, user }: { plan: Investment | null, load
       </CardContent>
     </Card>
   );
+};
+
+const DailyBonusCard = ({ user }: { user: UserProfile }) => {
+    const { toast } = useToast();
+    const [isLoading, setIsLoading] = useState(false);
+
+    const canClaim = () => {
+        if (!user.ultimoCheckIn) return true;
+        const lastCheckInDate = new Date(user.ultimoCheckIn);
+        const today = new Date();
+        return lastCheckInDate.toDateString() !== today.toDateString();
+    };
+
+    const handleClaim = async () => {
+        if (!user) return;
+        setIsLoading(true);
+        try {
+            const today = new Date();
+            const dayOfWeek = today.getDay(); // Sunday is 0, Saturday is 6
+            const bonus = (dayOfWeek === 0 || dayOfWeek === 6) ? 1.00 : 0.50;
+            
+            const userDocRef = doc(db, 'users', user.uid);
+            await updateDoc(userDocRef, {
+                saldoUSDT: user.saldoUSDT + bonus,
+                ultimoCheckIn: today.toISOString()
+            });
+
+            toast({
+                title: '¡Felicidades!',
+                description: `Has recibido tu bono de ${bonus.toFixed(2)} USDT de hoy.`
+            });
+
+        } catch (error) {
+            console.error("Error claiming daily bonus: ", error);
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'No se pudo reclamar el bono. Inténtalo de nuevo.'
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    const isClaimable = canClaim();
+
+    return (
+        <Card className="bg-gray-800 border-gray-700 text-white w-full">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Gift className="text-green-400" />
+                    Bono de Check-in Diario
+                </CardTitle>
+                <CardDescription>¡Reclama tu recompensa por visitar Sunshine cada día!</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button 
+                    onClick={handleClaim} 
+                    disabled={!isClaimable || isLoading}
+                    className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white text-lg py-6 disabled:opacity-50 disabled:bg-gray-600 hover:from-green-600 hover:to-emerald-700"
+                >
+                    {isLoading ? 'Procesando...' : isClaimable ? 'Reclamar Bono Diario' : 'Vuelve Mañana'}
+                </Button>
+            </CardContent>
+        </Card>
+    );
 };
 
 
@@ -431,6 +497,12 @@ export default function TestPage() {
                 </CardContent>
               </Card>
             </div>
+
+            {profile && !authLoading && (
+              <div className="w-full max-w-5xl">
+                <DailyBonusCard user={profile} />
+              </div>
+            )}
             
             <div className="w-full max-w-5xl">
                 <Card className="bg-gray-800 border-gray-700 text-white">
