@@ -22,7 +22,7 @@
         "role": {
           "type": "string",
           "description": "The role of the user within the application, which is always 'user'.",
-          "enum": ["user"]
+          "enum": ["user", "admin"]
         },
         "saldoUSDT": {
           "type": "number",
@@ -244,3 +244,5 @@
     "reasoning": "The proposed Firestore structure prioritizes secure, scalable, and debuggable authorization by adhering to core design principles. A critical aspect is achieving Authorization Independence to eliminate slow and complex `get()` calls in security rules.\n\n**Authorization Independence via Denormalization:**\n1.  **User-Owned Subcollections:** For user-specific data like `DepositRequest`, the `userId` is explicitly included as a field within each `DepositRequest` document (`/users/{userId}/deposit_requests/{depositRequestId}`). This denormalizes the ownership context, allowing rules to directly evaluate `resource.data.userId == request.auth.uid` without needing to inspect the parent `users/{userId}` document. This ensures that creating or updating a `DepositRequest` is an atomic operation and not dependent on the parent document's attributes for authorization.\n\n**Support for Query-Able Access Patterns (QAPs):**\n1.  **User Data (UserProfile):** Individual users can access their own profile at `/users/$(request.auth.uid)`.\n2.  **Invitation Codes (InvitationCode):** The `/invitation_codes/{invitationCodeId}` collection allows unauthenticated users to perform a `get()` operation on a specific code during registration to verify its existence and `isUsed` status.\n3.  **Deposit Requests (DepositRequest):** Users can `list` their own deposit requests at `/users/$(request.auth.uid)/deposit_requests`.\n\n**Structural Segregation and Consistency:**\n*   Each collection adheres to a homogeneous security posture. `users` holds all user profiles, `invitation_codes` manages code lifecycle, and `deposit_requests` (within user subcollections) manages user-specific deposit activities. This simplifies security rules greatly by associating clear access patterns with specific paths."
   }
 }
+
+    
