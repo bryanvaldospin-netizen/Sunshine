@@ -21,7 +21,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Faltan datos en la solicitud (monto, comprobante o plan).' }, { status: 400 });
     }
     
-    // Create a unique file name
+    // Create a unique file name with extension
     const extension = proofFile.name.split('.').pop() || 'jpg';
     const uniqueFileName = `comprobante_${userId}_${Date.now()}.${extension}`;
     const filePath = `comprobantes/${userId}/${uniqueFileName}`;
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
     // Convert file to buffer to upload from server
     const fileBuffer = await proofFile.arrayBuffer();
     
-    // Upload using uploadBytes
+    // Upload using uploadBytes with buffer and content type
     const uploadResult = await uploadBytes(storageRef, fileBuffer, {
       contentType: proofFile.type,
     });
@@ -68,7 +68,10 @@ export async function POST(request: Request) {
     if (error.code) {
         switch (error.code) {
             case 'storage/unauthorized':
-                errorMessage = 'Error de Permisos en Storage: El servidor no tiene permiso para subir archivos. Revisa las reglas de Firebase Storage.';
+                errorMessage = 'Error de Permisos en Storage: El servidor no tiene permiso para subir archivos. Revisa las reglas de Firebase Storage y la configuración CORS del bucket.';
+                break;
+            case 'storage/unknown':
+                errorMessage = 'Error desconocido de Storage. Puede ser un problema con la configuración CORS de tu bucket o un problema de red.';
                 break;
             case 'permission-denied':
                 errorMessage = 'Error de Permisos en Firestore: La solicitud para guardar los datos fue denegada. Revisa las reglas de seguridad de Firestore.';
