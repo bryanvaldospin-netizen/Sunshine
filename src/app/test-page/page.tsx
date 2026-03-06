@@ -48,6 +48,31 @@ const depositFormSchema = z.object({
     .refine((files) => files?.[0]?.size <= 5000000, `El tamaño máximo del archivo es 5MB.`),
 });
 
+const FlagsMarquee = () => {
+    const flags = [
+        "🇪🇨", "🇺🇸", "🇪🇸", "🇯🇵", "🇧🇷", "🇨🇦", "🇩🇪", "🇫🇷", "🇮🇹", "🇦🇺", "🇬🇧", "🇨🇳", "🇮🇳", "🇷🇺", "🇿🇦",
+        "🇲🇽", "🇦🇷", "🇨🇴", "🇵🇪", "🇨🇱", "🇰🇷", "🇳🇬", "🇪🇬", "🇸🇪", "🇳🇴", "🇩🇰", "🇫🇮", "🇨🇭", "🇵🇹", "🇮🇪"
+    ];
+    
+    return (
+        <footer className="fixed bottom-0 left-0 right-0 w-full bg-black/80 backdrop-blur-sm z-50">
+            <div className="relative flex w-full overflow-hidden">
+                <div className="flex animate-marquee whitespace-nowrap py-3">
+                    {flags.map((flag, index) => (
+                        <span key={`marquee1-${index}`} className="text-4xl mx-4">{flag}</span>
+                    ))}
+                </div>
+
+                <div className="absolute top-0 flex animate-marquee2 whitespace-nowrap py-3">
+                    {flags.map((flag, index) => (
+                        <span key={`marquee2-${index}`} className="text-4xl mx-4">{flag}</span>
+                    ))}
+                </div>
+            </div>
+        </footer>
+    );
+};
+
 const InvestmentPlans = ({ userProfile }: { userProfile: UserProfile | null }) => {
     const { t } = useTranslation();
     const { toast } = useToast();
@@ -339,10 +364,10 @@ export default function TestPage() {
           );
           
           const querySnapshot = await getDocs(depositsQuery);
-          const approvedDeposits = querySnapshot.docs.map(doc => doc.data() as { amount: number, date: string });
+          const approvedDepositsData = querySnapshot.docs.map(doc => doc.data() as { amount: number, date: string });
 
           // Sort the results on the client side
-          approvedDeposits.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          const approvedDeposits = approvedDepositsData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
           let accumulatedBalance = 0;
           const processedChartData = approvedDeposits.map(deposit => {
@@ -427,7 +452,7 @@ export default function TestPage() {
 
 
   return (
-    <main className="bg-gray-900 text-white min-h-screen font-body p-4 md:p-8 relative">
+    <main className="bg-gray-900 text-white min-h-screen font-body p-4 md:p-8 relative pb-24">
        <div className="absolute top-4 right-4 md:top-8 md:right-8 flex items-center gap-2">
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -609,8 +634,8 @@ export default function TestPage() {
         <div className="w-full max-w-5xl">
           <ActivePlanCard plan={activePlan} loading={planLoading} user={profile} />
         </div>
-
       </div>
+      <FlagsMarquee />
     </main>
   );
 }
