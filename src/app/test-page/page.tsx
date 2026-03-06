@@ -27,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import TradingViewTicker from '@/components/trading-view-ticker';
 
 
 const FlagsMarquee = () => {
@@ -383,190 +384,195 @@ export default function TestPage() {
 
 
   return (
-    <main className="bg-gray-900 text-white min-h-screen font-body p-4 md:p-8 relative pb-24">
-       <div className="absolute top-4 right-4 md:top-8 md:right-8 flex items-center gap-2">
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-gray-700 w-9 h-9 p-0">
-                    <Globe className="h-5 w-5" />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700 text-white">
-                <DropdownMenuItem onClick={() => setLocale('es')} className="focus:bg-gray-700 cursor-pointer">Español</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setLocale('en')} className="focus:bg-gray-700 cursor-pointer">English</DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
-        <Button onClick={handleLogout} variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-gray-700">
-            <LogOut className="mr-2 h-4 w-4" />
-            {t('profile.logout')}
-        </Button>
-      </div>
+    <main className="bg-gray-900 text-white min-h-screen font-body relative pb-24">
+       <header className="bg-black/50 backdrop-blur-sm sticky top-0 z-50">
+         <div className="container mx-auto flex h-16 items-center justify-end gap-2 px-4">
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-gray-700 w-9 h-9 p-0">
+                        <Globe className="h-5 w-5" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700 text-white">
+                    <DropdownMenuItem onClick={() => setLocale('es')} className="focus:bg-gray-700 cursor-pointer">Español</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setLocale('en')} className="focus:bg-gray-700 cursor-pointer">English</DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+            <Button onClick={handleLogout} variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-gray-700">
+                <LogOut className="mr-2 h-4 w-4" />
+                {t('profile.logout')}
+            </Button>
+          </div>
+        <TradingViewTicker />
+      </header>
 
-      <div className="flex flex-col items-center justify-start w-full h-full pt-16 sm:pt-8 space-y-8">
-        <div className="text-center space-y-2">
-            <h1 className="text-3xl font-bold">{t('dashboard.greeting', { name: userName })}</h1>
-        </div>
-        
-        <div className="w-full max-w-5xl">
-          <Card className="bg-gray-800 border-golden text-white text-center">
-            <CardHeader>
-              <CardTitle className="text-xl font-medium text-gray-300">
-                {t('dashboard.balance')}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="py-6">
-              {authLoading ? (
-                 <Skeleton className="h-16 w-1/2 mx-auto bg-gray-700" />
-              ) : (
-                <p className="text-6xl font-bold text-golden">{formattedBalance}</p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-        
-        <div className="w-full max-w-5xl">
-            <Card className="bg-gray-800 border-gray-700 text-white">
-                <CardHeader>
-                    <CardTitle>Información de Cuenta</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 pt-4">
-                     {authLoading ? (
-                       <p className="text-gray-400">Cargando datos...</p>
-                    ) : profile ? (
-                        <ul className="space-y-2 text-sm list-none">
-                            <li><strong className="text-gray-400 font-medium w-36 inline-block">Nombre:</strong> {profile.name}</li>
-                            <li><strong className="text-gray-400 font-medium w-36 inline-block">Correo:</strong> {profile.email}</li>
-                            <li className="flex items-center">
-                                <strong className="text-gray-400 font-medium w-36 inline-block flex-shrink-0">Código Invitación:</strong>
-                                {profile.inviteCode ? (
-                                    <>
-                                        <span className="font-mono text-golden">{profile.inviteCode}</span>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          onClick={() => {
-                                            if (!profile.inviteCode) return;
-                                            navigator.clipboard.writeText(profile.inviteCode);
-                                            toast({ title: t('profile.codeCopied'), description: t('profile.codeCopiedDesc') });
-                                          }}
-                                          className="h-7 w-7 ml-2 text-gray-400 hover:text-golden hover:bg-gray-700"
-                                        >
-                                          <Copy className="h-4 w-4" />
-                                        </Button>
-                                    </>
-                                ) : (
-                                    <span className="text-gray-500">N/A</span>
-                                )}
-                            </li>
-                            <li><strong className="text-gray-400 font-medium w-36 inline-block">Saldo Actual:</strong> {formattedBalance}</li>
-                            <li className="flex items-start">
-                                <strong className="text-gray-400 font-medium w-36 inline-block flex-shrink-0">UID:</strong>
-                                <span className="break-all">{profile.uid}</span>
-                            </li>
-                        </ul>
-                    ) : (
-                        <p className="text-gray-500">No se pudo cargar la información del perfil.</p>
-                    )}
-                </CardContent>
-            </Card>
-        </div>
-
-        <div className="w-full max-w-5xl">
-           {statsLoading ? (
-             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
-                <Skeleton className="h-28 bg-gray-800" />
-                <Skeleton className="h-28 bg-gray-800" />
-                <Skeleton className="h-28 bg-gray-800" />
+      <div className="p-4 md:p-8">
+        <div className="flex flex-col items-center justify-start w-full h-full pt-8 space-y-8">
+            <div className="text-center space-y-2">
+                <h1 className="text-3xl font-bold">{t('dashboard.greeting', { name: userName })}</h1>
             </div>
-           ) : (
-             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
-                {statItems.map((item, index) => (
-                    <Card key={index} className="bg-gray-800 border-gray-700 text-white">
-                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle className="text-sm font-medium text-gray-400">{item.title}</CardTitle>
-                            <item.icon className="h-5 w-5 text-golden" />
-                        </CardHeader>
-                        <CardContent>
-                            <div className="text-2xl font-bold">{formatCurrency(item.value)}</div>
-                        </CardContent>
-                    </Card>
-                ))}
-            </div>
-           )}
-        </div>
-        
-        <div className="w-full max-w-5xl">
-            <InvestmentPlans userProfile={profile} />
-        </div>
-
-        <div className="w-full max-w-5xl">
-            <Card className="bg-gray-800 border-gray-700 text-white">
+            
+            <div className="w-full max-w-5xl">
+              <Card className="bg-gray-800 border-golden text-white text-center">
                 <CardHeader>
-                    <CardTitle>{t('dashboard.balanceGrowth')}</CardTitle>
+                  <CardTitle className="text-xl font-medium text-gray-300">
+                    {t('dashboard.balance')}
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="pt-4 h-[290px] flex items-center justify-center">
-                  {statsLoading ? (
-                    <Skeleton className="w-full h-full bg-gray-700" />
-                  ) : chartData.length > 0 ? (
-                    <ChartContainer config={chartConfig} className="h-full w-full">
-                        <AreaChart
-                            data={chartData}
-                            margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                        >
-                            <defs>
-                                <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
-                                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid vertical={false} stroke="rgba(255, 255, 255, 0.1)" strokeDasharray="3 3" />
-                            <XAxis 
-                                dataKey="date" 
-                                tickLine={false}
-                                axisLine={false}
-                                stroke="rgba(255, 255, 255, 0.4)"
-                                fontSize={12}
-                            />
-                            <YAxis
-                                tickLine={false}
-                                axisLine={false}
-                                stroke="rgba(255, 255, 255, 0.4)"
-                                fontSize={12}
-                                tickFormatter={(value) => formatCurrency(value as number)}
-                                domain={['dataMin - 100', 'dataMax + 100']}
-                            />
-                            <ChartTooltip 
-                                cursor={true}
-                                content={<ChartTooltipContent
-                                    indicator="line"
-                                    formatter={(value) => [formatCurrency(value as number), 'Saldo Acumulado']}
-                                    labelClassName="text-white"
-                                    className="bg-gray-900 border-golden"
-                                />}
-                            />
-                            <Area 
-                                dataKey="balance"
-                                type="monotone" 
-                                strokeWidth={2}
-                                stroke="hsl(var(--primary))"
-                                fill="url(#colorBalance)" 
-                            />
-                        </AreaChart>
-                    </ChartContainer>
+                <CardContent className="py-6">
+                  {authLoading ? (
+                     <Skeleton className="h-16 w-1/2 mx-auto bg-gray-700" />
                   ) : (
-                    <p className="text-muted-foreground text-center">
-                      {t('dashboard.growthHistoryPlaceholder')}
-                    </p>
+                    <p className="text-6xl font-bold text-golden">{formattedBalance}</p>
                   )}
                 </CardContent>
-            </Card>
-        </div>
+              </Card>
+            </div>
+            
+            <div className="w-full max-w-5xl">
+                <Card className="bg-gray-800 border-gray-700 text-white">
+                    <CardHeader>
+                        <CardTitle>Información de Cuenta</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 pt-4">
+                         {authLoading ? (
+                           <p className="text-gray-400">Cargando datos...</p>
+                        ) : profile ? (
+                            <ul className="space-y-2 text-sm list-none">
+                                <li><strong className="text-gray-400 font-medium w-36 inline-block">Nombre:</strong> {profile.name}</li>
+                                <li><strong className="text-gray-400 font-medium w-36 inline-block">Correo:</strong> {profile.email}</li>
+                                <li className="flex items-center">
+                                    <strong className="text-gray-400 font-medium w-36 inline-block flex-shrink-0">Código Invitación:</strong>
+                                    {profile.inviteCode ? (
+                                        <>
+                                            <span className="font-mono text-golden">{profile.inviteCode}</span>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              onClick={() => {
+                                                if (!profile.inviteCode) return;
+                                                navigator.clipboard.writeText(profile.inviteCode);
+                                                toast({ title: t('profile.codeCopied'), description: t('profile.codeCopiedDesc') });
+                                              }}
+                                              className="h-7 w-7 ml-2 text-gray-400 hover:text-golden hover:bg-gray-700"
+                                            >
+                                              <Copy className="h-4 w-4" />
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        <span className="text-gray-500">N/A</span>
+                                    )}
+                                </li>
+                                <li><strong className="text-gray-400 font-medium w-36 inline-block">Saldo Actual:</strong> {formattedBalance}</li>
+                                <li className="flex items-start">
+                                    <strong className="text-gray-400 font-medium w-36 inline-block flex-shrink-0">UID:</strong>
+                                    <span className="break-all">{profile.uid}</span>
+                                </li>
+                            </ul>
+                        ) : (
+                            <p className="text-gray-500">No se pudo cargar la información del perfil.</p>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
 
-        <div className="w-full max-w-5xl">
-          <ActivePlanCard plan={activePlan} loading={planLoading} user={profile} />
+            <div className="w-full max-w-5xl">
+               {statsLoading ? (
+                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
+                    <Skeleton className="h-28 bg-gray-800" />
+                    <Skeleton className="h-28 bg-gray-800" />
+                    <Skeleton className="h-28 bg-gray-800" />
+                </div>
+               ) : (
+                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
+                    {statItems.map((item, index) => (
+                        <Card key={index} className="bg-gray-800 border-gray-700 text-white">
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-sm font-medium text-gray-400">{item.title}</CardTitle>
+                                <item.icon className="h-5 w-5 text-golden" />
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-bold">{formatCurrency(item.value)}</div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+               )}
+            </div>
+            
+            <div className="w-full max-w-5xl">
+                <InvestmentPlans userProfile={profile} />
+            </div>
+
+            <div className="w-full max-w-5xl">
+                <Card className="bg-gray-800 border-gray-700 text-white">
+                    <CardHeader>
+                        <CardTitle>{t('dashboard.balanceGrowth')}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-4 h-[290px] flex items-center justify-center">
+                      {statsLoading ? (
+                        <Skeleton className="w-full h-full bg-gray-700" />
+                      ) : chartData.length > 0 ? (
+                        <ChartContainer config={chartConfig} className="h-full w-full">
+                            <AreaChart
+                                data={chartData}
+                                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                            >
+                                <defs>
+                                    <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
+                                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid vertical={false} stroke="rgba(255, 255, 255, 0.1)" strokeDasharray="3 3" />
+                                <XAxis 
+                                    dataKey="date" 
+                                    tickLine={false}
+                                    axisLine={false}
+                                    stroke="rgba(255, 255, 255, 0.4)"
+                                    fontSize={12}
+                                />
+                                <YAxis
+                                    tickLine={false}
+                                    axisLine={false}
+                                    stroke="rgba(255, 255, 255, 0.4)"
+                                    fontSize={12}
+                                    tickFormatter={(value) => formatCurrency(value as number)}
+                                    domain={['dataMin - 100', 'dataMax + 100']}
+                                />
+                                <ChartTooltip 
+                                    cursor={true}
+                                    content={<ChartTooltipContent
+                                        indicator="line"
+                                        formatter={(value) => [formatCurrency(value as number), 'Saldo Acumulado']}
+                                        labelClassName="text-white"
+                                        className="bg-gray-900 border-golden"
+                                    />}
+                                />
+                                <Area 
+                                    dataKey="balance"
+                                    type="monotone" 
+                                    strokeWidth={2}
+                                    stroke="hsl(var(--primary))"
+                                    fill="url(#colorBalance)" 
+                                />
+                            </AreaChart>
+                        </ChartContainer>
+                      ) : (
+                        <p className="text-muted-foreground text-center">
+                          {t('dashboard.growthHistoryPlaceholder')}
+                        </p>
+                      )}
+                    </CardContent>
+                </Card>
+            </div>
+
+            <div className="w-full max-w-5xl">
+              <ActivePlanCard plan={activePlan} loading={planLoading} user={profile} />
+            </div>
+          </div>
         </div>
-      </div>
-      <FlagsMarquee />
+        <FlagsMarquee />
     </main>
   );
 }
