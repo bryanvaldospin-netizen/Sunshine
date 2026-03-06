@@ -6,8 +6,6 @@ import { useEffect } from 'react';
 import { Logo } from '@/components/logo';
 import SplashScreen from '@/components/splash-screen';
 
-const ADMIN_UID = 'daNNsN4y5lgsTtrioMXNXcX24ZH2';
-
 export default function AuthLayout({
   children,
 }: {
@@ -18,11 +16,7 @@ export default function AuthLayout({
 
   useEffect(() => {
     if (!loading && firebaseUser) {
-        if (firebaseUser.uid === ADMIN_UID) {
-            router.replace('/zona-vip');
-        } else {
-            router.replace('/test-page');
-        }
+      router.replace('/test-page');
     }
   }, [loading, firebaseUser, router]);
 
