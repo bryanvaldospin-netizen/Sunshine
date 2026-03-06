@@ -2,17 +2,10 @@ export type UserProfile = {
   uid: string;
   email: string;
   name: string;
-  rol: 'user' | 'admin';
+  rol: 'user';
   saldoUSDT: number;
   invitadoPor?: string | null;
   inviteCode?: string;
-};
-
-export type AdminProfile = {
-  uid: string;
-  name: string;
-  email: string;
-  role: 'admin';
 };
 
 export type DepositRequest = {
@@ -40,5 +33,3 @@ export type Investment = {
   nextPaymentDate: string; // ISO string
   status: 'Activo' | 'Completado';
 };
-
-    
