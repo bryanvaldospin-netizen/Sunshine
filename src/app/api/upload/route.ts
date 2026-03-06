@@ -60,16 +60,30 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, depositId: depositDocRef.id }, { status: 200 });
 
   } catch (error: any) {
-    console.error('Error en /api/upload:', error);
+    console.error('Error detallado en /api/upload:', error);
+
     let errorMessage = 'Ocurrió un error inesperado al procesar tu depósito.';
     
+    // More specific error handling
     if (error.code) {
         switch (error.code) {
             case 'storage/unauthorized':
-                errorMessage = 'Error de Permisos: El servidor no tiene permiso para subir archivos.';
+                errorMessage = 'Error de Permisos en Storage: El servidor no tiene permiso para subir archivos. Revisa las reglas de Firebase Storage.';
                 break;
+            case 'permission-denied':
+                errorMessage = 'Error de Permisos en Firestore: La solicitud para guardar los datos fue denegada. Revisa las reglas de seguridad de Firestore.';
+                break;
+            case 'storage/object-not-found':
+                errorMessage = 'Error de Storage: El objeto del archivo no fue encontrado después de la subida.';
+                break;
+            default:
+                 errorMessage = `Error del servidor: ${error.message} (Código: ${error.code})`;
+                 break;
         }
+    } else if (error instanceof Error) {
+        errorMessage = `Error: ${error.message}`;
     }
+
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
