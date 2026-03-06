@@ -10,11 +10,15 @@ import {
   setDoc,
   collection,
   addDoc,
+  getDoc,
+  updateDoc,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage } from '@/lib/firebase';
 import { z } from 'zod';
+import type { UserProfile } from '@/types';
 
+// USER ACTIONS
 const registerSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
@@ -147,5 +151,60 @@ export async function submitDeposit(formData: FormData) {
              break;
     }
     return { error: errorMessage };
+  }
+}
+
+// ADMIN ACTIONS
+
+export async function updateUserBalance(userId: string, newBalance: number) {
+  if (newBalance < 0) {
+    return { error: 'El saldo no puede ser negativo.' };
+  }
+
+  try {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
+      saldoUSDT: newBalance,
+    });
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error updating user balance:', error);
+    return { error: 'No se pudo actualizar el saldo del usuario.' };
+  }
+}
+
+export async function approveDeposit(requestId: string, userId: string, amount: number) {
+  try {
+    const depositRef = doc(db, 'deposit_requests', requestId);
+    const userRef = doc(db, 'users', userId);
+
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) {
+      return { error: 'El usuario asociado a este depósito no existe.' };
+    }
+
+    const currentBalance = (userDoc.data() as UserProfile).saldoUSDT || 0;
+    const newBalance = currentBalance + amount;
+
+    await updateDoc(userRef, { saldoUSDT: newBalance });
+    await updateDoc(depositRef, { status: 'Aprobado' });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error approving deposit:', error);
+    return { error: 'No se pudo aprobar el depósito.' };
+  }
+}
+
+export async function rejectDeposit(requestId: string) {
+  try {
+    const depositRef = doc(db, 'deposit_requests', requestId);
+    await updateDoc(depositRef, {
+      status: 'Rechazado',
+    });
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error rejecting deposit:', error);
+    return { error: 'No se pudo rechazar el depósito.' };
   }
 }
