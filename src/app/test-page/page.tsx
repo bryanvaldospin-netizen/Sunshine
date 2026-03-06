@@ -335,12 +335,14 @@ export default function TestPage() {
           // Chart and Stats Data
           const depositsQuery = query(
             collection(db, 'users', profile.uid, 'deposit_requests'),
-            where('status', '==', 'Aprobado'),
-            orderBy('date', 'asc')
+            where('status', '==', 'Aprobado')
           );
           
           const querySnapshot = await getDocs(depositsQuery);
           const approvedDeposits = querySnapshot.docs.map(doc => doc.data() as { amount: number, date: string });
+
+          // Sort the results on the client side
+          approvedDeposits.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
           let accumulatedBalance = 0;
           const processedChartData = approvedDeposits.map(deposit => {
