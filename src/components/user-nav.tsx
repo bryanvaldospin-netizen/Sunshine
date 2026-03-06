@@ -14,12 +14,12 @@ import {
 import { useAuth } from '@/hooks/use-auth';
 import { logoutUser } from '@/lib/actions';
 import { useTranslation } from '@/hooks/use-translation';
-import { LogOut, User as UserIcon, ShieldCheck } from 'lucide-react';
+import { LogOut, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 export function UserNav() {
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
   const { t } = useTranslation();
   const router = useRouter();
 
@@ -62,14 +62,6 @@ export function UserNav() {
               <span>{t('profile.title')}</span>
             </DropdownMenuItem>
           </Link>
-          {isAdmin && (
-            <Link href="/admin-test">
-              <DropdownMenuItem>
-                <ShieldCheck className="mr-2 h-4 w-4" />
-                <span>Panel de Admin</span>
-              </DropdownMenuItem>
-            </Link>
-          )}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600 focus:bg-red-50">
