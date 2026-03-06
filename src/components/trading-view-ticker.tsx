@@ -23,7 +23,7 @@ function TradingViewTicker() {
         ],
         "showSymbolLogo": true,
         "colorTheme": "dark",
-        "isTransparent": false,
+        "isTransparent": true,
         "displayMode": "adaptive",
         "locale": "en"
       });
