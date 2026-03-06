@@ -15,37 +15,38 @@ export async function POST(request: Request) {
     const planName = formData.get('planName') as string;
 
     if (!userId || !userName) {
-        return NextResponse.json({ error: 'Usuario no autenticado. Por favor, inicia sesión de nuevo.' }, { status: 401 });
+        return NextResponse.json({ error: 'Usuario no autenticado (UID no recibido). Por favor, inicia sesión de nuevo.' }, { status: 401 });
     }
     if (!amount || !proofFile || !planName) {
         return NextResponse.json({ error: 'Faltan datos en la solicitud (monto, comprobante o plan).' }, { status: 400 });
     }
     
-    // Create a unique file name with extension
-    const extension = proofFile.name.split('.').pop() || 'jpg';
-    const uniqueFileName = `comprobante_${userId}_${Date.now()}.${extension}`;
-    const filePath = `comprobantes/${userId}/${uniqueFileName}`;
+    // --- START OF SIMULATION LOGIC ---
+    const testContent = 'Prueba de Yareel';
+    const testFileName = 'simulacro.txt';
+    const filePath = `comprobantes/${userId}/${testFileName}`;
     const storageRef = ref(storage, filePath);
 
-    // Convert file to buffer to upload from server
-    const fileBuffer = await proofFile.arrayBuffer();
+    // Convert string to buffer for upload
+    const textBuffer = Buffer.from(testContent, 'utf-8');
     
-    // Upload using uploadBytes with buffer and content type
-    const uploadResult = await uploadBytes(storageRef, fileBuffer, {
-      contentType: proofFile.type,
+    // Upload the text file buffer
+    const uploadResult = await uploadBytes(storageRef, textBuffer, {
+      contentType: 'text/plain',
     });
-    
+    // --- END OF SIMULATION LOGIC ---
+
     const comprobanteURL = await getDownloadURL(uploadResult.ref);
 
     if (!comprobanteURL) {
-        return NextResponse.json({ error: 'Error al obtener el enlace de la imagen. Intenta de nuevo.' }, { status: 500 });
+        return NextResponse.json({ error: 'Error al obtener el enlace del archivo de prueba. Intenta de nuevo.' }, { status: 500 });
     }
     
     const newDeposit = {
       userId,
       userName,
       amount,
-      comprobanteURL,
+      comprobanteURL, // The URL will be for the simulacro.txt
       date: new Date().toISOString(),
       status: 'Pendiente',
       planName,
@@ -57,14 +58,14 @@ export async function POST(request: Request) {
     // Create the same doc in the user's subcollection using the same ID
     await setDoc(doc(db, 'users', userId, 'deposit_requests', depositDocRef.id), newDeposit);
 
-    return NextResponse.json({ success: true, depositId: depositDocRef.id }, { status: 200 });
+    // Return success message indicating it was a test
+    return NextResponse.json({ success: true, message: "Simulacro completado. Revisa la carpeta con tu UID en Storage.", depositId: depositDocRef.id }, { status: 200 });
 
   } catch (error: any) {
-    console.error('Error detallado en /api/upload:', error);
+    console.error('Error detallado en /api/upload (simulacro):', error);
 
-    let errorMessage = 'Ocurrió un error inesperado al procesar tu depósito.';
+    let errorMessage = 'Ocurrió un error inesperado al procesar tu depósito de prueba.';
     
-    // More specific error handling
     if (error.code) {
         switch (error.code) {
             case 'storage/unauthorized':
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
                 errorMessage = 'Error desconocido de Storage. Puede ser un problema con la configuración CORS de tu bucket o un problema de red.';
                 break;
             case 'permission-denied':
-                errorMessage = 'Error de Permisos en Firestore: La solicitud para guardar los datos fue denegada. Revisa las reglas de seguridad de Firestore.';
+                errorMessage = 'Error de Permisos en Firestore: La solicitud para guardar los datos fue denegada. El UID del usuario podría ser incorrecto o las reglas no lo permiten.';
                 break;
             case 'storage/object-not-found':
                 errorMessage = 'Error de Storage: El objeto del archivo no fue encontrado después de la subida.';
