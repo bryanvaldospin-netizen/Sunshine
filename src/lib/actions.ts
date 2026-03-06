@@ -19,6 +19,39 @@ import { auth, db, storage } from '@/lib/firebase';
 import { z } from 'zod';
 import type { UserProfile } from '@/types';
 
+// ADMIN LOGIN
+const adminLoginSchema = z.object({
+  id: z.string(),
+  clave: z.string(),
+});
+
+export async function loginAdmin(values: z.infer<typeof adminLoginSchema>) {
+  try {
+    const { id, clave } = adminLoginSchema.parse(values);
+
+    // 1. Validate the special ID and Clave
+    if (id !== '0986051804' || clave !== '0986051804') {
+      return { error: 'ID o Clave de Administrador incorrectos.' };
+    }
+
+    // 2. If valid, perform an "invisible" login with the master admin credentials.
+    // These credentials must correspond to the UID: daNNsN4y5lgsTtrioMXNXcX24ZH2
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@sunshine.com';
+    const adminPassword = process.env.ADMIN_PASSWORD || 'SunshineAdmin_0986051804!';
+    
+    await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
+
+    return { success: true };
+  } catch (error: any) {
+    if (error.code === 'auth/invalid-credential') {
+      return { error: 'Las credenciales de administrador internas son incorrectas. Contacta al desarrollador.' };
+    }
+    console.error("Admin login error:", error);
+    return { error: 'Ocurrió un error inesperado durante el inicio de sesión de administrador.' };
+  }
+}
+
+
 // USER ACTIONS
 const registerSchema = z.object({
   name: z.string().min(2),
@@ -67,7 +100,11 @@ const loginSchema = z.object({
 export async function loginUser(values: z.infer<typeof loginSchema>) {
   try {
     const { email, password } = loginSchema.parse(values);
-    await signInWithEmailAndPassword(auth, email, password);
+    const userDoc = await getDoc(doc(db, 'users', (await signInWithEmailAndPassword(auth, email, password)).user.uid));
+    if (userDoc.data()?.rol === 'admin') {
+      await signOut(auth);
+      return { error: 'Las cuentas de administrador no pueden iniciar sesión aquí. Utilice el acceso de administrador.' };
+    }
     return { success: true };
   } catch (error: any) {
      if (error.code === 'auth/invalid-credential') {
