@@ -20,7 +20,7 @@ import Link from 'next/link';
 import { GoogleAuthProvider, signInWithRedirect } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
-import { loginUser } from '@/lib/actions';
+import { loginUser, loginAdmin } from '@/lib/actions';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Por favor, introduce un email válido.' }),
@@ -68,7 +68,7 @@ export default function LoginPage() {
     },
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onUserSubmit(values: z.infer<typeof formSchema>) {
     const result = await loginUser(values);
     if (result.error) {
       toast({
@@ -78,6 +78,19 @@ export default function LoginPage() {
       });
     } else {
       router.push('/test-page');
+    }
+  }
+
+  async function onAdminSubmit(values: z.infer<typeof formSchema>) {
+    const result = await loginAdmin(values);
+    if (result.error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error de Administrador',
+        description: result.error,
+      });
+    } else if (result.success && result.isAdmin) {
+      router.push('/admin-test');
     }
   }
 
@@ -105,7 +118,7 @@ export default function LoginPage() {
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onUserSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="email"
@@ -132,9 +145,20 @@ export default function LoginPage() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full bg-gradient-to-r from-golden to-red-800 text-white" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? 'Iniciando...' : t('auth.login')}
-            </Button>
+            <div className="space-y-2">
+              <Button type="submit" className="w-full bg-gradient-to-r from-golden to-red-800 text-white" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? 'Iniciando...' : t('auth.login')}
+              </Button>
+               <Button 
+                  type="button"
+                  variant="secondary"
+                  className="w-full" 
+                  disabled={form.formState.isSubmitting}
+                  onClick={form.handleSubmit(onAdminSubmit)}
+              >
+                  {form.formState.isSubmitting ? 'Verificando...' : 'Ingresar como Administrador'}
+              </Button>
+            </div>
           </form>
         </Form>
         <div className="mt-4 text-center text-sm">

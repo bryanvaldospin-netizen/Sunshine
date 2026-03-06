@@ -63,7 +63,19 @@ const loginSchema = z.object({
 export async function loginUser(values: z.infer<typeof loginSchema>) {
   try {
     const { email, password } = loginSchema.parse(values);
-    await signInWithEmailAndPassword(auth, email, password);
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+    
+    // Check if the user is an admin
+    const adminDocRef = doc(db, 'admins', user.uid);
+    const adminDocSnap = await getDoc(adminDocRef);
+
+    if (adminDocSnap.exists()) {
+      // This is an admin trying to log in as a regular user.
+      await signOut(auth); // Sign them out
+      return { error: 'Las cuentas de administrador deben usar el botón "Ingresar como Administrador".' };
+    }
+    
     return { success: true };
   } catch (error: any) {
      if (error.code === 'auth/invalid-credential') {
@@ -72,6 +84,32 @@ export async function loginUser(values: z.infer<typeof loginSchema>) {
     return { error: error.message };
   }
 }
+
+export async function loginAdmin(values: z.infer<typeof loginSchema>) {
+  try {
+    const { email, password } = loginSchema.parse(values);
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    const adminDocRef = doc(db, 'admins', user.uid);
+    const adminDocSnap = await getDoc(adminDocRef);
+
+    if (adminDocSnap.exists()) {
+      // User is an admin, proceed.
+      return { success: true, isAdmin: true };
+    } else {
+      // Not an admin, sign them out and return an error.
+      await signOut(auth);
+      return { error: 'No tienes permisos de administrador.' };
+    }
+  } catch (error: any) {
+    if (error.code === 'auth/invalid-credential') {
+      return { error: 'Credenciales incorrectas. Por favor, verifica tu email y contraseña.' };
+    }
+    return { error: error.message };
+  }
+}
+
 
 export async function logoutUser() {
   await signOut(auth);
