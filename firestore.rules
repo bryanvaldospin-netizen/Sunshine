@@ -1,24 +1,18 @@
 /**
- * Core Philosophy: This ruleset implements a secure model where users can only access their own data.
- * All administrative functions have been removed for a user-focused application.
+ * Core Philosophy: This ruleset implements a secure model where users can only access their own data,
+ * except for administrators who have elevated privileges.
  *
  * Data Structure:
- * - /users/{userId}: Stores public and private user profile information. Users can manage their own
- *   profile.
- * - /invitation_codes/{invitationCodeId}: Stores invitation codes required for registration. These are
- *   publicly readable for verification.
- * - /users/{userId}/deposit_requests/{reqId}: A user-specific subcollection for managing financial
- *   deposit requests. Users have full control to create and read their own requests.
+ * - /users/{userId}: Stores user profiles. Users manage their own profile. Admins can manage all profiles.
+ * - /admins/{adminId}: Stores a list of administrator UIDs and their roles. This collection governs who gets admin privileges.
+ * - /invitation_codes/{invitationCodeId}: Publicly readable codes for registration. Writable by admins.
+ * - /deposit_requests/{reqId}: A global collection of all deposit requests, manageable only by admins.
  *
  * Key Security Decisions:
- * - No Admin Access: There is no concept of an admin role. All users have the same permissions.
- * - User Profile Security: Regular users are explicitly forbidden from modifying sensitive fields like
- *   `role` or `saldoUSDT` on their own profile.
- * - User Enumeration Prevention: Listing documents in the top-level `/users` collection is prohibited
- *   to prevent scraping of user data.
- * - Prototyping Flexibility: Data shapes are not strictly enforced (e.g., checking for all required fields
- *   or exact data types), allowing for rapid frontend development. However, authorization logic and
- *   the integrity of relational IDs (like `userId`) are strictly validated.
+ * - Admin Access: A user is considered an admin if their UID is in the /admins collection with role: 'admin', or if they are the hardcoded Master Admin.
+ * - Master Admin: A specific UID ('daNNsN4y5lgsTtrioMXNXcX24ZH2') has irrevocable super-admin privileges.
+ * - Granular Permissions: Non-admin users have strict, owner-based access to their own data.
+ * - Collection Groups: Admins use a collection group query on 'deposit_requests' to manage all requests across all users.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -29,78 +23,75 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Checks if the request's user ID matches the wildcard document ID.
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Verifies that a document exists before an update or delete operation.
-    function isExistingDoc() {
-      return resource != null;
+    // Checks if the user is a designated administrator.
+    // The Master Admin UID is also hardcoded for ultimate authority.
+    function isAdmin() {
+      return request.auth.uid == 'daNNsN4y5lgsTtrioMXNXcX24ZH2' ||
+             (isSignedIn() && get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'admin');
     }
 
-    // A convenience function combining ownership and existence checks for state-changing operations.
-    function isExistingOwner(userId) {
-      return isOwner(userId) && isExistingDoc();
-    }
-
-    /**
-     * Validates the initial state of a user-created profile.
-     * Ensures critical fields like ID, role, and initial balance are set correctly
-     * and cannot be manipulated by the client on creation.
-     */
-    function isValidNewUserProfile(data, userId) {
-      return data.id == userId
-          && data.role == 'user'
-          // Users cannot set their own balance on creation; it must start at 0.
-          && data.saldoUSDT == 0;
-    }
-
-    /**
-     * Validates a profile update made by the user themselves.
-     * Prevents users from escalating privileges or changing immutable/admin-only fields.
-     */
-    function userCanUpdateOwnProfile(requestData, existingData) {
-      // Users cannot change their balance, role, or unique ID.
-      return requestData.saldoUSDT == existingData.saldoUSDT
-          && requestData.role == existingData.role
-          && requestData.id == existingData.id;
-    }
-
-    /**
-     * @description Rules for UserProfile documents.
-     * @path /users/{userId}
-     */
+    // Rules for user profiles
     match /users/{userId} {
+      // Admins can read/write any user document
+      allow read, write: if isAdmin();
+      
+      // A user can read their own document
       allow get: if isOwner(userId);
-      allow list: if false; // Prevent user enumeration
-      allow create: if isOwner(userId) && isValidNewUserProfile(request.resource.data, userId);
-      allow update: if isExistingOwner(userId) && userCanUpdateOwnProfile(request.resource.data, resource.data);
+      
+      // Admins can list all users, regular users cannot.
+      allow list: if isAdmin();
+      
+      // A user can create their own profile
+      allow create: if isOwner(userId);
+      
+      // A user can update their own profile, but not sensitive fields like balance or role
+      allow update: if isOwner(userId) && request.resource.data.saldoUSDT == resource.data.saldoUSDT && request.resource.data.rol == resource.data.rol;
+      
+      // Nobody can delete users for now.
       allow delete: if false;
     }
 
-    /**
-     * @description Rules for a user's deposit requests (subcollection).
-     * @path /users/{userId}/deposit_requests/{depositRequestId}
-     */
+    // Rules for the subcollection of deposit requests within a user document (less used now, but good practice)
     match /users/{userId}/deposit_requests/{depositRequestId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      // Updates and deletes are not allowed for users. This would be an admin function.
-      allow update: if false;
-      allow delete: if false;
+      // A user can manage their own deposit requests
+      allow get, list, create: if isOwner(userId) && request.resource.data.userId == userId;
+      // Users cannot update or delete their requests
+      allow update, delete: if false;
+    }
+    
+    // Rules for the top-level collection of all deposit requests, used for admin panel
+    match /deposit_requests/{reqId} {
+        // Only Admins can read, list, and update these requests.
+        allow read, list, update: if isAdmin();
+        // Users can create requests here.
+        allow create: if request.resource.data.userId == request.auth.uid;
+        // Nobody can delete from the top-level collection for now.
+        allow delete: if false;
+    }
+    
+    // This rule is critical for the admin panel to query all deposit requests from all users at once.
+    match /{path=**}/deposit_requests/{reqId} {
+        allow read, list, update: if isAdmin();
     }
 
-    /**
-     * @description Rules for invitation codes used in user registration.
-     * @path /invitation_codes/{invitationCodeId}
-     */
+    // Rules for invitation codes
     match /invitation_codes/{invitationCodeId} {
+      // Admins can manage codes
+      allow read, write: if isAdmin();
+      // Anyone can check if a code exists for registration purposes
       allow get: if true;
-      allow list: if false;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+    }
+
+    // Rules for the admins collection itself
+    match /admins/{adminId} {
+      // Only the master admin can add, edit, or remove other admins
+      allow write: if request.auth.uid == 'daNNsN4y5lgsTtrioMXNXcX24ZH2';
+      // All admins can see who else is an admin
+      allow read, list: if isAdmin();
     }
   }
 }

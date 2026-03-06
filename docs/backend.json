@@ -51,6 +51,33 @@
         "invitationCodeUsedId"
       ]
     },
+    "AdminProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AdminProfile",
+      "type": "object",
+      "description": "Represents an administrator's profile in the Sunshine application.",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Unique Firebase Authentication UID for the administrator."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the admin."
+        },
+        "email": {
+          "type": "string",
+          "description": "The admin's email address.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "The role, which must be 'admin'.",
+          "enum": ["admin"]
+        }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
     "InvitationCode": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "InvitationCode",
@@ -157,6 +184,22 @@
             {
               "name": "userId",
               "description": "The unique Firebase Authentication User ID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/admins/{adminId}",
+        "definition": {
+          "entityName": "AdminProfile",
+          "schema": {
+            "$ref": "#/backend/entities/AdminProfile"
+          },
+          "description": "Stores administrator profiles. This collection is used to grant admin privileges across the application.",
+          "params": [
+            {
+              "name": "adminId",
+              "description": "The unique Firebase Authentication User ID for the admin."
             }
           ]
         }
