@@ -11,18 +11,14 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { firebaseUser, loading, isAdmin } = useAuth();
+  const { firebaseUser, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!loading && firebaseUser) {
-      if (isAdmin) {
-        router.replace('/zona-vip');
-      } else {
-        router.replace('/test-page');
-      }
+      router.replace('/test-page');
     }
-  }, [loading, firebaseUser, isAdmin, router]);
+  }, [loading, firebaseUser, router]);
 
   if (loading || firebaseUser) {
     return <SplashScreen />;

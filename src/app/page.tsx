@@ -6,22 +6,18 @@ import { useAuth } from '@/hooks/use-auth';
 import SplashScreen from '@/components/splash-screen';
 
 export default function Home() {
-  const { firebaseUser, loading, isAdmin } = useAuth();
+  const { firebaseUser, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!loading) {
       if (firebaseUser) {
-        if (isAdmin) {
-            router.replace('/zona-vip');
-        } else {
-            router.replace('/test-page');
-        }
+        router.replace('/test-page');
       } else {
         router.replace('/login');
       }
     }
-  }, [firebaseUser, loading, isAdmin, router]);
+  }, [firebaseUser, loading, router]);
 
   return <SplashScreen />;
 }
