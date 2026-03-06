@@ -1,0 +1,203 @@
+{
+  "entities": {
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserProfile",
+      "type": "object",
+      "description": "Represents a user's profile in the Sunshine application, including their financial balance and other personal settings.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserProfile entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of the user within the application, which is always 'user'.",
+          "enum": ["user"]
+        },
+        "saldoUSDT": {
+          "type": "number",
+          "description": "The user's current investment balance in USDT (Tether). This field is read-only for users and can only be modified through approved deposit requests."
+        },
+        "preferredLanguage": {
+          "type": "string",
+          "description": "The user's preferred language for the application interface (e.g., 'es' for Spanish, 'en' for English)."
+        },
+        "termsAccepted": {
+          "type": "boolean",
+          "description": "Indicates whether the user has accepted the 'Términos y Condiciones de Inversión de Sunshine' during registration."
+        },
+        "invitationCodeUsedId": {
+          "type": "string",
+          "description": "Reference to the InvitationCode entity that was used by this user during registration. (Relationship: InvitationCode 1:N UserProfile)"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "role",
+        "saldoUSDT",
+        "termsAccepted",
+        "invitationCodeUsedId"
+      ]
+    },
+    "InvitationCode": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "InvitationCode",
+      "type": "object",
+      "description": "Represents an invitation code required for new user registration in the Sunshine application. Each code can be used only once.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The unique invitation code string itself, serving as its identifier (e.g., 'SUNSHINE2023')."
+        },
+        "isUsed": {
+          "type": "boolean",
+          "description": "Indicates whether this invitation code has been used to register a user."
+        },
+        "usedByUserId": {
+          "type": "string",
+          "description": "Reference to the UserProfile entity that used this invitation code. Only present if 'isUsed' is true. (Relationship: UserProfile 1:1 InvitationCode)"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The date and time when this invitation code was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "isUsed",
+        "createdAt"
+      ]
+    },
+    "DepositRequest": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DepositRequest",
+      "type": "object",
+      "description": "Represents a user's request to deposit USDT into their Sunshine investment account, awaiting administrator review and approval.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the DepositRequest entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the UserProfile entity that made this deposit request. (Relationship: UserProfile 1:N DepositRequest)"
+        },
+        "amountUSDT": {
+          "type": "number",
+          "description": "The amount of USDT (Tether) the user intends to deposit."
+        },
+        "comprobanteURL": {
+          "type": "string",
+          "description": "The URL to the uploaded proof of transfer (comprobante) for the deposit.",
+          "format": "uri"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the deposit request (e.g., 'pending', 'approved', 'rejected')."
+        },
+        "requestDate": {
+          "type": "string",
+          "description": "The date and time when the deposit request was submitted.",
+          "format": "date-time"
+        },
+        "adminNotes": {
+          "type": "string",
+          "description": "Optional internal notes added by an administrator regarding the approval or rejection of the request."
+        },
+        "processedByAdminId": {
+          "type": "string",
+          "description": "Reference to the UserProfile entity (admin) who processed this request. Only present if status is 'approved' or 'rejected'. (Relationship: UserProfile 1:N DepositRequest)"
+        },
+        "processedDate": {
+          "type": "string",
+          "description": "The date and time when the deposit request was processed by an administrator.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "amountUSDT",
+        "comprobanteURL",
+        "status",
+        "requestDate"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores individual user profiles. Each document ID (`userId`) corresponds to a Firebase Authentication UID. 'saldoUSDT' is read-only for users.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique Firebase Authentication User ID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/invitation_codes/{invitationCodeId}",
+        "definition": {
+          "entityName": "InvitationCode",
+          "schema": {
+            "$ref": "#/backend/entities/InvitationCode"
+          },
+          "description": "Stores unique invitation codes. Unauthenticated users can perform a `get()` to verify a specific code during registration.",
+          "params": [
+            {
+              "name": "invitationCodeId",
+              "description": "The unique invitation code string itself."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/deposit_requests/{depositRequestId}",
+        "definition": {
+          "entityName": "DepositRequest",
+          "schema": {
+            "$ref": "#/backend/entities/DepositRequest"
+          },
+          "description": "Stores deposit requests specific to a user. The 'userId' field within each document denormalizes ownership context for security rules. Users can create and read their own requests.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The Firebase Authentication User ID of the user submitting the request."
+            },
+            {
+              "name": "depositRequestId",
+              "description": "The unique identifier for the deposit request."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The proposed Firestore structure prioritizes secure, scalable, and debuggable authorization by adhering to core design principles. A critical aspect is achieving Authorization Independence to eliminate slow and complex `get()` calls in security rules.\n\n**Authorization Independence via Denormalization:**\n1.  **User-Owned Subcollections:** For user-specific data like `DepositRequest`, the `userId` is explicitly included as a field within each `DepositRequest` document (`/users/{userId}/deposit_requests/{depositRequestId}`). This denormalizes the ownership context, allowing rules to directly evaluate `resource.data.userId == request.auth.uid` without needing to inspect the parent `users/{userId}` document. This ensures that creating or updating a `DepositRequest` is an atomic operation and not dependent on the parent document's attributes for authorization.\n\n**Support for Query-Able Access Patterns (QAPs):**\n1.  **User Data (UserProfile):** Individual users can access their own profile at `/users/$(request.auth.uid)`.\n2.  **Invitation Codes (InvitationCode):** The `/invitation_codes/{invitationCodeId}` collection allows unauthenticated users to perform a `get()` operation on a specific code during registration to verify its existence and `isUsed` status.\n3.  **Deposit Requests (DepositRequest):** Users can `list` their own deposit requests at `/users/$(request.auth.uid)/deposit_requests`.\n\n**Structural Segregation and Consistency:**\n*   Each collection adheres to a homogeneous security posture. `users` holds all user profiles, `invitation_codes` manages code lifecycle, and `deposit_requests` (within user subcollections) manages user-specific deposit activities. This simplifies security rules greatly by associating clear access patterns with specific paths."
+  }
+}

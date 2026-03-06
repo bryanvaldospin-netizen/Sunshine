@@ -10,47 +10,10 @@ import {
   setDoc,
   collection,
   addDoc,
-  getDoc,
-  updateDoc,
-  runTransaction,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage } from '@/lib/firebase';
 import { z } from 'zod';
-import type { UserProfile } from '@/types';
-
-// ADMIN LOGIN
-const adminLoginSchema = z.object({
-  id: z.string(),
-  clave: z.string(),
-});
-
-export async function loginAdmin(values: z.infer<typeof adminLoginSchema>) {
-  try {
-    const { id, clave } = adminLoginSchema.parse(values);
-
-    // 1. Validate the special ID and Clave
-    if (id !== '0986051804' || clave !== '0986051804') {
-      return { error: 'ID o Clave de Administrador incorrectos.' };
-    }
-
-    // 2. If valid, perform an "invisible" login with the master admin credentials.
-    // These credentials must correspond to the UID: daNNsN4y5lgsTtrioMXNXcX24ZH2
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@sunshine.com';
-    const adminPassword = process.env.ADMIN_PASSWORD || '0986051804';
-    
-    await signInWithEmailAndPassword(auth, adminEmail, adminPassword);
-
-    return { success: true };
-  } catch (error: any) {
-    if (error.code === 'auth/invalid-credential') {
-      return { error: 'Las credenciales de administrador internas son incorrectas. Contacta al desarrollador.' };
-    }
-    console.error("Admin login error:", error);
-    return { error: 'Ocurrió un error inesperado durante el inicio de sesión de administrador.' };
-  }
-}
-
 
 // USER ACTIONS
 const registerSchema = z.object({
@@ -100,8 +63,7 @@ const loginSchema = z.object({
 export async function loginUser(values: z.infer<typeof loginSchema>) {
   try {
     const { email, password } = loginSchema.parse(values);
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    router.push('/test-page');
+    await signInWithEmailAndPassword(auth, email, password);
     return { success: true };
   } catch (error: any) {
      if (error.code === 'auth/invalid-credential') {
@@ -193,70 +155,5 @@ export async function submitDeposit(formData: FormData) {
              break;
     }
     return { error: errorMessage };
-  }
-}
-
-// ADMIN ACTIONS
-export async function updateUserBalance(userId: string, newBalance: number) {
-  try {
-    const userRef = doc(db, 'users', userId);
-    await updateDoc(userRef, { saldoUSDT: newBalance });
-    return { success: true };
-  } catch (error: any) {
-    return { error: 'No se pudo actualizar el saldo del usuario.' };
-  }
-}
-
-export async function approveDeposit(depositId: string, userId: string, amount: number) {
-  try {
-    const userRef = doc(db, 'users', userId);
-    const depositRef = doc(db, 'deposit_requests', depositId);
-    const userSubCollectionDepositRef = doc(db, 'users', userId, 'deposit_requests', depositId);
-
-    await runTransaction(db, async (transaction) => {
-      const userDoc = await transaction.get(userRef);
-      if (!userDoc.exists()) {
-        throw new Error('El usuario no existe.');
-      }
-
-      const currentBalance = userDoc.data().saldoUSDT || 0;
-      const newBalance = currentBalance + amount;
-
-      transaction.update(userRef, { saldoUSDT: newBalance });
-      transaction.update(depositRef, { status: 'Aprobado' });
-      
-      // Also update the subcollection document
-      transaction.update(userSubCollectionDepositRef, { status: 'Aprobado' });
-
-    });
-
-    return { success: true };
-  } catch (error: any) {
-    console.error('Error al aprobar depósito:', error);
-    return { error: error.message };
-  }
-}
-
-export async function rejectDeposit(depositId: string) {
-   try {
-    // This needs to find the deposit document to get the userId to update the subcollection
-    const depositRef = doc(db, 'deposit_requests', depositId);
-    const depositSnap = await getDoc(depositRef);
-
-    if (!depositSnap.exists()) {
-        throw new Error("No se encontró la solicitud de depósito.");
-    }
-
-    const userId = depositSnap.data().userId;
-    const userSubCollectionDepositRef = doc(db, 'users', userId, 'deposit_requests', depositId);
-
-    // Update both documents
-    await updateDoc(depositRef, { status: 'Rechazado' });
-    await updateDoc(userSubCollectionDepositRef, { status: 'Rechazado' });
-    
-    return { success: true };
-  } catch (error: any) {
-    console.error('Error al rechazar depósito:', error);
-    return { error: error.message };
   }
 }

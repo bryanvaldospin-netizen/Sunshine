@@ -14,24 +14,17 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from '@/hooks/use-translation';
 import Link from 'next/link';
 import { GoogleAuthProvider, signInWithRedirect } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
-import { loginUser, loginAdmin } from '@/lib/actions';
-import { useState } from 'react';
+import { loginUser } from '@/lib/actions';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Por favor, introduce un email válido.' }),
   password: z.string().min(1, { message: 'La contraseña es obligatoria.' }),
-});
-
-const adminFormSchema = z.object({
-  id: z.string().min(1, { message: 'El ID es obligatorio.' }),
-  clave: z.string().min(1, { message: 'La Clave es obligatoria.' }),
 });
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -62,94 +55,10 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
 );
 
 
-function AdminLoginDialog() {
-  const [open, setOpen] = useState(false);
-  const { toast } = useToast();
-
-  const adminForm = useForm<z.infer<typeof adminFormSchema>>({
-    resolver: zodResolver(adminFormSchema),
-    defaultValues: {
-      id: '',
-      clave: '',
-    },
-  });
-
-  async function onAdminSubmit(values: z.infer<typeof adminFormSchema>) {
-    const result = await loginAdmin(values);
-    if (result?.error) {
-      toast({
-        variant: 'destructive',
-        title: 'Acceso Denegado',
-        description: result.error,
-      });
-    } else {
-      toast({
-        title: 'Acceso de Administrador Concedido',
-        description: 'Redirigiendo al panel...',
-      });
-      setOpen(false);
-      // La redirección es gestionada por AuthLayout
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="link" className="w-full mt-2 text-muted-foreground text-xs">
-          Ingresar al Admin Test
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Acceso de Administrador</DialogTitle>
-          <DialogDescription>
-            Ingresa las credenciales de administrador para acceder al panel de control.
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...adminForm}>
-          <form onSubmit={adminForm.handleSubmit(onAdminSubmit)} className="space-y-4">
-            <FormField
-              control={adminForm.control}
-              name="id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>ID</FormLabel>
-                  <FormControl>
-                    <Input placeholder="ID de Administrador" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={adminForm.control}
-              name="clave"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Clave</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <DialogFooter>
-              <Button type="submit" className="w-full bg-gradient-to-r from-golden to-red-800 text-white" disabled={adminForm.formState.isSubmitting}>
-                {adminForm.formState.isSubmitting ? 'Verificando...' : 'Acceder'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-
 export default function LoginPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -167,8 +76,9 @@ export default function LoginPage() {
         title: 'Error de inicio de sesión',
         description: result.error,
       });
+    } else {
+      router.push('/test-page');
     }
-    // Redirection is handled by the AuthLayout
   }
 
   async function handleGoogleSignIn() {
@@ -246,7 +156,6 @@ export default function LoginPage() {
           <GoogleIcon className="mr-2" />
           Iniciar sesión con Google
         </Button>
-        <AdminLoginDialog />
       </CardContent>
     </Card>
   );

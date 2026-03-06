@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Rules for user profiles
+    match /users/{userId} {
+      // A user can read and create their own document.
+      allow get, create: if isOwner(userId);
+      
+      // A user can update their own profile, but not sensitive fields like balance or role.
+      allow update: if isOwner(userId) && request.resource.data.saldoUSDT == resource.data.saldoUSDT && request.resource.data.rol == resource.data.rol;
+      
+      // Nobody can list or delete users.
+      allow list, delete: if false;
+    }
+
+    // Rules for the subcollection of deposit requests within a user document
+    match /users/{userId}/deposit_requests/{depositRequestId} {
+      // A user can read and create their own deposit requests.
+      // The request data must contain the correct userId to prevent spoofing.
+      allow get, list, create: if isOwner(userId) && request.resource.data.userId == userId;
+      
+      // Users cannot update or delete their requests once created.
+      allow update, delete: if false;
+    }
+    
+    // Rules for the top-level collection of all deposit requests
+    match /deposit_requests/{reqId} {
+        // Users can create requests here. The data must contain their own UID.
+        allow create: if request.resource.data.userId == request.auth.uid;
+
+        // No one can read, update or delete from the top-level collection directly
+        // This collection is write-only for users, and would typically be read by an admin backend process.
+        allow read, update, delete: if false;
+    }
+
+    // Rules for invitation codes
+    match /invitation_codes/{invitationCodeId} {
+      // Anyone can check if a code exists for registration purposes
+      allow get: if true;
+      // No one else can read/write/list codes through client SDK.
+      allow list, write: if false;
+    }
+  }
+}
