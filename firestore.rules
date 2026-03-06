@@ -127,6 +127,9 @@ service cloud.firestore {
      * @principle Provides a secure, read-only mechanism for the isAdmin() function to check privileges.
      */
     match /admins/{adminId} {
+      // Rule: Admin documents are read-only from the client.
+      // Rationale: Prevents any user from escalating their own privileges.
+      // Admin creation must happen in a trusted server environment or via the Firebase Console.
       allow get, list: if isAdmin();
       allow create: if false;
       allow update: if false;
@@ -151,3 +154,4 @@ service cloud.firestore {
     }
   }
 }
+    
