@@ -2,7 +2,7 @@ export type UserProfile = {
   uid: string;
   email: string;
   name: string;
-  rol: 'user';
+  rol: 'user' | 'admin';
   saldoUSDT: number;
   invitadoPor?: string | null;
   inviteCode?: string;
@@ -16,6 +16,7 @@ export type DepositRequest = {
   date: string; // ISO string
   status: 'Pendiente' | 'Aprobado' | 'Rechazado';
   comprobanteURL: string;
+  planName: string;
 };
 
 export type InvitationCode = {

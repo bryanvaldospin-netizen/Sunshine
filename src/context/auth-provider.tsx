@@ -10,12 +10,14 @@ interface AuthContextType {
   user: UserProfile | null;
   firebaseUser: FirebaseUser | null;
   loading: boolean;
+  isAdmin: boolean;
 }
 
 export const AuthContext = createContext<AuthContextType>({
   user: null,
   firebaseUser: null,
   loading: true,
+  isAdmin: false,
 });
 
 function generateInviteCode() {
@@ -30,6 +32,7 @@ function generateInviteCode() {
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -48,17 +51,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       let unsubscribeFromSnapshot: () => void = () => {};
 
-      const unsubscribeFromAuth = onAuthStateChanged(auth, (currentFirebaseUser) => {
+      const unsubscribeFromAuth = onAuthStateChanged(auth, async (currentFirebaseUser) => {
         unsubscribeFromSnapshot(); 
-        setLoading(true); // Always enter loading state when auth state changes.
+        setLoading(true);
 
         if (currentFirebaseUser) {
           setFirebaseUser(currentFirebaseUser);
+          
+          const adminDocRef = doc(db, 'admins', currentFirebaseUser.uid);
+          const adminDocSnap = await getDoc(adminDocRef);
+          const isAdminUser = adminDocSnap.exists();
+          setIsAdmin(isAdminUser);
+
           const userDocRef = doc(db, 'users', currentFirebaseUser.uid);
           
           unsubscribeFromSnapshot = onSnapshot(userDocRef, (docSnap) => {
             if (docSnap.exists()) {
               const userData = docSnap.data() as UserProfile;
+              
+              if (isAdminUser && userData.rol !== 'admin') {
+                userData.rol = 'admin';
+              }
               console.log('Datos del usuario desde Firestore:', userData);
               setUser(userData);
             } else {
@@ -74,6 +87,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } else {
           setUser(null);
           setFirebaseUser(null);
+          setIsAdmin(false);
           setLoading(false);
         }
       });
@@ -90,7 +104,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, firebaseUser, loading }}>
+    <AuthContext.Provider value={{ user, firebaseUser, loading, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );
