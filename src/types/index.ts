@@ -8,6 +8,8 @@ export type UserProfile = {
   inviteCode?: string;
   ultimoCheckIn?: string;
   walletAddress?: string;
+  planActivo?: number;
+  fechaInicioPlan?: string | null;
 };
 
 export type DepositRequest = {

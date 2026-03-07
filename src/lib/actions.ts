@@ -51,6 +51,8 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
       inviteCode: inviteCode,
       walletAddress: walletAddress,
       ultimoCheckIn: null, // Initialize daily bonus field
+      planActivo: 0,
+      fechaInicioPlan: null,
     });
 
     const newWalletRef = doc(db, 'wallet_addresses', walletAddress);

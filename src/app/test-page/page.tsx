@@ -304,13 +304,44 @@ export default function TestPage() {
   const [chartData, setChartData] = useState<any[]>([]);
   const [activePlan, setActivePlan] = useState<Investment | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
+  const [generatedEarnings, setGeneratedEarnings] = useState(0);
+
+  const getDailyRate = (planAmount: number): number => {
+    if (planAmount >= 1000) return 0.04;   // Nivel 5 (Diamante) - 4%
+    if (planAmount >= 100) return 0.035;  // Nivel 4 (Platino) - 3.5%
+    if (planAmount >= 50) return 0.03;    // Nivel 3 (Oro) - 3%
+    if (planAmount >= 30) return 0.025;   // Nivel 2 (Plata) - 2.5%
+    if (planAmount >= 20) return 0.02;    // Nivel 1 (Bronce) - 2%
+    return 0;
+  };
+
+  // Effect for Generated Earnings
+  useEffect(() => {
+    if (profile && profile.planActivo && profile.planActivo > 0 && profile.fechaInicioPlan) {
+      const startDate = new Date(profile.fechaInicioPlan);
+      const now = new Date();
+      
+      const diffTime = now.getTime() - startDate.getTime();
+      if (diffTime < 0) return;
+
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      
+      const dailyRate = getDailyRate(profile.planActivo);
+      const earnings = profile.planActivo * dailyRate * diffDays;
+      
+      setGeneratedEarnings(earnings);
+    } else {
+      setGeneratedEarnings(0);
+    }
+  }, [profile]);
+
 
   // Effect for Stats, based on real-time profile
   useEffect(() => {
     if (profile) {
       setStats({
         totalInvested: profile.saldoUSDT,
-        earnings: 0, // Placeholder
+        earnings: generatedEarnings, // Use state for earnings
         withdrawals: 0, // Placeholder
       });
       setStatsLoading(false);
@@ -319,7 +350,7 @@ export default function TestPage() {
       setStats({ totalInvested: 0, earnings: 0, withdrawals: 0 });
       setStatsLoading(false);
     }
-  }, [profile, authLoading]);
+  }, [profile, authLoading, generatedEarnings]);
 
   // Effect for Chart Data, based on real-time profile.saldoUSDT
   useEffect(() => {
@@ -598,6 +629,27 @@ export default function TestPage() {
                )}
             </div>
             
+            <div className="w-full max-w-5xl">
+                <Card className="bg-gray-800 border-gray-700 text-white">
+                    <CardHeader>
+                        <CardTitle>Estado de Inversión</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-4">
+                        {authLoading ? (
+                           <Skeleton className="h-5 w-3/4 bg-gray-700" />
+                        ) : profile && profile.planActivo && profile.planActivo > 0 ? (
+                            <div className="space-y-2">
+                                <p className="text-lg">Tu plan de inversión: <span className="font-bold text-golden">{formatCurrency(profile.planActivo)} USDT Activo</span></p>
+                                <p className="text-lg">Ganancias Generadas: <span className="font-bold text-green-400">{formatCurrency(generatedEarnings)} USDT</span></p>
+                                {profile.fechaInicioPlan && <p className="text-sm text-gray-400">Inversión iniciada el: {new Date(profile.fechaInicioPlan).toLocaleDateString('es-ES')}</p>}
+                            </div>
+                        ) : (
+                            <p>Tu plan de inversión: No tienes un plan activo. Realiza una inversión para obtener uno.</p>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+
             <div className="w-full max-w-5xl">
                 <InvestmentPlans userProfile={profile} />
             </div>

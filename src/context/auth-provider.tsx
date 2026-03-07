@@ -2,7 +2,7 @@
 
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { onAuthStateChanged, User as FirebaseUser, setPersistence, browserLocalPersistence, getRedirectResult } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile } from '@/types';
 
@@ -50,6 +50,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         unsubscribeFromSnapshot = onSnapshot(userDocRef, (docSnap) => {
           if (docSnap.exists()) {
             const userData = docSnap.data() as UserProfile;
+            
+            // Backwards compatibility for existing users
+            if (userData.planActivo === undefined || userData.fechaInicioPlan === undefined) {
+              updateDoc(userDocRef, {
+                planActivo: userData.planActivo ?? 0,
+                fechaInicioPlan: userData.fechaInicioPlan ?? null,
+              }).catch(err => console.error("Failed to migrate user profile:", err));
+            }
+            
             setUser(userData);
           } else {
              console.warn(`User ${currentFirebaseUser.uid} authenticated but has no profile document.`);
