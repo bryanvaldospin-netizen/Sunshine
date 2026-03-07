@@ -24,7 +24,9 @@ service cloud.firestore {
                     && request.resource.data.rol == 'user'
                     && request.resource.data.saldoUSDT == 0
                     && request.resource.data.walletAddress is string && request.resource.data.walletAddress.size() > 20
-                    && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'rol', 'saldoUSDT', 'invitadoPor', 'inviteCode', 'walletAddress', 'ultimoCheckIn']);
+                    && request.resource.data.planActivo == 0
+                    && request.resource.data.fechaInicioPlan == null
+                    && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'rol', 'saldoUSDT', 'invitadoPor', 'inviteCode', 'walletAddress', 'ultimoCheckIn', 'planActivo', 'fechaInicioPlan']);
 
       // This rule was modified to allow updating saldoUSDT for the daily bonus.
       allow update: if isOwner(userId) && request.resource.data.rol == resource.data.rol;
