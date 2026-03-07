@@ -318,18 +318,39 @@ export default function TestPage() {
   // Effect for Generated Earnings
   useEffect(() => {
     if (profile && profile.planActivo && profile.planActivo > 0 && profile.fechaInicioPlan) {
-      const startDate = new Date(profile.fechaInicioPlan);
-      const now = new Date();
+      console.log('Valor de fechaInicioPlan:', profile.fechaInicioPlan);
+
+      // The field can be a Firestore Timestamp object or an ISO string.
+      // A Timestamp object has a .toDate() method.
+      const dateValue = profile.fechaInicioPlan as any;
+      let startDate: Date;
+
+      if (dateValue && typeof dateValue.toDate === 'function') {
+        startDate = dateValue.toDate();
+      } else {
+        startDate = new Date(dateValue);
+      }
+
+      // If date is still invalid after conversion, default to 0.
+      if (isNaN(startDate.getTime())) {
+        setGeneratedEarnings(0);
+        return;
+      }
       
+      const now = new Date();
       const diffTime = now.getTime() - startDate.getTime();
-      if (diffTime < 0) return;
+
+      if (diffTime < 0) {
+        setGeneratedEarnings(0);
+        return;
+      }
 
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      
       const dailyRate = getDailyRate(profile.planActivo);
       const earnings = profile.planActivo * dailyRate * diffDays;
       
-      setGeneratedEarnings(earnings);
+      // If calculation results in NaN, default to 0.
+      setGeneratedEarnings(isNaN(earnings) ? 0 : earnings);
     } else {
       setGeneratedEarnings(0);
     }
