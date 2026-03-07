@@ -6,13 +6,10 @@ import {
 import {
   doc,
   setDoc,
-  collection,
-  query,
-  where,
-  getDocs,
+  getDoc,
+  writeBatch,
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { auth, db, storage } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { z } from 'zod';
 
 // USER ACTIONS
@@ -29,18 +26,22 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
     const validatedValues = registerSchema.parse(values);
     const { email, password, name, inviteCode, walletAddress } = validatedValues;
     
-    const usersRef = collection(db, 'users');
-    const q = query(usersRef, where('walletAddress', '==', walletAddress));
-    const querySnapshot = await getDocs(q);
+    // Securely check for wallet uniqueness in the new dedicated collection
+    const walletRef = doc(db, 'wallet_addresses', walletAddress);
+    const walletSnap = await getDoc(walletRef);
 
-    if (!querySnapshot.empty) {
+    if (walletSnap.exists()) {
       return { error: 'Error: Esta billetera ya está vinculada a otra cuenta. Usa una dirección única.' };
     }
 
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    await setDoc(doc(db, 'users', user.uid), {
+    // Use a batch to write both user profile and wallet address documents atomically
+    const batch = writeBatch(db);
+    
+    const userDocRef = doc(db, 'users', user.uid);
+    batch.set(userDocRef, {
       uid: user.uid,
       name,
       email,
@@ -49,9 +50,18 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
       invitadoPor: null,
       inviteCode: inviteCode,
       walletAddress: walletAddress,
+      ultimoCheckIn: null, // Initialize daily bonus field
     });
+
+    const newWalletRef = doc(db, 'wallet_addresses', walletAddress);
+    batch.set(newWalletRef, {
+        userId: user.uid,
+        createdAt: new Date().toISOString()
+    });
+
+    await batch.commit();
     
-    console.log(`Código ${inviteCode} asignado exitosamente al usuario ${user.uid}`);
+    console.log(`Código ${inviteCode} y billetera ${walletAddress} asignados exitosamente al usuario ${user.uid}`);
 
     return { success: true };
   } catch (error: any) {
@@ -68,3 +78,5 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
 export async function getWalletAddress() {
   return process.env.USDT_WALLET_ADDRESS || '0xe37a298c740caf1411cbccda7b250a0664a00129';
 }
+
+    

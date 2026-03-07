@@ -13,11 +13,23 @@ service cloud.firestore {
 
     // Rules for user profiles
     match /users/{userId} {
-      // A user can read, create and update their own document.
-      allow get, create: if isOwner(userId);
+      // A user can read their own document.
+      allow get: if isOwner(userId);
+      
+      // Allow user creation with specific fields validation for security.
+      allow create: if isOwner(userId)
+                    && request.resource.data.uid == userId
+                    && request.resource.data.email == request.auth.token.email
+                    && request.resource.data.name is string && request.resource.data.name.size() > 1
+                    && request.resource.data.rol == 'user'
+                    && request.resource.data.saldoUSDT == 0
+                    && request.resource.data.walletAddress is string && request.resource.data.walletAddress.size() > 20
+                    && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'rol', 'saldoUSDT', 'invitadoPor', 'inviteCode', 'walletAddress', 'ultimoCheckIn']);
+
+      // This rule was modified to allow updating saldoUSDT for the daily bonus.
       allow update: if isOwner(userId) && request.resource.data.rol == resource.data.rol;
       
-      // Nobody can list or delete users.
+      // Nobody can list or delete users to protect user data.
       allow list, delete: if false;
     }
 
@@ -59,5 +71,21 @@ service cloud.firestore {
       // Nobody else can list or write codes.
       allow list, write: if false;
     }
+
+    // New rules for wallet address uniqueness check
+    match /wallet_addresses/{walletAddress} {
+        // Allow anyone (even unauthenticated users) to check if a wallet address exists.
+        // This is safe because the document contains no sensitive information.
+        allow get: if true;
+
+        // Allow creation only if the user is authenticated and the userId in the document
+        // matches their own UID. This prevents users from claiming wallets for others.
+        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+
+        // Disallow listing, updating, or deleting to protect the integrity of the records.
+        allow list, update, delete: if false;
+    }
   }
 }
+
+    
