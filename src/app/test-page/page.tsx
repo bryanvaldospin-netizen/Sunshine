@@ -517,6 +517,29 @@ export default function TestPage() {
                                 <li><strong className="text-gray-400 font-medium w-36 inline-block">Nombre:</strong> {profile.name}</li>
                                 <li><strong className="text-gray-400 font-medium w-36 inline-block">Correo:</strong> {profile.email}</li>
                                 <li className="flex items-center">
+                                    <strong className="text-gray-400 font-medium w-36 inline-block flex-shrink-0">Billetera de Retiro (TRC-20):</strong>
+                                    {profile.walletAddress ? (
+                                        <div className="flex items-center min-w-0 flex-1">
+                                            <span className="font-mono text-white truncate" title={profile.walletAddress}>{profile.walletAddress}</span>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                onClick={() => {
+                                                    if (profile.walletAddress) {
+                                                        navigator.clipboard.writeText(profile.walletAddress);
+                                                        toast({ title: 'Billetera copiada', description: 'La dirección de tu billetera ha sido copiada al portapapeles.' });
+                                                    }
+                                                }}
+                                                className="h-7 w-7 ml-2 text-gray-400 hover:text-white hover:bg-gray-700 flex-shrink-0"
+                                            >
+                                                <Copy className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <span className="text-gray-500">N/A</span>
+                                    )}
+                                </li>
+                                <li className="flex items-center">
                                     <strong className="text-gray-400 font-medium w-36 inline-block flex-shrink-0">Código Invitación:</strong>
                                     {profile.inviteCode ? (
                                         <>
