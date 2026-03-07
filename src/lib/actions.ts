@@ -7,7 +7,9 @@ import {
   doc,
   setDoc,
   collection,
-  addDoc,
+  query,
+  where,
+  getDocs,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, db, storage } from '@/lib/firebase';
@@ -19,12 +21,21 @@ const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   inviteCode: z.string().min(1, 'El código de invitación no puede estar vacío.'),
+  walletAddress: z.string().min(20, 'La dirección de la billetera no es válida.'),
 });
 
 export async function registerUser(values: z.infer<typeof registerSchema>) {
   try {
     const validatedValues = registerSchema.parse(values);
-    const { email, password, name, inviteCode } = validatedValues;
+    const { email, password, name, inviteCode, walletAddress } = validatedValues;
+    
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('walletAddress', '==', walletAddress));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+      return { error: 'Error: Esta billetera ya está vinculada a otra cuenta. Usa una dirección única.' };
+    }
 
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
@@ -37,6 +48,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
       saldoUSDT: 0,
       invitadoPor: null,
       inviteCode: inviteCode,
+      walletAddress: walletAddress,
     });
     
     console.log(`Código ${inviteCode} asignado exitosamente al usuario ${user.uid}`);

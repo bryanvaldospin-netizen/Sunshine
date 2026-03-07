@@ -7,6 +7,7 @@ export type UserProfile = {
   invitadoPor?: string | null;
   inviteCode?: string;
   ultimoCheckIn?: string;
+  walletAddress?: string;
 };
 
 export type DepositRequest = {
