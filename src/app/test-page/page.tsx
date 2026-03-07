@@ -662,7 +662,7 @@ export default function TestPage() {
                             <div className="space-y-2">
                                 <p className="text-lg">Tu plan de inversión: <span className="font-bold text-golden">{formatCurrency(profile.planActivo)} USDT Activo</span></p>
                                 <p className="text-lg">Ganancias Generadas: <span className="font-bold text-green-400">{formatCurrency(generatedEarnings)} USDT</span></p>
-                                {profile.fechaInicioPlan && <p className="text-sm text-gray-400">Inversión iniciada el: {new Date(profile.fechaInicioPlan).toLocaleDateString('es-ES')}</p>}
+                                {profile.fechaInicioPlan && new Date(typeof (profile.fechaInicioPlan as any)?.toDate === 'function' ? (profile.fechaInicioPlan as any).toDate() : profile.fechaInicioPlan).toString() !== 'Invalid Date' && <p className="text-sm text-gray-400">Inversión iniciada el: {new Date(typeof (profile.fechaInicioPlan as any)?.toDate === 'function' ? (profile.fechaInicioPlan as any).toDate() : profile.fechaInicioPlan).toLocaleDateString('es-ES')}</p>}
                             </div>
                         ) : (
                             <p>Tu plan de inversión: No tienes un plan activo. Realiza una inversión para obtener uno.</p>
