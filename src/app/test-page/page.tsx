@@ -416,16 +416,24 @@ export default function TestPage() {
       setIsProcessingBonus(true);
       processInitialBonus(profile.uid)
         .then(result => {
-          if (result?.success) {
+          if (result && result.success) {
             toast({
               title: "Éxito",
               description: result.message || "Comisión de red procesada.",
             });
-          } else if (result?.error) {
+          } else if (result && result.error) {
             toast({
               variant: "destructive",
               title: "Error de Bono",
               description: result.error,
+            });
+          } else if (!result) {
+            // Explicitly handle the undefined case
+            console.error("processInitialBonus returned undefined. Check server logs for initialization errors.");
+            toast({
+              variant: "destructive",
+              title: "Error del Servidor",
+              description: "No se pudo procesar la bonificación. Contacte a soporte."
             });
           }
         })
