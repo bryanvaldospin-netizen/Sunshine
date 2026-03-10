@@ -198,12 +198,14 @@ export async function syncInviteCodes() {
   }
 }
 
-export async function processInitialBonus(userId: string) {
+export async function processInitialBonus(userId: string): Promise<{success: true, message: string} | {error: string}> {
   const statusRef = adminDb.collection('system_stats').doc('commissions');
+  const userRef = adminDb.collection('users').doc(userId);
 
   try {
-    const userRef = adminDb.collection('users').doc(userId);
-
+    let successMessage = '';
+    let isNoOp = false; // Flag for no operation needed
+    
     await adminDb.runTransaction(async (transaction) => {
       const userSnap = await transaction.get(userRef);
 
@@ -212,35 +214,35 @@ export async function processInitialBonus(userId: string) {
       }
       
       const userData = userSnap.data() as UserProfile;
-      const { planActivo, bonoEntregado, invitadoPor } = userData;
+      const { planActivo, bonoEntregado } = userData;
+      let { invitadoPor } = userData;
 
-      // Safety checks: Stop if bonus is paid or no active plan.
+      // Safety checks: Stop if bonus is already paid or no active plan.
       if (bonoEntregado === true || !planActivo || planActivo <= 0) {
-        return; 
+        isNoOp = true; // Mark as no-op
+        return;
       }
       
       // Step 1: Mark bonus as paid immediately to prevent loops.
       transaction.update(userRef, { bonoEntregado: true });
       
+      // Handle UID validation
+      if (invitadoPor) {
+        invitadoPor = invitadoPor.trim();
+      }
+
       if (!invitadoPor) {
-        transaction.set(statusRef, { 
-          ultimoMensaje: `Bono procesado para ${userData.name} (sin patrocinador). Plan: ${planActivo} USDT.`,
-          bonosAprobados: admin.firestore.FieldValue.increment(1)
-        }, { merge: true });
-        return;
+        successMessage = `Bono procesado para ${userData.name} (sin patrocinador). Plan: ${planActivo} USDT.`;
+        return; // End transaction successfully
       }
 
       const sponsorRef = adminDb.collection('users').doc(invitadoPor);
       const sponsorSnap = await transaction.get(sponsorRef);
 
       if (!sponsorSnap.exists) {
-        transaction.set(statusRef, { 
-          ultimoMensaje: `Error: Patrocinador con ID ${invitadoPor} no encontrado para el usuario ${userData.name}.`,
-        }, { merge: true });
-        return;
+        throw new Error(`Patrocinador con ID '${invitadoPor}' no encontrado para el usuario ${userData.name}.`);
       }
       
-      // Step 2: Calculate 10% commission and pay the sponsor.
       const commission = planActivo * 0.10;
       
       transaction.update(sponsorRef, {
@@ -248,19 +250,38 @@ export async function processInitialBonus(userId: string) {
         saldoUSDT: admin.firestore.FieldValue.increment(commission),
       });
 
-      // Step 3: Update system status log.
-      transaction.set(statusRef, { 
-        ultimoMensaje: `Éxito: ${sponsorSnap.data()?.name} recibió ${commission.toFixed(2)} USDT de comisión por ${userData.name}.`,
-        bonosAprobados: admin.firestore.FieldValue.increment(1)
-      }, { merge: true });
+      const sponsorData = sponsorSnap.data();
+      successMessage = `Éxito: ${sponsorData?.name} recibió ${commission.toFixed(2)} USDT de comisión por ${userData.name}.`;
     });
+
+    if (isNoOp) {
+      // Don't log, don't show toast. Just return a success that the client can ignore.
+      return { success: true, message: "No action needed." };
+    }
+
+    // After the transaction succeeds, try to update status.
+    if (successMessage) {
+        try {
+            await statusRef.set({
+                ultimoMensaje: successMessage,
+                bonosAprobados: admin.firestore.FieldValue.increment(1)
+            }, { merge: true });
+        } catch (statusError: any) {
+            console.error('Error al actualizar system_stats (éxito):', statusError.message);
+        }
+    }
 
     return { success: true, message: "Comisión de red procesada." };
 
   } catch (error: any) {
-    await statusRef.set({
-        ultimoMensaje: `Error del sistema al procesar bono para ${userId}: ${error.message}`
-    }, { merge: true });
-    return { error: 'Ocurrió un error en el servidor al procesar el bono.' };
+    try {
+        await statusRef.set({
+            ultimoMensaje: `Error en transacción para ${userId}: ${error.message}`
+        }, { merge: true });
+    } catch (statusError: any) {
+        console.error('Error al actualizar system_stats (fallo):', statusError.message);
+    }
+    
+    return { error: 'Error técnico: Revisa el cuadro de estatus en Mi Red.' };
   }
 }

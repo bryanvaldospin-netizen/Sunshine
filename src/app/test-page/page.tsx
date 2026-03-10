@@ -440,23 +440,25 @@ export default function TestPage() {
       setIsProcessingBonus(true);
       processInitialBonus(profile.uid)
         .then(result => {
-          if (result?.success) {
+          if (!result) {
+            toast({
+              variant: "destructive",
+              title: "Error del Servidor",
+              description: "No se recibió respuesta al procesar la bonificación. Contacte a soporte."
+            });
+            return;
+          }
+          
+          if (result.success && result.message !== "No action needed.") {
             toast({
               title: "Éxito",
-              description: result.message || "Comisión de red procesada.",
+              description: result.message,
             });
-          } else if (result?.error) {
+          } else if (result.error) {
             toast({
               variant: "destructive",
               title: "Error de Bono",
               description: result.error,
-            });
-          } else if (!result) {
-            // Explicitly handle the undefined case
-            toast({
-              variant: "destructive",
-              title: "Error del Servidor",
-              description: "No se pudo procesar la bonificación. Contacte a soporte."
             });
           }
         })
