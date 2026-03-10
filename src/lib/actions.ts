@@ -39,10 +39,10 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
       return { error: 'Error: Esta billetera ya está vinculada a otra cuenta. Usa una dirección única.' };
     }
 
-    // Check if the user's desired invite code already exists
-    const inviteCodeQuery = query(collection(db, 'users'), where('inviteCode', '==', inviteCode), limit(1));
-    const inviteCodeSnap = await getDocs(inviteCodeQuery);
-    if (!inviteCodeSnap.empty) {
+    // Check if the user's desired invite code already exists by checking the map
+    const newInviteCodeRef = doc(db, 'invite_codes_map', inviteCode);
+    const newInviteCodeSnap = await getDoc(newInviteCodeRef);
+    if (newInviteCodeSnap.exists()) {
         return { error: 'Error: Ese código de invitación ya está en uso. Por favor, elige otro.' };
     }
 
@@ -50,19 +50,20 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
     let invitadoPor = null;
     if (sponsorCode) {
       console.log('Buscando patrocinador:', sponsorCode);
-      const sponsorQuery = query(collection(db, 'users'), where('inviteCode', '==', sponsorCode), limit(1));
-      const sponsorSnap = await getDocs(sponsorQuery);
-      if (sponsorSnap.empty) {
+      const sponsorCodeRef = doc(db, 'invite_codes_map', sponsorCode);
+      const sponsorCodeSnap = await getDoc(sponsorCodeRef);
+
+      if (!sponsorCodeSnap.exists()) {
         return { error: 'El código de patrocinador no existe' };
       }
-      const sponsorDoc = sponsorSnap.docs[0];
-      invitadoPor = sponsorDoc.id; // The sponsor's UID
+      const sponsorData = sponsorCodeSnap.data();
+      invitadoPor = sponsorData.userId; // The sponsor's UID
     }
 
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Use a batch to write both user profile and wallet address documents atomically
+    // Use a batch to write user profile, wallet address, and invite code map atomically
     const batch = writeBatch(db);
     
     const userDocRef = doc(db, 'users', user.uid);
@@ -84,6 +85,12 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
     batch.set(newWalletRef, {
         userId: user.uid,
         createdAt: new Date().toISOString()
+    });
+    
+    // Add the new user's invite code to the map for future sponsor lookups
+    const userInviteCodeRef = doc(db, 'invite_codes_map', inviteCode);
+    batch.set(userInviteCodeRef, {
+        userId: user.uid
     });
 
     await batch.commit();
@@ -107,4 +114,5 @@ export async function getWalletAddress() {
   return process.env.USDT_WALLET_ADDRESS || '0xe37a298c740caf1411cbccda7b250a0664a00129';
 }
 
+    
     

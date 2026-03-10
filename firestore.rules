@@ -68,7 +68,7 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Rules for invitation codes
+    // Rules for invitation codes (single-use, deprecated)
     match /invitation_codes/{invitationCodeId} {
       // Anyone can check if a code exists for registration purposes
       allow get: if true;
@@ -76,7 +76,7 @@ service cloud.firestore {
       allow list, write: if false;
     }
 
-    // New rules for wallet address uniqueness check
+    // Rules for wallet address uniqueness check
     match /wallet_addresses/{walletAddress} {
         // Allow anyone (even unauthenticated users) to check if a wallet address exists.
         // This is safe because the document contains no sensitive information.
@@ -88,6 +88,20 @@ service cloud.firestore {
 
         // Disallow listing, updating, or deleting to protect the integrity of the records.
         allow list, update, delete: if false;
+    }
+
+    // Rules for invite code mapping for sponsor lookup
+    match /invite_codes_map/{inviteCode} {
+      // Allow anyone (unauthenticated users) to look up a sponsor code.
+      // This is safe as it only reveals the existence of a code. The document doesn't contain sensitive data.
+      allow get: if true;
+
+      // Allow a user to create their own invite code mapping upon registration.
+      // The userId in the document must match their own UID.
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+
+      // Disallow listing, updating, or deleting to protect integrity.
+      allow list, update, delete: if false;
     }
   }
 }
