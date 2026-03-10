@@ -11,14 +11,19 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    function isAdmin() {
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.rol == 'admin';
+    }
+
     // Rules for user profiles
     match /users/{userId} {
-      // A user can read their own profile, or the profiles of users they referred.
-      // This rule is necessary to enable the "My Network" query.
-      allow read: if isOwner(userId) || (resource.data.invitadoPor != null && resource.data.invitadoPor == request.auth.uid);
+      // A user can read their own profile, or the profiles of users they referred. Admins can read any.
+      allow read: if isOwner(userId) || (resource.data.invitadoPor != null && resource.data.invitadoPor == request.auth.uid) || isAdmin();
+      // Admins can list all users.
+      allow list: if isAdmin();
       
-      // Allow user creation with specific fields validation for security.
-      allow create: if isOwner(userId)
+      // Allow user creation with specific fields validation for security. Admins can also create users.
+      allow create: if (isOwner(userId)
                     && request.resource.data.uid == userId
                     && request.resource.data.email == request.auth.token.email
                     && request.resource.data.name is string && request.resource.data.name.size() > 1
@@ -29,11 +34,11 @@ service cloud.firestore {
                     && request.resource.data.fechaInicioPlan == null
                     && request.resource.data.bonoDirecto == 0
                     && request.resource.data.fechaRegistro is string
-                    && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'rol', 'saldoUSDT', 'invitadoPor', 'inviteCode', 'walletAddress', 'ultimoCheckIn', 'planActivo', 'fechaInicioPlan', 'bonoDirecto', 'fechaRegistro']);
+                    && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'rol', 'saldoUSDT', 'invitadoPor', 'inviteCode', 'walletAddress', 'ultimoCheckIn', 'planActivo', 'fechaInicioPlan', 'bonoDirecto', 'fechaRegistro']))
+                    || isAdmin();
 
-      // This rule allows a user to update their own profile, such as for the daily bonus,
-      // while preventing them from changing their role.
-      allow update: if isOwner(userId) && request.resource.data.rol == resource.data.rol;
+      // This rule allows a user to update their own profile. Admin can update any profile.
+      allow update: if (isOwner(userId) && request.resource.data.rol == resource.data.rol) || isAdmin();
       
       // Nobody can delete users to protect user data.
       allow delete: if false;
@@ -62,12 +67,12 @@ service cloud.firestore {
 
     // Rules for the investments collection
     match /investments/{investmentId} {
-      // A user can get their own investment document.
-      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
-      // A user can list investments. The client-side code is responsible for filtering by the user's ID.
-      allow list: if isSignedIn();
-      // Nobody can write to investments from the client.
-      allow write: if false;
+      // A user can get their own investment document. Admins can get any.
+      allow get: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+      // A user can list investments. Admin can list all.
+      allow list: if isSignedIn() || isAdmin();
+      // Only admins can write to investments.
+      allow write: if isAdmin();
     }
 
     // Rules for invitation codes (single-use, deprecated)
@@ -81,7 +86,6 @@ service cloud.firestore {
     // Rules for wallet address uniqueness check
     match /wallet_addresses/{walletAddress} {
         // Allow anyone (even unauthenticated users) to check if a wallet address exists.
-        // This is safe because the document contains no sensitive information.
         allow get: if true;
 
         // Allow creation only if the user is authenticated and the userId in the document
@@ -95,7 +99,6 @@ service cloud.firestore {
     // Rules for invite code mapping for sponsor lookup
     match /invite_codes_map/{inviteCode} {
       // Allow anyone (unauthenticated users) to look up a sponsor code.
-      // This is safe as it only reveals the existence of a code. The document doesn't contain sensitive data.
       allow get: if true;
 
       // Allow a user to create their own invite code mapping upon registration.

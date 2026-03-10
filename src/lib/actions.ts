@@ -18,7 +18,7 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { z } from 'zod';
-import type { UserProfile } from '@/types';
+import type { UserProfile, Investment } from '@/types';
 
 // USER ACTIONS
 const registerSchema = z.object({
@@ -212,13 +212,14 @@ export async function activateInvestment(userId: string, investmentAmount: numbe
         startDate: new Date().toISOString(),
         nextPaymentDate: nextPaymentDate.toISOString(),
         status: 'Activo',
+        bonoPagado: true, // Bonus is paid in this transaction
       });
 
       // 3. Update the user's profile
       transaction.update(userRef, {
         planActivo: increment(investmentAmount),
         saldoUSDT: increment(investmentAmount),
-        fechaInicioPlan: new Date().toISOString(),
+        fechaInicioPlan: userData.planActivo === 0 ? new Date().toISOString() : userData.fechaInicioPlan,
       });
 
       // 4. Update sponsor if they exist and calculate commission with ROI cap
@@ -280,5 +281,96 @@ export async function activateInvestment(userId: string, investmentAmount: numbe
   } catch (error: any) {
     console.error('Error al activar inversión:', error);
     return { error: error.message || 'Error inesperado al activar la inversión.' };
+  }
+}
+
+
+export async function processInvestmentBonus(investment: Investment) {
+  try {
+    if (!investment || !investment.userId || !investment.amount || investment.amount <= 0) {
+      throw new Error('Datos de inversión inválidos para procesar el bono.');
+    }
+    
+    await runTransaction(db, async (transaction) => {
+      // 1. Get user and sponsor documents
+      const userRef = doc(db, 'users', investment.userId);
+      const userSnap = await transaction.get(userRef);
+
+      if (!userSnap.exists()) {
+        throw new Error(`Usuario ${investment.userId} no encontrado.`);
+      }
+      const userData = userSnap.data() as UserProfile;
+
+      // 2. Update user's own balance and active plan total
+      transaction.update(userRef, {
+        planActivo: increment(investment.amount),
+        saldoUSDT: increment(investment.amount),
+        fechaInicioPlan: (userData.planActivo || 0) <= 0 ? new Date().toISOString() : userData.fechaInicioPlan,
+      });
+      
+      // 3. Handle sponsor bonus payment
+      const sponsorId = userData.invitadoPor;
+      if (sponsorId) {
+        const sponsorRef = doc(db, 'users', sponsorId);
+        const sponsorSnap = await transaction.get(sponsorRef);
+
+        if (sponsorSnap.exists()) {
+          const sponsorData = sponsorSnap.data() as UserProfile;
+          const commission = investment.amount * 0.10;
+
+          const getDailyRate = (planAmount: number): number => {
+            if (planAmount >= 1001) return 0.025;
+            if (planAmount >= 501) return 0.020;
+            if (planAmount >= 101) return 0.018;
+            if (planAmount >= 20) return 0.015;
+            return 0;
+          };
+
+          const sponsorPlanActivo = sponsorData.planActivo || 0;
+          const sponsorFechaInicioStr = sponsorData.fechaInicioPlan;
+          let personalEarnings = 0;
+          
+          if (sponsorPlanActivo > 0 && sponsorFechaInicioStr) {
+            const dateValue = sponsorFechaInicioStr as any;
+            const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
+            
+            if (!isNaN(startDate.getTime())) {
+                const now = new Date();
+                const diffTime = now.getTime() - startDate.getTime();
+                if (diffTime > 0) {
+                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                    const dailyRate = getDailyRate(sponsorPlanActivo);
+                    personalEarnings = sponsorPlanActivo * dailyRate * diffDays;
+                }
+            }
+          }
+          
+          const currentBonos = sponsorData.bonoDirecto || 0;
+          const currentTotalEarnings = personalEarnings + currentBonos;
+          const maxEarnings = sponsorPlanActivo > 0 ? sponsorPlanActivo * 3 : Infinity;
+          const remainingCapacity = maxEarnings - currentTotalEarnings;
+          const payableCommission = Math.max(0, Math.min(commission, remainingCapacity));
+          
+          if (payableCommission > 0) {
+            transaction.update(sponsorRef, {
+              bonoDirecto: increment(payableCommission),
+              saldoUSDT: increment(payableCommission),
+            });
+          }
+        }
+      }
+      
+      // 4. Mark investment as paid to prevent re-processing
+      const investmentRef = doc(db, 'investments', investment.id);
+      transaction.update(investmentRef, { bonoPagado: true });
+    });
+
+    return { success: true, message: `Bono para la inversión ${investment.id} procesado.` };
+
+  } catch (error: any) {
+    console.error('Error procesando bono de inversión:', error);
+    const investmentRef = doc(db, 'investments', investment.id);
+    await setDoc(investmentRef, { bonoPagado: false, error: error.message }, { merge: true });
+    throw new Error(error.message || 'Error inesperado al procesar el bono.');
   }
 }

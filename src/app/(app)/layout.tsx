@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Header } from '@/components/header';
 import SplashScreen from '@/components/splash-screen';
+import { AdminInvestmentListener } from '@/components/admin-investment-listener';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { firebaseUser, loading } = useAuth();
+  const { firebaseUser, loading, user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -21,10 +22,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (loading || !firebaseUser) {
     return <SplashScreen />;
   }
+  
+  const isAdmin = user?.rol === 'admin';
 
   // Si el usuario está autenticado, muestra el layout de la aplicación.
   return (
     <div className="relative flex min-h-screen flex-col">
+      {isAdmin && <AdminInvestmentListener />}
       <Header />
       <div className="flex-1">{children}</div>
     </div>
