@@ -210,23 +210,32 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserPro
     setClaiming(prev => ({ ...prev, [referralId]: true }));
     try {
         const result = await processInitialBonus(referralId, user.uid);
-        if (result?.success) {
+        if (result && 'success' in result) {
             toast({
                 title: "¡Éxito!",
                 description: result.message,
             });
-        } else {
+        } else if (result && 'error' in result) {
             toast({
                 variant: 'destructive',
                 title: "Error al reclamar",
-                description: result?.error || "Ocurrió un error inesperado.",
+                description: result.error,
+            });
+        } else {
+            // This case handles unexpected return values
+            console.error("Unexpected result from processInitialBonus:", result);
+            toast({
+                variant: 'destructive',
+                title: "Error Inesperado",
+                description: "La respuesta del servidor no fue reconocida.",
             });
         }
     } catch (error) {
+        console.error("Error calling processInitialBonus:", error);
         toast({
             variant: 'destructive',
             title: "Error de Red",
-            description: "No se pudo conectar con el servidor.",
+            description: "No se pudo conectar con el servidor para reclamar el bono.",
         });
     } finally {
         setClaiming(prev => ({ ...prev, [referralId]: false }));

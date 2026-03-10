@@ -67,13 +67,14 @@ export default function RegisterPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     const result = await registerUser(values);
     
-    if ('error' in result) {
+    if (result && 'error' in result) {
+      console.error("Registration error details:", JSON.stringify(result, null, 2));
       toast({
         variant: 'destructive',
         title: 'Error de registro',
         description: result.error,
       });
-    } else if (result.success) {
+    } else if (result && 'success' in result) {
       if (result.token) {
         try {
           await signInWithCustomToken(auth, result.token);
