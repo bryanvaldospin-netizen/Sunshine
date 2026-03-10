@@ -13,8 +13,9 @@ service cloud.firestore {
 
     // Rules for user profiles
     match /users/{userId} {
-      // A user can read their own document.
-      allow get: if isOwner(userId);
+      // A user can read their own profile, or the profiles of users they referred.
+      // This rule is necessary to enable the "My Network" query.
+      allow read: if isOwner(userId) || (resource.data.invitadoPor != null && resource.data.invitadoPor == request.auth.uid);
       
       // Allow user creation with specific fields validation for security.
       allow create: if isOwner(userId)
@@ -28,11 +29,12 @@ service cloud.firestore {
                     && request.resource.data.fechaInicioPlan == null
                     && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'rol', 'saldoUSDT', 'invitadoPor', 'inviteCode', 'walletAddress', 'ultimoCheckIn', 'planActivo', 'fechaInicioPlan']);
 
-      // This rule was modified to allow updating saldoUSDT for the daily bonus.
+      // This rule allows a user to update their own profile, such as for the daily bonus,
+      // while preventing them from changing their role.
       allow update: if isOwner(userId) && request.resource.data.rol == resource.data.rol;
       
-      // Nobody can list or delete users to protect user data.
-      allow list, delete: if false;
+      // Nobody can delete users to protect user data.
+      allow delete: if false;
     }
 
     // Rules for the subcollection of deposit requests within a user document
