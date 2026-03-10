@@ -280,6 +280,132 @@ const DailyBonusCard = ({ user }: { user: UserProfile }) => {
     );
 };
 
+const MyNetworkTab = ({ user, directReferrals, networkLoading, directBonus }: { user: UserProfile | null, directReferrals: UserProfile[], networkLoading: boolean, directBonus: number }) => {
+  const { toast } = useToast();
+
+  const { plan2PlusCount } = useMemo(() => {
+    if (networkLoading || directReferrals.length === 0) {
+      return { plan2PlusCount: 0 };
+    }
+    const count = directReferrals.filter(ref => (ref.planActivo || 0) >= 101).length;
+    return { plan2PlusCount: count };
+  }, [directReferrals, networkLoading]);
+
+  const residualBonus = 0; // Placeholder
+
+  const levels = [
+    { level: 1, required: 10, percentage: plan2PlusCount >= 10 ? 5 : plan2PlusCount * 0.5 },
+    { level: 2, required: 15, percentage: 3 },
+    { level: 3, required: 20, percentage: 2 },
+    { level: 4, required: 25, percentage: 1 },
+    { level: 5, required: 30, percentage: 0.5 },
+  ];
+
+  const handleCopyLink = () => {
+    if (!user?.inviteCode) {
+      toast({ variant: 'destructive', title: 'Sin código', description: 'No tienes un código de invitación para compartir.' });
+      return;
+    }
+    const link = `${window.location.origin}/register?ref=${user.inviteCode}`;
+    navigator.clipboard.writeText(link);
+    toast({ title: 'Enlace de invitación copiado', description: '¡Comparte tu enlace para hacer crecer tu red!' });
+  };
+  
+  if (!user) {
+    return <div className="p-4 md:p-8"><Skeleton className="h-96 w-full bg-gray-800" /></div>
+  }
+
+  const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(value);
+
+  return (
+    <div className="p-4 md:p-8 space-y-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="bg-gray-800 border-gray-700 text-white">
+          <CardHeader>
+            <CardTitle className="text-lg">Bono Directo Acumulado</CardTitle>
+            <CardDescription>10% de las inversiones de tus referidos directos.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {networkLoading ? <Skeleton className="h-10 w-24 bg-gray-700" /> : <p className="text-4xl font-bold text-green-400">{formatCurrency(directBonus)}</p>}
+          </CardContent>
+        </Card>
+        <Card className="bg-gray-800 border-gray-700 text-white">
+          <CardHeader>
+            <CardTitle className="text-lg">Bono Residual</CardTitle>
+            <CardDescription>Ganancias generadas por los niveles de tu red.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-4xl font-bold text-cyan-400">{formatCurrency(residualBonus)}</p>
+            <p className="text-xs text-muted-foreground mt-2">Esta función se encuentra en desarrollo.</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="bg-gray-800 border-gray-700 text-white">
+        <CardHeader>
+          <CardTitle>Haz Crecer tu Red</CardTitle>
+          <CardDescription>Comparte tu enlace de invitación para ganar bonos directos y residuales.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Label>Tu Enlace de Invitación</Label>
+          <div className="flex items-center gap-2">
+            <Input readOnly value={user.inviteCode ? `${window.location.origin}/register?ref=${user.inviteCode}` : "Generando enlace..."} className="bg-gray-700 border-gray-600 truncate"/>
+            <Button onClick={handleCopyLink} variant="outline" className="border-golden text-golden hover:bg-golden/10 hover:text-golden whitespace-nowrap">
+              <LinkIcon className="mr-2 h-4 w-4" />
+              Copiar Enlace
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="bg-gray-800 border-gray-700 text-white">
+        <CardHeader>
+          <CardTitle>Niveles de Bono Residual</CardTitle>
+          <CardDescription>Desbloquea niveles invitando a nuevos miembros con un Plan Plata o superior (≥ $101).</CardDescription>
+        </CardHeader>
+        <CardContent>
+           {networkLoading ? <Skeleton className="h-4 w-32 bg-gray-700 mb-4"/> : <p className="mb-4 text-sm">Directos con Plan 2+: <span className="font-bold text-golden">{plan2PlusCount}</span></p>}
+           <Table>
+              <TableHeader>
+                  <TableRow className="border-gray-700 hover:bg-gray-800">
+                      <TableHead className="text-white">Nivel</TableHead>
+                      <TableHead className="text-white">Requisito (Directos Plan 2+)</TableHead>
+                      <TableHead className="text-white">Comisión</TableHead>
+                      <TableHead className="text-right text-white">Estado</TableHead>
+                  </TableRow>
+              </TableHeader>
+              <TableBody>
+                  {networkLoading ? Array.from({length: 5}).map((_, i) => (
+                      <TableRow key={i} className="border-gray-700"><TableCell colSpan={4}><Skeleton className="h-8 w-full bg-gray-700"/></TableCell></TableRow>
+                  )) : levels.map((levelInfo) => {
+                      const isActive = plan2PlusCount >= levelInfo.required;
+                      return (
+                          <TableRow key={levelInfo.level} className="border-gray-700 hover:bg-gray-700/50">
+                              <TableCell className="font-medium">{levelInfo.level}</TableCell>
+                              <TableCell>{levelInfo.required}</TableCell>
+                              <TableCell>{levelInfo.percentage}%</TableCell>
+                              <TableCell className="text-right">
+                                  <Badge className={isActive ? 'bg-green-600 text-white' : 'bg-red-800 text-white'}>
+                                      {isActive ? 'Activo' : 'Bloqueado'}
+                                  </Badge>
+                              </TableCell>
+                          </TableRow>
+                      );
+                  })}
+              </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+      <div className="text-center text-xs text-muted-foreground pt-4">
+          <p>Nota: La funcionalidad de red y bonos depende de que el campo 'invitadoPor' sea correctamente asignado durante el registro.</p>
+      </div>
+    </div>
+  );
+};
+
 
 export default function TestPage() {
   const { user: profile, loading: authLoading } = useAuth();
@@ -292,170 +418,16 @@ export default function TestPage() {
   const [chartData, setChartData] = useState<any[]>([]);
   const [activePlan, setActivePlan] = useState<Investment | null>(null);
   const [planLoading, setPlanLoading] = useState(true);
-  const [generatedEarnings, setGeneratedEarnings] = useState(0);
+  const [totalEarnings, setTotalEarnings] = useState(0);
+
+  // Network state moved to parent
+  const [directReferrals, setDirectReferrals] = useState<UserProfile[]>([]);
+  const [networkLoading, setNetworkLoading] = useState(true);
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
   }).format(value);
-
-  const MyNetworkTab = ({ user }: { user: UserProfile | null }) => {
-    const { toast } = useToast();
-    const [directReferrals, setDirectReferrals] = useState<UserProfile[]>([]);
-    const [loading, setLoading] = useState(true);
-  
-    // Fetch direct referrals
-    useEffect(() => {
-      let unsubscribe = () => {};
-
-      if (user?.uid) {
-        setLoading(true);
-        const referralsQuery = query(
-          collection(db, 'users'),
-          where('invitadoPor', '==', user.uid)
-        );
-    
-        unsubscribe = onSnapshot(referralsQuery, (snapshot) => {
-          const refs = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
-          setDirectReferrals(refs);
-          setLoading(false);
-        }, (error) => {
-          console.error("Error fetching referrals:", error);
-          toast({
-            variant: "destructive",
-            title: "Error de Red",
-            description: "No se pudo cargar la información de tu red.",
-          });
-          setLoading(false);
-        });
-      } else {
-        setLoading(false);
-        setDirectReferrals([]);
-      }
-  
-      return () => unsubscribe();
-    }, [user?.uid, toast]);
-  
-    // Calculations
-    const { directBonus, plan2PlusCount } = useMemo(() => {
-      if (loading || directReferrals.length === 0) {
-        return { directBonus: 0, plan2PlusCount: 0 };
-      }
-      const bonus = directReferrals.reduce((acc, ref) => acc + (ref.planActivo || 0), 0) * 0.10;
-      const count = directReferrals.filter(ref => (ref.planActivo || 0) >= 101).length;
-      return { directBonus: bonus, plan2PlusCount: count };
-    }, [directReferrals, loading]);
-  
-    const residualBonus = 0; // Placeholder
-  
-    const levels = [
-      { level: 1, required: 10, percentage: plan2PlusCount >= 10 ? 5 : plan2PlusCount * 0.5 },
-      { level: 2, required: 15, percentage: 3 },
-      { level: 3, required: 20, percentage: 2 },
-      { level: 4, required: 25, percentage: 1 },
-      { level: 5, required: 30, percentage: 0.5 },
-    ];
-  
-    const handleCopyLink = () => {
-      if (!user?.inviteCode) {
-        toast({ variant: 'destructive', title: 'Sin código', description: 'No tienes un código de invitación para compartir.' });
-        return;
-      }
-      const link = `${window.location.origin}/register?ref=${user.inviteCode}`;
-      navigator.clipboard.writeText(link);
-      toast({ title: 'Enlace de invitación copiado', description: '¡Comparte tu enlace para hacer crecer tu red!' });
-    };
-    
-    if (authLoading || !user) {
-      return <div className="p-4 md:p-8"><Skeleton className="h-96 w-full bg-gray-800" /></div>
-    }
-  
-    return (
-      <div className="p-4 md:p-8 space-y-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="bg-gray-800 border-gray-700 text-white">
-            <CardHeader>
-              <CardTitle className="text-lg">Bono Directo Acumulado</CardTitle>
-              <CardDescription>10% de las inversiones de tus referidos directos.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {loading ? <Skeleton className="h-10 w-24 bg-gray-700" /> : <p className="text-4xl font-bold text-green-400">{formatCurrency(directBonus)}</p>}
-            </CardContent>
-          </Card>
-          <Card className="bg-gray-800 border-gray-700 text-white">
-            <CardHeader>
-              <CardTitle className="text-lg">Bono Residual</CardTitle>
-              <CardDescription>Ganancias generadas por los niveles de tu red.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-4xl font-bold text-cyan-400">{formatCurrency(residualBonus)}</p>
-              <p className="text-xs text-muted-foreground mt-2">Esta función se encuentra en desarrollo.</p>
-            </CardContent>
-          </Card>
-        </div>
-  
-        <Card className="bg-gray-800 border-gray-700 text-white">
-          <CardHeader>
-            <CardTitle>Haz Crecer tu Red</CardTitle>
-            <CardDescription>Comparte tu enlace de invitación para ganar bonos directos y residuales.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Label>Tu Enlace de Invitación</Label>
-            <div className="flex items-center gap-2">
-              <Input readOnly value={user.inviteCode ? `${window.location.origin}/register?ref=${user.inviteCode}` : "Generando enlace..."} className="bg-gray-700 border-gray-600 truncate"/>
-              <Button onClick={handleCopyLink} variant="outline" className="border-golden text-golden hover:bg-golden/10 hover:text-golden whitespace-nowrap">
-                <LinkIcon className="mr-2 h-4 w-4" />
-                Copiar Enlace
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-  
-        <Card className="bg-gray-800 border-gray-700 text-white">
-          <CardHeader>
-            <CardTitle>Niveles de Bono Residual</CardTitle>
-            <CardDescription>Desbloquea niveles invitando a nuevos miembros con un Plan Plata o superior (≥ $101).</CardDescription>
-          </CardHeader>
-          <CardContent>
-             {loading ? <Skeleton className="h-4 w-32 bg-gray-700 mb-4"/> : <p className="mb-4 text-sm">Directos con Plan 2+: <span className="font-bold text-golden">{plan2PlusCount}</span></p>}
-             <Table>
-                <TableHeader>
-                    <TableRow className="border-gray-700 hover:bg-gray-800">
-                        <TableHead className="text-white">Nivel</TableHead>
-                        <TableHead className="text-white">Requisito (Directos Plan 2+)</TableHead>
-                        <TableHead className="text-white">Comisión</TableHead>
-                        <TableHead className="text-right text-white">Estado</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {loading ? Array.from({length: 5}).map((_, i) => (
-                        <TableRow key={i} className="border-gray-700"><TableCell colSpan={4}><Skeleton className="h-8 w-full bg-gray-700"/></TableCell></TableRow>
-                    )) : levels.map((levelInfo) => {
-                        const isActive = plan2PlusCount >= levelInfo.required;
-                        return (
-                            <TableRow key={levelInfo.level} className="border-gray-700 hover:bg-gray-700/50">
-                                <TableCell className="font-medium">{levelInfo.level}</TableCell>
-                                <TableCell>{levelInfo.required}</TableCell>
-                                <TableCell>{levelInfo.percentage}%</TableCell>
-                                <TableCell className="text-right">
-                                    <Badge className={isActive ? 'bg-green-600 text-white' : 'bg-red-800 text-white'}>
-                                        {isActive ? 'Activo' : 'Bloqueado'}
-                                    </Badge>
-                                </TableCell>
-                            </TableRow>
-                        );
-                    })}
-                </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-        <div className="text-center text-xs text-muted-foreground pt-4">
-            <p>Nota: La funcionalidad de red y bonos depende de que el campo 'invitadoPor' sea correctamente asignado durante el registro.</p>
-            <p>Actualmente, el flujo de registro necesita ser ajustado para crear esta relación.</p>
-        </div>
-      </div>
-    );
-  };
 
   const getDailyRate = (planAmount: number): number => {
     if (planAmount >= 1001) return 0.025; // 2.5%
@@ -465,52 +437,85 @@ export default function TestPage() {
     return 0;
   };
 
-  // Effect for Generated Earnings
+  // Fetch direct referrals
   useEffect(() => {
-    if (profile && profile.planActivo && profile.planActivo > 0 && profile.fechaInicioPlan) {
-      const dateValue = profile.fechaInicioPlan as any;
-      let startDate: Date;
+    let unsubscribe = () => {};
 
-      if (dateValue && typeof dateValue.toDate === 'function') {
-        startDate = dateValue.toDate();
-      } else {
-        startDate = new Date(dateValue);
-      }
-      
-      if (isNaN(startDate.getTime())) {
-        setGeneratedEarnings(0);
-        return;
-      }
-      
-      const now = new Date();
-      const diffTime = now.getTime() - startDate.getTime();
-
-      if (diffTime < 0) {
-        setGeneratedEarnings(0);
-        return;
-      }
-
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      const dailyRate = getDailyRate(profile.planActivo);
-      
-      const calculatedEarnings = profile.planActivo * dailyRate * diffDays;
-      const maxEarnings = profile.planActivo * 3;
-      
-      const finalEarnings = Math.min(calculatedEarnings, maxEarnings);
-
-      setGeneratedEarnings(isNaN(finalEarnings) ? 0 : finalEarnings);
-    } else {
-      setGeneratedEarnings(0);
+    if (profile?.uid) {
+      setNetworkLoading(true);
+      const referralsQuery = query(
+        collection(db, 'users'),
+        where('invitadoPor', '==', profile.uid)
+      );
+  
+      unsubscribe = onSnapshot(referralsQuery, (snapshot) => {
+        const refs = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
+        setDirectReferrals(refs);
+        setNetworkLoading(false);
+      }, (error) => {
+        console.error("Error fetching referrals:", error);
+        setNetworkLoading(false);
+      });
+    } else if (!authLoading) {
+      setNetworkLoading(false);
+      setDirectReferrals([]);
     }
-  }, [profile]);
+
+    return () => unsubscribe();
+  }, [profile?.uid, authLoading]);
+
+  // Calculate direct bonus
+  const directBonus = useMemo(() => {
+    if (networkLoading || directReferrals.length === 0) {
+        return 0;
+    }
+    return directReferrals.reduce((acc, ref) => acc + (ref.planActivo || 0), 0) * 0.10;
+  }, [directReferrals, networkLoading]);
+
+  // Effect for Total Earnings (Personal Plan + Network Bonuses)
+  useEffect(() => {
+    if (!profile) {
+      setTotalEarnings(0);
+      return;
+    }
+
+    let personalEarnings = 0;
+    const { planActivo, fechaInicioPlan } = profile;
+
+    if (planActivo && planActivo > 0 && fechaInicioPlan) {
+      const dateValue = fechaInicioPlan as any;
+      const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
+      
+      if (!isNaN(startDate.getTime())) {
+        const now = new Date();
+        const diffTime = now.getTime() - startDate.getTime();
+
+        if (diffTime > 0) {
+          const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+          const dailyRate = getDailyRate(planActivo);
+          personalEarnings = planActivo * dailyRate * diffDays;
+        }
+      }
+    }
+    
+    // Total earnings include personal and network bonuses
+    const combinedEarnings = personalEarnings + directBonus; // Add residualBonus here when available
+    
+    // Apply 300% ROI cap only if there is an active plan
+    const maxEarnings = planActivo > 0 ? planActivo * 3 : Infinity;
+    const finalEarnings = Math.min(combinedEarnings, maxEarnings);
+
+    setTotalEarnings(isNaN(finalEarnings) ? 0 : finalEarnings);
+
+  }, [profile, directBonus]);
 
 
-  // Effect for Stats, based on real-time profile
+  // Effect for Stats, based on real-time profile and total earnings
   useEffect(() => {
     if (profile) {
       setStats({
         totalInvested: profile.saldoUSDT,
-        earnings: generatedEarnings,
+        earnings: totalEarnings,
         withdrawals: 0, 
       });
       setStatsLoading(false);
@@ -518,7 +523,7 @@ export default function TestPage() {
       setStats({ totalInvested: 0, earnings: 0, withdrawals: 0 });
       setStatsLoading(false);
     }
-  }, [profile, authLoading, generatedEarnings]);
+  }, [profile, authLoading, totalEarnings]);
 
   // Effect for Chart Data, based on real-time profile.saldoUSDT
   useEffect(() => {
@@ -573,7 +578,7 @@ export default function TestPage() {
 
   // Effect for Active Plan
   useEffect(() => {
-    let unsubscribe = () => {}; // Initialize to a no-op
+    let unsubscribe: () => void = () => {};
 
     if (profile?.uid) {
       setPlanLoading(true);
@@ -610,7 +615,11 @@ export default function TestPage() {
       setActivePlan(null);
     }
     
-    return () => unsubscribe(); // Return the cleanup function
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [profile?.uid, authLoading, toast]);
 
   const statItems = useMemo(() => [
@@ -634,7 +643,7 @@ export default function TestPage() {
 
   const formattedBalance = formatCurrency(balance);
   
-  const progress = profile && profile.planActivo > 0 ? (generatedEarnings / (profile.planActivo * 3)) * 100 : 0;
+  const progress = profile && profile.planActivo > 0 ? (totalEarnings / (profile.planActivo * 3)) * 100 : 0;
 
   const chartConfig = {
     balance: {
@@ -809,7 +818,7 @@ export default function TestPage() {
                                 <div className="space-y-2">
                                     <p className="text-lg">Tu plan de inversión: <span className="font-bold text-golden">{formatCurrency(profile.planActivo)} USDT Activo</span></p>
                                     <p className="text-lg">Tasa de ganancia diaria: <span className="font-bold text-cyan-400">{(getDailyRate(profile.planActivo) * 100).toFixed(1)}%</span></p>
-                                    <p className="text-lg">Ganancias Generadas: <span className="font-bold text-green-400">{formatCurrency(generatedEarnings)}</span> / <span className="text-sm text-gray-400" title="Límite de Retorno (300%)">{formatCurrency(profile.planActivo * 3)}</span></p>
+                                    <p className="text-lg">Ganancias Totales (Plan + Red): <span className="font-bold text-green-400">{formatCurrency(totalEarnings)}</span> / <span className="text-sm text-gray-400" title="Límite de Retorno (300%)">{formatCurrency(profile.planActivo * 3)}</span></p>
                                     {profile.fechaInicioPlan && new Date(typeof (profile.fechaInicioPlan as any)?.toDate === 'function' ? (profile.fechaInicioPlan as any).toDate() : profile.fechaInicioPlan).toString() !== 'Invalid Date' && <p className="text-sm text-gray-400">Inversión iniciada el: {new Date(typeof (profile.fechaInicioPlan as any)?.toDate === 'function' ? (profile.fechaInicioPlan as any).toDate() : profile.fechaInicioPlan).toLocaleDateString('es-ES')}</p>}
                                 </div>
                             ) : (
@@ -903,7 +912,7 @@ export default function TestPage() {
            <InvestmentPlansSection />
         </TabsContent>
         <TabsContent value="mi-red">
-          <MyNetworkTab user={profile} />
+          <MyNetworkTab user={profile} directReferrals={directReferrals} networkLoading={networkLoading} directBonus={directBonus} />
         </TabsContent>
       </Tabs>
       <FlagsMarquee />

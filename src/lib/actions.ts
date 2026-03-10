@@ -8,6 +8,11 @@ import {
   setDoc,
   getDoc,
   writeBatch,
+  query,
+  collection,
+  where,
+  limit,
+  getDocs,
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { z } from 'zod';
@@ -17,21 +22,40 @@ const registerSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
   password: z.string().min(6),
-  inviteCode: z.string().min(1, 'El código de invitación no puede estar vacío.'),
+  sponsorCode: z.string().optional(),
+  inviteCode: z.string().min(1, 'Debes crear tu propio código de invitación.'),
   walletAddress: z.string().min(20, 'La dirección de la billetera no es válida.'),
 });
 
 export async function registerUser(values: z.infer<typeof registerSchema>) {
   try {
     const validatedValues = registerSchema.parse(values);
-    const { email, password, name, inviteCode, walletAddress } = validatedValues;
+    const { email, password, name, inviteCode, walletAddress, sponsorCode } = validatedValues;
     
     // Securely check for wallet uniqueness in the new dedicated collection
     const walletRef = doc(db, 'wallet_addresses', walletAddress);
     const walletSnap = await getDoc(walletRef);
-
     if (walletSnap.exists()) {
       return { error: 'Error: Esta billetera ya está vinculada a otra cuenta. Usa una dirección única.' };
+    }
+
+    // Check if the user's desired invite code already exists
+    const inviteCodeQuery = query(collection(db, 'users'), where('inviteCode', '==', inviteCode), limit(1));
+    const inviteCodeSnap = await getDocs(inviteCodeQuery);
+    if (!inviteCodeSnap.empty) {
+        return { error: 'Error: Ese código de invitación ya está en uso. Por favor, elige otro.' };
+    }
+
+    // Find sponsor if sponsorCode is provided
+    let invitadoPor = null;
+    if (sponsorCode) {
+      const sponsorQuery = query(collection(db, 'users'), where('inviteCode', '==', sponsorCode), limit(1));
+      const sponsorSnap = await getDocs(sponsorQuery);
+      if (sponsorSnap.empty) {
+        return { error: 'El código de invitación de tu patrocinador no es válido. Verifica el código o regístrate sin uno.' };
+      }
+      const sponsorDoc = sponsorSnap.docs[0];
+      invitadoPor = sponsorDoc.id; // The sponsor's UID
     }
 
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -47,7 +71,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
       email,
       rol: 'user',
       saldoUSDT: 0,
-      invitadoPor: null,
+      invitadoPor: invitadoPor,
       inviteCode: inviteCode,
       walletAddress: walletAddress,
       ultimoCheckIn: null, // Initialize daily bonus field
@@ -63,7 +87,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
 
     await batch.commit();
     
-    console.log(`Código ${inviteCode} y billetera ${walletAddress} asignados exitosamente al usuario ${user.uid}`);
+    console.log(`Código ${inviteCode} y billetera ${walletAddress} asignados exitosamente al usuario ${user.uid}. Patrocinador: ${invitadoPor}`);
 
     return { success: true };
   } catch (error: any) {
@@ -73,7 +97,8 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
     if (error instanceof z.ZodError) {
       return { error: error.errors.map(e => e.message).join(', ') };
     }
-    return { error: error.message };
+    console.error("Registration Error:", error);
+    return { error: 'Ocurrió un error inesperado durante el registro.' };
   }
 }
 
