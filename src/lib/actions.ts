@@ -1,25 +1,31 @@
 'use server';
 
-import {
-  createUserWithEmailAndPassword,
-} from 'firebase/auth';
-import {
-  doc,
-  setDoc,
-  getDoc,
-  writeBatch,
-  query,
-  collection,
-  where,
-  limit,
-  getDocs,
-  runTransaction,
-  increment,
-  updateDoc,
-} from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
 import { z } from 'zod';
 import type { UserProfile } from '@/types';
+import * as admin from 'firebase-admin';
+
+// Client SDK imports, used for registration which is initiated by the client
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc, getDoc, writeBatch } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+import { getDocs, query, collection } from 'firebase/firestore';
+
+
+// Initialize Firebase Admin SDK
+// This gives the server-side actions privileged access to bypass security rules.
+// It assumes service account credentials are in the environment, a standard secure practice.
+if (!admin.apps.length) {
+  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
+    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+    : undefined;
+  
+  admin.initializeApp({
+    credential: serviceAccount ? admin.credential.cert(serviceAccount) : admin.credential.applicationDefault(),
+    projectId: 'studio-2504766329-6c1a7',
+  });
+}
+const adminDb = admin.firestore();
+
 
 // USER ACTIONS
 const registerSchema = z.object({
@@ -35,6 +41,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
     const validatedValues = registerSchema.parse(values);
     const { email, password, name, walletAddress, sponsorCode } = validatedValues;
     
+    // Using client 'db' here is fine, as it's just a read operation before user creation
     const walletRef = doc(db, 'wallet_addresses', walletAddress);
     const walletSnap = await getDoc(walletRef);
     if (walletSnap.exists()) {
@@ -43,7 +50,6 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
 
     let invitadoPor: string | null = null;
     if (sponsorCode) {
-      console.log('Buscando patrocinador:', sponsorCode);
       const sponsorCodeRef = doc(db, 'invite_codes_map', sponsorCode);
       const sponsorCodeSnap = await getDoc(sponsorCodeRef);
 
@@ -74,6 +80,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
     };
 
     const inviteCode = await generateUniqueInviteCode();
+    // 'auth' here is the client auth instance, which is correct for creating a user.
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
     const batch = writeBatch(db);
@@ -109,8 +116,6 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
 
     await batch.commit();
     
-    console.log(`Código ${inviteCode} y billetera ${walletAddress} asignados exitosamente al usuario ${user.uid}. Patrocinador: ${invitadoPor}`);
-
     return { success: true };
   } catch (error: any) {
     console.error('Error detectado:', error);
@@ -191,71 +196,76 @@ export async function syncInviteCodes() {
 
 export async function processInitialBonus(userId: string) {
   try {
-    const resultMessage = await runTransaction(db, async (transaction) => {
-      const userRef = doc(db, 'users', userId);
+    const userRef = adminDb.collection('users').doc(userId);
+
+    const resultMessage = await adminDb.runTransaction(async (transaction) => {
       const userSnap = await transaction.get(userRef);
 
-      if (!userSnap.exists()) {
-        throw new Error('El usuario no existe.');
+      if (!userSnap.exists) {
+        return "User not found. No action taken.";
       }
-      const userData = userSnap.data() as UserProfile;
       
+      const userData = userSnap.data() as UserProfile;
       const { planActivo, bonoEntregado, invitadoPor } = userData;
 
       if (bonoEntregado === true || !(planActivo && planActivo > 0)) {
         return "No action needed. Bonus already paid or no active plan.";
       }
       
-      // CRITICAL: Update the user's bonus status FIRST within the transaction to prevent loops.
+      // CRITICAL: First action is to mark the bonus as paid to prevent loops.
       transaction.update(userRef, { bonoEntregado: true });
       
-      if (invitadoPor) {
-          const sponsorRef = doc(db, 'users', invitadoPor);
-          const sponsorSnap = await transaction.get(sponsorRef);
+      if (!invitadoPor) {
+          return "Bonus marked as delivered for user with no sponsor.";
+      }
 
-          if (sponsorSnap.exists()) {
-              const sponsorData = sponsorSnap.data() as UserProfile;
-              const commission = (planActivo || 0) * 0.10;
+      const sponsorRef = adminDb.collection('users').doc(invitadoPor);
+      const sponsorSnap = await transaction.get(sponsorRef);
 
-              const getDailyRate = (amount: number): number => {
-                if (amount >= 1001) return 0.025;
-                if (amount >= 501) return 0.020;
-                if (amount >= 101) return 0.018;
-                if (amount >= 20) return 0.015;
-                return 0;
-              };
-              
-              let personalEarnings = 0;
-              const sponsorPlanActivo = sponsorData.planActivo || 0;
-              if (sponsorPlanActivo > 0 && sponsorData.fechaInicioPlan) {
-                const dateValue = sponsorData.fechaInicioPlan as any;
-                const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
-                if (!isNaN(startDate.getTime())) {
-                    const diffDays = Math.floor((new Date().getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-                    if (diffDays > 0) personalEarnings = sponsorPlanActivo * getDailyRate(sponsorPlanActivo) * diffDays;
-                }
-              }
+      if (sponsorSnap.exists) {
+          const sponsorData = sponsorSnap.data() as UserProfile;
+          const commission = (planActivo || 0) * 0.10;
 
-              const currentTotalEarnings = personalEarnings + (sponsorData.bonoDirecto || 0);
-              const maxEarnings = sponsorPlanActivo > 0 ? sponsorPlanActivo * 3 : Infinity;
-              const remainingCapacity = maxEarnings - currentTotalEarnings;
-              const payableCommission = Math.max(0, Math.min(commission, remainingCapacity));
-              
-              if (payableCommission > 0) {
-                transaction.update(sponsorRef, {
-                  bonoDirecto: increment(payableCommission),
-                  saldoUSDT: increment(payableCommission),
-                });
-              }
+          const getDailyRate = (amount: number): number => {
+            if (amount >= 1001) return 0.025;
+            if (amount >= 501) return 0.020;
+            if (amount >= 101) return 0.018;
+            if (amount >= 20) return 0.015;
+            return 0;
+          };
+          
+          let personalEarnings = 0;
+          const sponsorPlanActivo = sponsorData.planActivo || 0;
+          if (sponsorPlanActivo > 0 && sponsorData.fechaInicioPlan) {
+            const dateValue = sponsorData.fechaInicioPlan as any;
+            const startDate = (dateValue && typeof dateValue.toDate === 'function') ? dateValue.toDate() : new Date(dateValue);
+            if (!isNaN(startDate.getTime())) {
+                const diffDays = Math.floor((new Date().getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                if (diffDays > 0) personalEarnings = sponsorPlanActivo * getDailyRate(sponsorPlanActivo) * diffDays;
+            }
           }
+
+          const currentTotalEarnings = personalEarnings + (sponsorData.bonoDirecto || 0);
+          const maxEarnings = sponsorPlanActivo > 0 ? sponsorPlanActivo * 3 : Infinity;
+          const remainingCapacity = maxEarnings - currentTotalEarnings;
+          const payableCommission = Math.max(0, Math.min(commission, remainingCapacity));
+          
+          if (payableCommission > 0) {
+            transaction.update(sponsorRef, {
+              bonoDirecto: admin.firestore.FieldValue.increment(payableCommission),
+              saldoUSDT: admin.firestore.FieldValue.increment(payableCommission),
+            });
+          }
+           return `Successfully processed commission for sponsor ${invitadoPor}.`;
       }
       
-      return `Bono inicial para el usuario ${userId} procesado correctamente.`;
+      return "Sponsor not found, bonus marked as delivered on referred user.";
     });
 
     return { success: true, message: resultMessage };
 
   } catch (error: any) {
-    return { error: error.message || 'Error inesperado procesando el bono.' };
+    console.error('Error processing initial bonus with Admin SDK:', error.message);
+    return { error: 'An error occurred on the server while processing the bonus.' };
   }
 }

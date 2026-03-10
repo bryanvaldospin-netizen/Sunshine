@@ -406,19 +406,22 @@ export default function TestPage() {
 
   // Automated Bonus Processing Effect
   useEffect(() => {
-    const shouldProcessBonus = profile && (profile.planActivo || 0) > 0 && profile.bonoEntregado === false;
+    if (authLoading || !profile || isProcessingBonus) {
+      return;
+    }
 
-    if (shouldProcessBonus && !isProcessingBonus) {
+    const shouldProcessBonus = (profile.planActivo || 0) > 0 && profile.bonoEntregado === false;
+
+    if (shouldProcessBonus) {
       setIsProcessingBonus(true);
       processInitialBonus(profile.uid)
         .then(result => {
           if (result.success) {
             toast({
               title: "Éxito",
-              description: "Comisión de red procesada.",
+              description: result.message || "Comisión de red procesada.",
             });
           } else if (result.error) {
-            console.error('Failed to process bonus:', result.error);
             toast({
               variant: "destructive",
               title: "Error de Bono",
@@ -426,19 +429,11 @@ export default function TestPage() {
             });
           }
         })
-        .catch(error => {
-          console.error('Unhandled error processing bonus:', error);
-          toast({
-            variant: "destructive",
-            title: "Error Inesperado",
-            description: "No se pudo procesar la comisión de red.",
-          });
-        })
         .finally(() => {
           setIsProcessingBonus(false);
         });
     }
-  }, [profile, isProcessingBonus, toast]);
+  }, [profile, authLoading, isProcessingBonus, toast]);
 
 
   // Fetch direct referrals
