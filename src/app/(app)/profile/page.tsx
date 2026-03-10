@@ -6,13 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Mail, LogOut, Copy, User as UserIcon } from 'lucide-react';
+import { Mail, LogOut, Copy, User as UserIcon, ArrowLeft } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { syncInviteCodes } from '@/lib/actions';
 import { Skeleton } from '@/components/ui/skeleton';
+import Link from 'next/link';
 
 export default function ProfilePage() {
   const { user, loading: authLoading } = useAuth();
@@ -69,7 +70,15 @@ export default function ProfilePage() {
     <div className="container mx-auto p-4 md:p-8 flex justify-center">
       <Card className="w-full max-w-2xl shadow-lg bg-gray-800 border-gray-700 text-white">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold flex items-center gap-2"><UserIcon /> {t('profile.title')}</CardTitle>
+          <div className="flex justify-between items-center mb-1">
+            <CardTitle className="text-2xl font-bold flex items-center gap-2"><UserIcon /> {t('profile.title')}</CardTitle>
+            <Link href="/test-page">
+                <Button variant="outline" className="border-golden text-golden hover:bg-golden/10">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Volver al Panel
+                </Button>
+            </Link>
+          </div>
           <CardDescription className="text-gray-400">Gestiona la información de tu cuenta y tus preferencias.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
