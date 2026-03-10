@@ -47,7 +47,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
     }
 
     // Find sponsor if sponsorCode is provided
-    let invitadoPor = null;
+    let invitadoPor = null; // Initialize to null to prevent 'undefined' error
     if (sponsorCode) {
       console.log('Buscando patrocinador:', sponsorCode);
       const sponsorCodeRef = doc(db, 'invite_codes_map', sponsorCode);
@@ -73,7 +73,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
       email,
       rol: 'user',
       saldoUSDT: 0,
-      invitadoPor: invitadoPor,
+      invitadoPor: invitadoPor, // This will be null if no sponsor is found
       inviteCode: inviteCode,
       walletAddress: walletAddress,
       ultimoCheckIn: null, // Initialize daily bonus field
