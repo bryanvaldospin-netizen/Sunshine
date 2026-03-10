@@ -26,7 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import TradingViewTicker from '@/components/trading-view-ticker';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -56,89 +56,74 @@ const FlagsMarquee = () => {
     );
 };
 
-const InvestmentPlans = ({ userProfile }: { userProfile: UserProfile | null }) => {
+const InvestmentPlansSection = () => {
     const { t } = useTranslation();
     const { toast } = useToast();
     const [open, setOpen] = useState(false);
-    const [selectedPlan, setSelectedPlan] = useState<{name: string, investment: string, min: number} | null>(null);
-    const [walletAddress, setWalletAddress] = useState('');
-
-    useEffect(() => {
-        getWalletAddress().then(setWalletAddress);
-    }, []);
+    const [selectedPlan, setSelectedPlan] = useState<{name: string, investment: string, dailyRate: string} | null>(null);
+    const walletAddress = '0xe37a298c740caf1411cbccda7b250a0664a00129';
 
     const handleCopy = () => {
-        if (!walletAddress) return;
         navigator.clipboard.writeText(walletAddress);
         toast({ title: t('dashboard.copy'), description: t('dashboard.copied') });
     };
 
-    const handleContinue = () => {
-        window.open('https://form.jotform.com/260646464495063', '_blank');
-        setOpen(false);
-    };
-
     const plans = [
-        { name: 'Nivel 1 (Bronce)', investment: 'Desde $20', min: 20, icon: Shield, color: 'border-bronze', textColor: 'text-bronze' },
-        { name: 'Nivel 2 (Plata)', investment: 'Desde $30', min: 30, icon: Star, color: 'border-silver', textColor: 'text-silver' },
-        { name: 'Nivel 3 (Oro)', investment: 'Desde $50', min: 50, icon: Zap, color: 'border-golden', textColor: 'text-golden' },
-        { name: 'Nivel 4 (Platino)', investment: 'Desde $100', min: 100, icon: Crown, color: 'border-platinum', textColor: 'text-platinum' },
-        { name: 'Nivel 5 (Diamante)', investment: 'Hasta $5,000', min: 1000, icon: Gem, color: 'border-diamond', textColor: 'text-diamond' },
+        { name: 'Bronce', investment: '$20 - $100', dailyRate: '1.5% Diario', icon: Shield, color: 'border-bronze', textColor: 'text-bronze' },
+        { name: 'Plata', investment: '$101 - $500', dailyRate: '1.8% Diario', icon: Star, color: 'border-silver', textColor: 'text-silver' },
+        { name: 'Oro', investment: '$501 - $1000', dailyRate: '2.0% Diario', icon: Crown, color: 'border-golden', textColor: 'text-golden' },
+        { name: 'Diamante', investment: '$1001+', dailyRate: '2.5% Diario', icon: Gem, color: 'border-diamond', textColor: 'text-diamond' },
     ];
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <Card className="bg-gray-800 border-gray-700 text-white w-full">
-                <CardHeader>
-                    <CardTitle>Planes de Inversión</CardTitle>
-                    <CardDescription>Selecciona un plan para comenzar a invertir.</CardDescription>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="p-4 md:p-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {plans.map((plan) => (
-                        <Card key={plan.name} className={`bg-gray-900/50 flex flex-col ${plan.color} border-2`}>
+                        <Card key={plan.name} className={`bg-gray-800/80 backdrop-blur-sm flex flex-col ${plan.color} border-2 shadow-lg hover:shadow-golden/20 transition-shadow duration-300`}>
                             <CardHeader className="items-center text-center">
-                                <plan.icon className={`w-10 h-10 mb-2 ${plan.textColor}`} />
-                                <CardTitle className={`text-lg ${plan.textColor}`}>{plan.name}</CardTitle>
+                                <plan.icon className={`w-12 h-12 mb-2 ${plan.textColor}`} />
+                                <CardTitle className={`text-xl ${plan.textColor}`}>{plan.name}</CardTitle>
+                                <CardDescription className="font-semibold text-gray-300">{plan.investment}</CardDescription>
                             </CardHeader>
-                            <CardContent className="flex-grow text-center">
-                                <p className="text-2xl font-bold">
-                                    <span className="text-white">{plan.investment.split(' ')[0]}</span>{' '}
-                                    <span className="text-white">{plan.investment.split(' ')[1]}</span>
-                                </p>
+                            <CardContent className="flex-grow flex items-center justify-center text-center">
+                                <p className="text-3xl font-bold text-white">{plan.dailyRate}</p>
                             </CardContent>
                             <CardFooter>
                                 <DialogTrigger asChild>
                                     <Button onClick={() => setSelectedPlan(plan)} className="w-full bg-gradient-to-r from-golden to-red-800 text-white">
-                                        Seleccionar Plan
+                                        Depositar USDT
                                     </Button>
                                 </DialogTrigger>
                             </CardFooter>
                         </Card>
                     ))}
-                </CardContent>
-            </Card>
+                </div>
+            </div>
 
             <DialogContent className="bg-gray-800 border-golden text-white">
                 <DialogHeader>
-                    <DialogTitle>Realizar Depósito para {selectedPlan?.name}</DialogTitle>
+                    <DialogTitle>Realizar Depósito para Plan {selectedPlan?.name}</DialogTitle>
                     <DialogDescription>
-                        Transfiere el monto a la billetera USDT (TRC-20) y luego haz clic en el botón para completar tu solicitud en nuestro formulario seguro.
+                        Transfiere el monto a la billetera USDT (TRC-20) y luego haz clic para completar tu solicitud.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="wallet-address">0xe37a298c740caf1411cbccda7b250a0664a00129</Label>
-                        <div className="flex items-center gap-2">
-                            <Input id="wallet-address" readOnly value={walletAddress} className="bg-gray-700 border-gray-600 truncate" placeholder={t('dashboard.loadingAddress')}/>
-                            <Button variant="outline" size="icon" onClick={handleCopy} className="border-golden text-golden hover:bg-golden/10 hover:text-golden flex-shrink-0">
-                                <Copy className="h-4 w-4" />
-                            </Button>
-                        </div>
+                <div className="space-y-4 py-4">
+                    <Label htmlFor="wallet-address">Billetera de Depósito (USDT - TRC20)</Label>
+                    <div className="flex items-center gap-2">
+                        <Input id="wallet-address" readOnly value={walletAddress} className="bg-gray-700 border-gray-600 truncate text-sm"/>
+                        <Button variant="outline" size="icon" onClick={handleCopy} className="border-golden text-golden hover:bg-golden/10 hover:text-golden flex-shrink-0">
+                            <Copy className="h-4 w-4" />
+                        </Button>
                     </div>
-                    <Button onClick={handleContinue} className="w-full bg-gradient-to-r from-golden to-red-800 text-white text-lg py-6">
-                      Completar Solicitud de Depósito
-                    </Button>
                 </div>
+                <DialogFooter>
+                     <Button asChild className="w-full bg-gradient-to-r from-golden to-red-800 text-white text-lg py-6">
+                      <a href="https://form.jotform.com/260646464495063" target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>
+                        Solicitar Inversión
+                      </a>
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );
@@ -318,7 +303,6 @@ export default function TestPage() {
   // Effect for Generated Earnings
   useEffect(() => {
     if (profile && profile.planActivo && profile.planActivo > 0 && profile.fechaInicioPlan) {
-      // The field can be a Firestore Timestamp object or an ISO string.
       const dateValue = profile.fechaInicioPlan as any;
       let startDate: Date;
 
@@ -327,8 +311,7 @@ export default function TestPage() {
       } else {
         startDate = new Date(dateValue);
       }
-
-      // If date is still invalid after conversion, default to 0.
+      
       if (isNaN(startDate.getTime())) {
         setGeneratedEarnings(0);
         return;
@@ -348,10 +331,8 @@ export default function TestPage() {
       const calculatedEarnings = profile.planActivo * dailyRate * diffDays;
       const maxEarnings = profile.planActivo * 3;
       
-      // Use the lesser of the calculated earnings and the maximum earnings cap.
       const finalEarnings = Math.min(calculatedEarnings, maxEarnings);
 
-      // If calculation results in NaN, default to 0.
       setGeneratedEarnings(isNaN(finalEarnings) ? 0 : finalEarnings);
     } else {
       setGeneratedEarnings(0);
@@ -364,12 +345,11 @@ export default function TestPage() {
     if (profile) {
       setStats({
         totalInvested: profile.saldoUSDT,
-        earnings: generatedEarnings, // Use state for earnings
-        withdrawals: 0, // Placeholder
+        earnings: generatedEarnings,
+        withdrawals: 0, 
       });
       setStatsLoading(false);
     } else if (!authLoading) {
-      // No profile, not loading, so finish loading stats
       setStats({ totalInvested: 0, earnings: 0, withdrawals: 0 });
       setStatsLoading(false);
     }
@@ -377,10 +357,10 @@ export default function TestPage() {
 
   // Effect for Chart Data, based on real-time profile.saldoUSDT
   useEffect(() => {
-    if (authLoading) return; // Wait for auth to be resolved
+    if (authLoading) return;
 
     if (!profile) {
-      setChartData([]); // Clear data if user logs out or has no profile
+      setChartData([]);
       return;
     }
 
@@ -389,19 +369,17 @@ export default function TestPage() {
     const timeLabel = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
     setChartData(prevData => {
-      // On first load with a balance, simulate history
       if (prevData.length === 0 && newBalance > 0) {
         const simulatedData = [];
         const points = 7;
         for (let i = 0; i < points - 1; i++) {
-          const pastTime = new Date(now.getTime() - (points - 1 - i) * 60000 * 30); // 30 mins apart
+          const pastTime = new Date(now.getTime() - (points - 1 - i) * 60000 * 30);
           const randomFactor = 0.8 + Math.random() * 0.2;
           simulatedData.push({
             date: pastTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
             balance: Math.max(0, (newBalance / points) * (i + 1) * randomFactor),
           });
         }
-        // Add the actual current balance as the last point
         simulatedData.push({
           date: timeLabel,
           balance: newBalance,
@@ -409,27 +387,24 @@ export default function TestPage() {
         return simulatedData;
       }
 
-      // Do nothing if chart is empty and balance is 0
       if (prevData.length === 0 && newBalance === 0) {
         return [];
       }
 
-      // Add a new data point only if the balance has changed
       const lastBalance = prevData.length > 0 ? prevData[prevData.length - 1].balance : -1;
       if (newBalance !== lastBalance) {
-        // Avoid adding duplicate time entries if balance updates quickly
         const lastTime = prevData.length > 0 ? prevData[prevData.length - 1].date : null;
         if (lastTime === timeLabel) {
           const updatedData = [...prevData];
           updatedData[updatedData.length - 1] = { date: timeLabel, balance: newBalance };
-          return updatedData; // Replace last point instead of adding a new one
+          return updatedData;
         }
         return [...prevData, { date: timeLabel, balance: newBalance }];
       }
 
-      return prevData; // No change
+      return prevData;
     });
-  }, [profile, authLoading]); // Reruns whenever the profile (with saldoUSDT) from useAuth changes
+  }, [profile, authLoading]);
 
   // Effect for Active Plan
   useEffect(() => {
@@ -466,7 +441,6 @@ export default function TestPage() {
 
       return () => unsubscribe();
     } else if (!authLoading) {
-      // Not loading and no user, so stop loading and clear plan
       setPlanLoading(false);
       setActivePlan(null);
     }
@@ -497,6 +471,8 @@ export default function TestPage() {
   }).format(value);
 
   const formattedBalance = formatCurrency(balance);
+  
+  const progress = profile && profile.planActivo > 0 ? (generatedEarnings / (profile.planActivo * 3)) * 100 : 0;
 
   const chartConfig = {
     balance: {
@@ -678,11 +654,18 @@ export default function TestPage() {
                                 <p>Tu plan de inversión: No tienes un plan activo. Realiza una inversión para obtener uno.</p>
                             )}
                         </CardContent>
+                        {profile && profile.planActivo > 0 && (
+                            <CardFooter className="pt-4 flex-col items-start gap-2">
+                                <div className="w-full space-y-1">
+                                    <div className="flex justify-between text-xs text-muted-foreground">
+                                        <span>Progreso de Retorno (Límite 300%)</span>
+                                        <span>{progress.toFixed(0)}%</span>
+                                    </div>
+                                    <Progress value={progress} className="h-2 [&>div]:bg-golden" />
+                                </div>
+                            </CardFooter>
+                        )}
                     </Card>
-                </div>
-
-                <div className="w-full max-w-5xl">
-                    <InvestmentPlans userProfile={profile} />
                 </div>
 
                 <div className="w-full max-w-5xl">
@@ -755,17 +738,7 @@ export default function TestPage() {
             </div>
         </TabsContent>
         <TabsContent value="inversiones">
-          <div className="p-4 md:p-8">
-            <Card className="bg-gray-800 border-gray-700 text-white w-full">
-              <CardHeader>
-                <CardTitle>Inversiones</CardTitle>
-                <CardDescription>Esta sección se encuentra en construcción.</CardDescription>
-              </CardHeader>
-              <CardContent className="h-64 flex items-center justify-center">
-                  <p className="text-muted-foreground">Próximamente...</p>
-              </CardContent>
-            </Card>
-          </div>
+           <InvestmentPlansSection />
         </TabsContent>
         <TabsContent value="mi-red">
           <div className="p-4 md:p-8">
