@@ -24,14 +24,13 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 
-// Updated schema to include sponsor code
+// Updated schema to remove user-created invite code
 const formSchema = z.object({
   name: z.string().min(2, { message: 'El nombre debe tener al menos 2 caracteres.' }),
   email: z.string().email({ message: 'Por favor, introduce un email válido.' }),
   password: z.string().min(6, { message: 'La contraseña debe tener al menos 6 caracteres.' }),
   walletAddress: z.string().min(20, { message: 'Por favor, introduce una dirección de billetera USDT (TRC-20) válida.' }),
   sponsorCode: z.string().optional(),
-  inviteCode: z.string().min(1, { message: 'Debes crear tu propio código de invitación.' }),
   terms: z.literal(true, {
     errorMap: () => ({ message: 'Debes aceptar los términos y condiciones.' }),
   }),
@@ -51,7 +50,6 @@ export default function RegisterPage() {
       password: '',
       walletAddress: '',
       sponsorCode: '',
-      inviteCode: '',
     },
   });
 
@@ -60,8 +58,6 @@ export default function RegisterPage() {
     const refCode = searchParams.get('ref');
     if (refCode) {
       form.setValue('sponsorCode', refCode);
-      // Here you could add a function to fetch and display the sponsor's name for better UX
-      // For now, it just pre-fills the code.
     }
   }, [searchParams, form]);
 
@@ -77,7 +73,7 @@ export default function RegisterPage() {
     } else if (result?.success) {
       toast({
         title: '¡Registro exitoso!',
-        description: `¡Bienvenido! Has sido registrado correctamente. Tu patrocinador ha sido asignado. Redirigiendo...`,
+        description: `¡Bienvenido! Tu cuenta ha sido creada y tu código de invitación generado. Redirigiendo...`,
       });
       router.push('/test-page');
     }
@@ -160,22 +156,6 @@ export default function RegisterPage() {
                   </FormControl>
                   <FormDescription className="text-xs text-muted-foreground">
                     Si llegaste a través de un enlace de referido, este campo se llenará solo.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="inviteCode"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Crea tu código de invitación</FormLabel>
-                  <FormControl>
-                    <Input placeholder="EJ: SUNSHINE777" {...field} />
-                  </FormControl>
-                   <FormDescription className="text-xs text-muted-foreground">
-                    Este será tu código único para referir a otros. (EJEMPLO: MIBRAYAN58)
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

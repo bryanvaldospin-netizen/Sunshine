@@ -23,14 +23,13 @@ const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   sponsorCode: z.string().optional(),
-  inviteCode: z.string().min(1, 'Debes crear tu propio código de invitación.'),
   walletAddress: z.string().min(20, 'La dirección de la billetera no es válida.'),
 });
 
 export async function registerUser(values: z.infer<typeof registerSchema>) {
   try {
     const validatedValues = registerSchema.parse(values);
-    const { email, password, name, inviteCode, walletAddress, sponsorCode } = validatedValues;
+    const { email, password, name, walletAddress, sponsorCode } = validatedValues;
     
     // Securely check for wallet uniqueness in the new dedicated collection
     const walletRef = doc(db, 'wallet_addresses', walletAddress);
@@ -39,15 +38,8 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
       return { error: 'Error: Esta billetera ya está vinculada a otra cuenta. Usa una dirección única.' };
     }
 
-    // Check if the user's desired invite code already exists by checking the map
-    const newInviteCodeRef = doc(db, 'invite_codes_map', inviteCode);
-    const newInviteCodeSnap = await getDoc(newInviteCodeRef);
-    if (newInviteCodeSnap.exists()) {
-        return { error: 'Error: Ese código de invitación ya está en uso. Por favor, elige otro.' };
-    }
-
-    // Find sponsor if sponsorCode is provided
-    let invitadoPor = null; // Initialize to null to prevent 'undefined' error
+    // Initialize invitadoPor to null to prevent 'undefined' error
+    let invitadoPor = null;
     if (sponsorCode) {
       console.log('Buscando patrocinador:', sponsorCode);
       const sponsorCodeRef = doc(db, 'invite_codes_map', sponsorCode);
@@ -59,6 +51,28 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
       const sponsorData = sponsorCodeSnap.data();
       invitadoPor = sponsorData.userId; // The sponsor's UID
     }
+
+    const generateUniqueInviteCode = async (): Promise<string> => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let code: string;
+        let isUnique = false;
+        
+        while (!isUnique) {
+            code = '';
+            for (let i = 0; i < 6; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            const codeRef = doc(db, 'invite_codes_map', code);
+            const codeSnap = await getDoc(codeRef);
+            if (!codeSnap.exists()) {
+                isUnique = true;
+            }
+        }
+        // @ts-ignore
+        return code;
+    };
+
+    const inviteCode = await generateUniqueInviteCode();
 
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
@@ -73,10 +87,10 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
       email,
       rol: 'user',
       saldoUSDT: 0,
-      invitadoPor: invitadoPor, // This will be null if no sponsor is found
+      invitadoPor: invitadoPor,
       inviteCode: inviteCode,
       walletAddress: walletAddress,
-      ultimoCheckIn: null, // Initialize daily bonus field
+      ultimoCheckIn: null,
       planActivo: 0,
       fechaInicioPlan: null,
     });
