@@ -190,7 +190,7 @@ export async function syncInviteCodes() {
 
 export async function processInitialBonus(userId: string) {
   try {
-    await runTransaction(db, async (transaction) => {
+    const resultMessage = await runTransaction(db, async (transaction) => {
       const userRef = doc(db, 'users', userId);
       const userSnap = await transaction.get(userRef);
 
@@ -201,59 +201,59 @@ export async function processInitialBonus(userId: string) {
       
       const { planActivo, bonoEntregado, invitadoPor } = userData;
 
-      // Conditions to pay bonus: has a plan, bonus not yet paid, has a sponsor
-      if (!((planActivo || 0) > 0 && bonoEntregado === false && invitadoPor)) {
-        // No conditions to pay bonus, just mark as checked if needed
-        if ((planActivo || 0) > 0 && bonoEntregado === false) {
-           transaction.update(userRef, { bonoEntregado: true });
-        }
-        return;
+      // Exit if bonus is already paid or no active plan
+      if (bonoEntregado === true || !(planActivo && planActivo > 0)) {
+        return "No action needed. Bonus already paid or no active plan.";
       }
+      
+      // If there's a sponsor, try to pay them
+      if (invitadoPor) {
+          const sponsorRef = doc(db, 'users', invitadoPor);
+          const sponsorSnap = await transaction.get(sponsorRef);
 
-      const sponsorRef = doc(db, 'users', invitadoPor);
-      const sponsorSnap = await transaction.get(sponsorRef);
+          if (sponsorSnap.exists()) {
+              const sponsorData = sponsorSnap.data() as UserProfile;
+              const commission = (planActivo || 0) * 0.10;
 
-      if (sponsorSnap.exists()) {
-          const sponsorData = sponsorSnap.data() as UserProfile;
-          const commission = (planActivo || 0) * 0.10;
+              const getDailyRate = (amount: number): number => {
+                if (amount >= 1001) return 0.025;
+                if (amount >= 501) return 0.020;
+                if (amount >= 101) return 0.018;
+                if (amount >= 20) return 0.015;
+                return 0;
+              };
+              
+              let personalEarnings = 0;
+              const sponsorPlanActivo = sponsorData.planActivo || 0;
+              if (sponsorPlanActivo > 0 && sponsorData.fechaInicioPlan) {
+                const dateValue = sponsorData.fechaInicioPlan as any;
+                const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
+                if (!isNaN(startDate.getTime())) {
+                    const diffDays = Math.floor((new Date().getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+                    if (diffDays > 0) personalEarnings = sponsorPlanActivo * getDailyRate(sponsorPlanActivo) * diffDays;
+                }
+              }
 
-          const getDailyRate = (amount: number): number => {
-            if (amount >= 1001) return 0.025;
-            if (amount >= 501) return 0.020;
-            if (amount >= 101) return 0.018;
-            if (amount >= 20) return 0.015;
-            return 0;
-          };
-          
-          let personalEarnings = 0;
-          const sponsorPlanActivo = sponsorData.planActivo || 0;
-          if (sponsorPlanActivo > 0 && sponsorData.fechaInicioPlan) {
-            const dateValue = sponsorData.fechaInicioPlan as any;
-            const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
-            if (!isNaN(startDate.getTime())) {
-                const diffDays = Math.floor((new Date().getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-                if (diffDays > 0) personalEarnings = sponsorPlanActivo * getDailyRate(sponsorPlanActivo) * diffDays;
-            }
-          }
-
-          const currentTotalEarnings = personalEarnings + (sponsorData.bonoDirecto || 0);
-          const maxEarnings = sponsorPlanActivo > 0 ? sponsorPlanActivo * 3 : Infinity;
-          const remainingCapacity = maxEarnings - currentTotalEarnings;
-          const payableCommission = Math.max(0, Math.min(commission, remainingCapacity));
-          
-          if (payableCommission > 0) {
-            transaction.update(sponsorRef, {
-              bonoDirecto: increment(payableCommission),
-              saldoUSDT: increment(payableCommission),
-            });
+              const currentTotalEarnings = personalEarnings + (sponsorData.bonoDirecto || 0);
+              const maxEarnings = sponsorPlanActivo > 0 ? sponsorPlanActivo * 3 : Infinity;
+              const remainingCapacity = maxEarnings - currentTotalEarnings;
+              const payableCommission = Math.max(0, Math.min(commission, remainingCapacity));
+              
+              if (payableCommission > 0) {
+                transaction.update(sponsorRef, {
+                  bonoDirecto: increment(payableCommission),
+                  saldoUSDT: increment(payableCommission),
+                });
+              }
           }
       }
       
-      // Mark the user's bonus as paid
+      // Mark the user's bonus as paid, regardless of whether a sponsor was paid
       transaction.update(userRef, { bonoEntregado: true });
+      return `Bono inicial para el usuario ${userId} procesado correctamente.`;
     });
 
-    return { success: true, message: `Bono inicial para el usuario ${userId} procesado correctamente.` };
+    return { success: true, message: resultMessage };
 
   } catch (error: any) {
     console.error('Error procesando el bono inicial:', error);

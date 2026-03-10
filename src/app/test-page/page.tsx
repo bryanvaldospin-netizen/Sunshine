@@ -379,6 +379,7 @@ export default function TestPage() {
   const { user: profile, loading: authLoading } = useAuth();
   const { t, setLocale } = useTranslation();
   const router = useRouter();
+  const { toast } = useToast();
 
   const [stats, setStats] = useState({ totalInvested: 0, earnings: 0, withdrawals: 0 });
   const [statsLoading, setStatsLoading] = useState(true);
@@ -405,31 +406,48 @@ export default function TestPage() {
 
   // Automated Bonus Processing Effect
   useEffect(() => {
-    if (
-      profile &&
-      (profile.planActivo || 0) > 0 &&
-      profile.bonoEntregado === false &&
-      profile.invitadoPor &&
-      !isProcessingBonus
-    ) {
+    // Add the requested console.log for debugging purposes
+    if (profile) {
+      console.log('Revisando bono: plan=' + (profile.planActivo || 0) + ' entregado=' + profile.bonoEntregado);
+    }
+    
+    // Condition to trigger the bonus processing
+    const shouldProcessBonus = profile && (profile.planActivo || 0) > 0 && profile.bonoEntregado === false;
+
+    if (shouldProcessBonus && !isProcessingBonus) {
       console.log('Triggering initial bonus processing for user:', profile.uid);
       setIsProcessingBonus(true);
       processInitialBonus(profile.uid)
         .then(result => {
           if (result.success) {
             console.log(result.message);
+            // Provide visual feedback on success
+            toast({
+              title: "Éxito",
+              description: "Comisión de red procesada.",
+            });
           } else if (result.error) {
             console.error('Failed to process bonus:', result.error);
+            toast({
+              variant: "destructive",
+              title: "Error de Bono",
+              description: result.error,
+            });
           }
         })
         .catch(error => {
           console.error('Unhandled error processing bonus:', error);
+          toast({
+            variant: "destructive",
+            title: "Error Inesperado",
+            description: "No se pudo procesar la comisión de red.",
+          });
         })
         .finally(() => {
           setIsProcessingBonus(false);
         });
     }
-  }, [profile, isProcessingBonus]);
+  }, [profile, isProcessingBonus, toast]);
 
 
   // Fetch direct referrals
