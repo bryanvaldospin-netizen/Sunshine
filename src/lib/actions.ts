@@ -113,7 +113,24 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
         userId: user.uid
     });
 
+    // Commit the essential user creation documents first.
     await batch.commit();
+
+    // After successful user creation, try to add the welcome transaction.
+    // This part is non-critical and won't block the registration if it fails.
+    try {
+        const transactionRef = userDocRef.collection('transacciones').doc();
+        await transactionRef.set({
+            fecha: new Date().toISOString(),
+            tipo: 'Sistema',
+            descripcion: '¡Bienvenido a Sunshine! Tu cuenta ha sido creada.',
+            monto: 0
+        });
+    } catch (transactionError) {
+        console.error(`Non-critical error: Failed to create welcome transaction for user ${user.uid}:`, transactionError);
+        // We log the error but don't fail the entire registration process.
+    }
+
 
     try {
         const customToken = await adminAuth.createCustomToken(user.uid);
