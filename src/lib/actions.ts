@@ -157,7 +157,7 @@ export async function syncInviteCodes() {
       }
 
       // Part 2: Add bonoDirecto field if missing
-      if (userData.bonoDirecto === undefined) {
+      if (!Object.prototype.hasOwnProperty.call(userData, 'bonoDirecto')) {
         batch.update(userDoc.ref, { bonoDirecto: 0 });
         updatedUsersCount++;
       }

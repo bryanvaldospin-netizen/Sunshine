@@ -10,7 +10,7 @@ export type UserProfile = {
   walletAddress?: string;
   planActivo?: number;
   fechaInicioPlan?: string | null;
-  bonoDirecto?: number;
+  bonoDirecto: number;
   fechaRegistro?: string;
 };
 
