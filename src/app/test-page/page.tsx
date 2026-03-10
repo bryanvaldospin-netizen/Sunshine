@@ -308,21 +308,17 @@ export default function TestPage() {
   const [generatedEarnings, setGeneratedEarnings] = useState(0);
 
   const getDailyRate = (planAmount: number): number => {
-    if (planAmount >= 1000) return 0.04;   // Nivel 5 (Diamante) - 4%
-    if (planAmount >= 100) return 0.035;  // Nivel 4 (Platino) - 3.5%
-    if (planAmount >= 50) return 0.03;    // Nivel 3 (Oro) - 3%
-    if (planAmount >= 30) return 0.025;   // Nivel 2 (Plata) - 2.5%
-    if (planAmount >= 20) return 0.02;    // Nivel 1 (Bronce) - 2%
+    if (planAmount >= 1001) return 0.025; // 2.5%
+    if (planAmount >= 501) return 0.020;  // 2.0%
+    if (planAmount >= 101) return 0.018;  // 1.8%
+    if (planAmount >= 20) return 0.015;   // 1.5%
     return 0;
   };
 
   // Effect for Generated Earnings
   useEffect(() => {
     if (profile && profile.planActivo && profile.planActivo > 0 && profile.fechaInicioPlan) {
-      console.log('Valor de fechaInicioPlan:', profile.fechaInicioPlan);
-
       // The field can be a Firestore Timestamp object or an ISO string.
-      // A Timestamp object has a .toDate() method.
       const dateValue = profile.fechaInicioPlan as any;
       let startDate: Date;
 
@@ -348,10 +344,15 @@ export default function TestPage() {
 
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       const dailyRate = getDailyRate(profile.planActivo);
-      const earnings = profile.planActivo * dailyRate * diffDays;
       
+      const calculatedEarnings = profile.planActivo * dailyRate * diffDays;
+      const maxEarnings = profile.planActivo * 3;
+      
+      // Use the lesser of the calculated earnings and the maximum earnings cap.
+      const finalEarnings = Math.min(calculatedEarnings, maxEarnings);
+
       // If calculation results in NaN, default to 0.
-      setGeneratedEarnings(isNaN(earnings) ? 0 : earnings);
+      setGeneratedEarnings(isNaN(finalEarnings) ? 0 : finalEarnings);
     } else {
       setGeneratedEarnings(0);
     }
@@ -669,7 +670,8 @@ export default function TestPage() {
                             ) : profile && profile.planActivo && profile.planActivo > 0 ? (
                                 <div className="space-y-2">
                                     <p className="text-lg">Tu plan de inversión: <span className="font-bold text-golden">{formatCurrency(profile.planActivo)} USDT Activo</span></p>
-                                    <p className="text-lg">Ganancias Generadas: <span className="font-bold text-green-400">{formatCurrency(generatedEarnings)} USDT</span></p>
+                                    <p className="text-lg">Tasa de ganancia diaria: <span className="font-bold text-cyan-400">{(getDailyRate(profile.planActivo) * 100).toFixed(1)}%</span></p>
+                                    <p className="text-lg">Ganancias Generadas: <span className="font-bold text-green-400">{formatCurrency(generatedEarnings)}</span> / <span className="text-sm text-gray-400" title="Límite de Retorno (300%)">{formatCurrency(profile.planActivo * 3)}</span></p>
                                     {profile.fechaInicioPlan && new Date(typeof (profile.fechaInicioPlan as any)?.toDate === 'function' ? (profile.fechaInicioPlan as any).toDate() : profile.fechaInicioPlan).toString() !== 'Invalid Date' && <p className="text-sm text-gray-400">Inversión iniciada el: {new Date(typeof (profile.fechaInicioPlan as any)?.toDate === 'function' ? (profile.fechaInicioPlan as any).toDate() : profile.fechaInicioPlan).toLocaleDateString('es-ES')}</p>}
                                 </div>
                             ) : (
