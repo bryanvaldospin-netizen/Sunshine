@@ -11,6 +11,7 @@ export type UserProfile = {
   planActivo?: number;
   fechaInicioPlan?: string | null;
   bonoDirecto?: number;
+  fechaRegistro?: string;
 };
 
 export type DepositRequest = {

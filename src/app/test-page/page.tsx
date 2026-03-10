@@ -363,6 +363,55 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserPro
 
       <Card className="bg-gray-800 border-gray-700 text-white">
         <CardHeader>
+            <CardTitle>Mis Invitados Directos</CardTitle>
+            <CardDescription>Lista de usuarios que se han registrado con tu código.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <Table>
+                <TableHeader>
+                    <TableRow className="border-gray-700 hover:bg-gray-800">
+                        <TableHead className="text-white">Nombre</TableHead>
+                        <TableHead className="text-white">Email</TableHead>
+                        <TableHead className="text-white">Estado de Plan</TableHead>
+                        <TableHead className="text-right text-white">Fecha de Registro</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {networkLoading ? (
+                        Array.from({ length: 3 }).map((_, i) => (
+                            <TableRow key={i} className="border-gray-700">
+                                <TableCell colSpan={4}><Skeleton className="h-8 w-full bg-gray-700"/></TableCell>
+                            </TableRow>
+                        ))
+                    ) : directReferrals.length > 0 ? (
+                        directReferrals.map((ref) => (
+                            <TableRow key={ref.uid} className="border-gray-700 hover:bg-gray-700/50">
+                                <TableCell className="font-medium">{ref.name}</TableCell>
+                                <TableCell className="text-muted-foreground">{ref.email}</TableCell>
+                                <TableCell>
+                                    <Badge className={(ref.planActivo ?? 0) > 0 ? 'bg-green-600 text-white' : 'bg-gray-600 text-white'}>
+                                        {(ref.planActivo ?? 0) > 0 ? 'Activo' : 'Inactivo'}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell className="text-right text-muted-foreground">
+                                    {ref.fechaRegistro ? new Date(ref.fechaRegistro).toLocaleDateString('es-ES') : 'N/A'}
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    ) : (
+                        <TableRow>
+                            <TableCell colSpan={4} className="text-center text-muted-foreground h-24">
+                                Aún no tienes invitados directos. ¡Comparte tu enlace!
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+            </Table>
+        </CardContent>
+    </Card>
+
+      <Card className="bg-gray-800 border-gray-700 text-white">
+        <CardHeader>
           <CardTitle>Niveles de Bono Residual</CardTitle>
           <CardDescription>Desbloquea niveles invitando a nuevos miembros con un Plan Plata o superior (≥ $101).</CardDescription>
         </CardHeader>

@@ -91,6 +91,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
       planActivo: 0,
       fechaInicioPlan: null,
       bonoDirecto: 0,
+      fechaRegistro: new Date().toISOString(),
     });
 
     const newWalletRef = doc(db, 'wallet_addresses', walletAddress);
