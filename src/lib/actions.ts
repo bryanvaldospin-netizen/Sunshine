@@ -13,9 +13,12 @@ import {
   where,
   limit,
   getDocs,
+  runTransaction,
+  increment,
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { z } from 'zod';
+import type { UserProfile } from '@/types';
 
 // USER ACTIONS
 const registerSchema = z.object({
@@ -31,15 +34,13 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
     const validatedValues = registerSchema.parse(values);
     const { email, password, name, walletAddress, sponsorCode } = validatedValues;
     
-    // Securely check for wallet uniqueness in the new dedicated collection
     const walletRef = doc(db, 'wallet_addresses', walletAddress);
     const walletSnap = await getDoc(walletRef);
     if (walletSnap.exists()) {
       return { error: 'Error: Esta billetera ya está vinculada a otra cuenta. Usa una dirección única.' };
     }
 
-    // Initialize invitadoPor to null to prevent 'undefined' error
-    let invitadoPor = null;
+    let invitadoPor: string | null = null;
     if (sponsorCode) {
       console.log('Buscando patrocinador:', sponsorCode);
       const sponsorCodeRef = doc(db, 'invite_codes_map', sponsorCode);
@@ -49,13 +50,13 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
         return { error: 'El código de patrocinador no existe' };
       }
       const sponsorData = sponsorCodeSnap.data();
-      invitadoPor = sponsorData.userId; // The sponsor's UID
+      invitadoPor = sponsorData.userId;
     }
 
     const generateUniqueInviteCode = async (): Promise<string> => {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         let code: string;
         let isUnique = false;
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         
         while (!isUnique) {
             code = '';
@@ -68,16 +69,12 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
                 isUnique = true;
             }
         }
-        // @ts-ignore
-        return code;
+        return code!;
     };
 
     const inviteCode = await generateUniqueInviteCode();
-
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
-
-    // Use a batch to write user profile, wallet address, and invite code map atomically
     const batch = writeBatch(db);
     
     const userDocRef = doc(db, 'users', user.uid);
@@ -93,6 +90,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
       ultimoCheckIn: null,
       planActivo: 0,
       fechaInicioPlan: null,
+      bonoDirecto: 0,
     });
 
     const newWalletRef = doc(db, 'wallet_addresses', walletAddress);
@@ -101,7 +99,6 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
         createdAt: new Date().toISOString()
     });
     
-    // Add the new user's invite code to the map for future sponsor lookups
     const userInviteCodeRef = doc(db, 'invite_codes_map', inviteCode);
     batch.set(userInviteCodeRef, {
         userId: user.uid
@@ -167,5 +164,102 @@ export async function syncInviteCodes() {
     return { error: 'Falló la sincronización de códigos de invitación: ' + error.message };
   }
 }
-    
-    
+
+export async function activateInvestment(userId: string, investmentAmount: number, planName: string) {
+  try {
+    if (!userId || !investmentAmount || investmentAmount <= 0) {
+      return { error: 'Se requieren el ID de usuario y un monto de inversión válido.' };
+    }
+
+    await runTransaction(db, async (transaction) => {
+      // 1. Get user and potentially sponsor documents
+      const userRef = doc(db, 'users', userId);
+      const userSnap = await transaction.get(userRef);
+
+      if (!userSnap.exists()) {
+        throw new Error('El usuario a activar no existe.');
+      }
+      const userData = userSnap.data() as UserProfile;
+
+      // 2. Create the official Investment document
+      const investmentRef = doc(collection(db, 'investments'));
+      const nextPaymentDate = new Date();
+      nextPaymentDate.setDate(nextPaymentDate.getDate() + 1);
+
+      transaction.set(investmentRef, {
+        userId,
+        planName,
+        amount: investmentAmount,
+        startDate: new Date().toISOString(),
+        nextPaymentDate: nextPaymentDate.toISOString(),
+        status: 'Activo',
+      });
+
+      // 3. Update the user's profile
+      transaction.update(userRef, {
+        planActivo: increment(investmentAmount),
+        saldoUSDT: increment(investmentAmount),
+        fechaInicioPlan: new Date().toISOString(),
+      });
+
+      // 4. Update sponsor if they exist and calculate commission with ROI cap
+      const sponsorId = userData.invitadoPor;
+      if (sponsorId) {
+        const sponsorRef = doc(db, 'users', sponsorId);
+        const sponsorSnap = await transaction.get(sponsorRef);
+
+        if (sponsorSnap.exists()) {
+          const sponsorData = sponsorSnap.data() as UserProfile;
+          const commission = investmentAmount * 0.10;
+
+          const getDailyRate = (planAmount: number): number => {
+            if (planAmount >= 1001) return 0.025;
+            if (planAmount >= 501) return 0.020;
+            if (planAmount >= 101) return 0.018;
+            if (planAmount >= 20) return 0.015;
+            return 0;
+          };
+
+          const sponsorPlanActivo = sponsorData.planActivo || 0;
+          const sponsorFechaInicioStr = sponsorData.fechaInicioPlan;
+          let personalEarnings = 0;
+          
+          if (sponsorPlanActivo > 0 && sponsorFechaInicioStr) {
+            const dateValue = sponsorFechaInicioStr as any;
+            const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
+            
+            if (!isNaN(startDate.getTime())) {
+                const now = new Date();
+                const diffTime = now.getTime() - startDate.getTime();
+                if (diffTime > 0) {
+                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                    const dailyRate = getDailyRate(sponsorPlanActivo);
+                    personalEarnings = sponsorPlanActivo * dailyRate * diffDays;
+                }
+            }
+          }
+          
+          const currentBonos = sponsorData.bonoDirecto || 0;
+          const currentTotalEarnings = personalEarnings + currentBonos;
+          
+          const maxEarnings = sponsorPlanActivo > 0 ? sponsorPlanActivo * 3 : Infinity;
+          const remainingCapacity = maxEarnings - currentTotalEarnings;
+          const payableCommission = Math.max(0, Math.min(commission, remainingCapacity));
+
+          if (payableCommission > 0) {
+            transaction.update(sponsorRef, {
+              bonoDirecto: increment(payableCommission),
+              saldoUSDT: increment(payableCommission),
+            });
+          }
+        }
+      }
+    });
+
+    return { success: true, message: 'Inversión activada y comisiones procesadas.' };
+
+  } catch (error: any) {
+    console.error('Error al activar inversión:', error);
+    return { error: error.message || 'Error inesperado al activar la inversión.' };
+  }
+}

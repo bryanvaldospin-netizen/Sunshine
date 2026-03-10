@@ -10,6 +10,7 @@ export type UserProfile = {
   walletAddress?: string;
   planActivo?: number;
   fechaInicioPlan?: string | null;
+  bonoDirecto?: number;
 };
 
 export type DepositRequest = {

@@ -27,7 +27,8 @@ service cloud.firestore {
                     && request.resource.data.walletAddress is string && request.resource.data.walletAddress.size() > 20
                     && request.resource.data.planActivo == 0
                     && request.resource.data.fechaInicioPlan == null
-                    && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'rol', 'saldoUSDT', 'invitadoPor', 'inviteCode', 'walletAddress', 'ultimoCheckIn', 'planActivo', 'fechaInicioPlan']);
+                    && request.resource.data.bonoDirecto == 0
+                    && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'rol', 'saldoUSDT', 'invitadoPor', 'inviteCode', 'walletAddress', 'ultimoCheckIn', 'planActivo', 'fechaInicioPlan', 'bonoDirecto']);
 
       // This rule allows a user to update their own profile, such as for the daily bonus,
       // while preventing them from changing their role.
@@ -105,5 +106,3 @@ service cloud.firestore {
     }
   }
 }
-
-    

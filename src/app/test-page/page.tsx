@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { getWalletAddress, syncInviteCodes } from '@/lib/actions';
+import { syncInviteCodes } from '@/lib/actions';
 import { Copy, Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, getDocs, orderBy, limit, onSnapshot, doc, updateDoc } from 'firebase/firestore';
@@ -280,7 +280,7 @@ const DailyBonusCard = ({ user }: { user: UserProfile }) => {
     );
 };
 
-const MyNetworkTab = ({ user, directReferrals, networkLoading, directBonus }: { user: UserProfile | null, directReferrals: UserProfile[], networkLoading: boolean, directBonus: number }) => {
+const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserProfile | null, directReferrals: UserProfile[], networkLoading: boolean }) => {
   const { toast } = useToast();
 
   const { plan2PlusCount } = useMemo(() => {
@@ -329,7 +329,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, directBonus }: { 
             <CardDescription>10% de las inversiones de tus referidos directos.</CardDescription>
           </CardHeader>
           <CardContent>
-            {networkLoading ? <Skeleton className="h-10 w-24 bg-gray-700" /> : <p className="text-4xl font-bold text-green-400">{formatCurrency(directBonus)}</p>}
+            {networkLoading ? <Skeleton className="h-10 w-24 bg-gray-700" /> : <p className="text-4xl font-bold text-green-400">{formatCurrency(user?.bonoDirecto || 0)}</p>}
           </CardContent>
         </Card>
         <Card className="bg-gray-800 border-gray-700 text-white">
@@ -479,14 +479,6 @@ export default function TestPage() {
     };
   }, [profile?.uid, authLoading]);
 
-  // Calculate direct bonus
-  const directBonus = useMemo(() => {
-    if (networkLoading || directReferrals.length === 0) {
-        return 0;
-    }
-    return directReferrals.reduce((acc, ref) => acc + (ref.planActivo || 0), 0) * 0.10;
-  }, [directReferrals, networkLoading]);
-
   // Effect for Total Earnings (Personal Plan + Network Bonuses)
   useEffect(() => {
     if (!profile) {
@@ -498,6 +490,7 @@ export default function TestPage() {
     const { planActivo, fechaInicioPlan } = profile;
 
     if (planActivo && planActivo > 0 && fechaInicioPlan) {
+      console.log('fechaInicioPlan from Firestore:', fechaInicioPlan); // Temporary Debug Log
       const dateValue = fechaInicioPlan as any;
       const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
       
@@ -514,22 +507,22 @@ export default function TestPage() {
     }
     
     // Total earnings include personal and network bonuses
-    const combinedEarnings = personalEarnings + directBonus; // Add residualBonus here when available
+    const combinedEarnings = personalEarnings + (profile.bonoDirecto || 0);
     
     // Apply 300% ROI cap only if there is an active plan
     const maxEarnings = planActivo > 0 ? planActivo * 3 : Infinity;
-    const finalEarnings = Math.min(combinedEarnings, maxEarnings);
+    const finalEarnings = isNaN(combinedEarnings) ? 0 : Math.min(combinedEarnings, maxEarnings);
 
-    setTotalEarnings(isNaN(finalEarnings) ? 0 : finalEarnings);
+    setTotalEarnings(finalEarnings);
 
-  }, [profile, directBonus]);
+  }, [profile]);
 
 
   // Effect for Stats, based on real-time profile and total earnings
   useEffect(() => {
     if (profile) {
       setStats({
-        totalInvested: profile.saldoUSDT,
+        totalInvested: profile.planActivo || 0,
         earnings: totalEarnings,
         withdrawals: 0, 
       });
@@ -593,7 +586,7 @@ export default function TestPage() {
 
   // Effect for Active Plan
   useEffect(() => {
-    let unsubscribe: () => void = () => {};
+    let unsubscribe: (() => void) | undefined;
 
     if (profile?.uid) {
       setPlanLoading(true);
@@ -658,7 +651,7 @@ export default function TestPage() {
 
   const formattedBalance = formatCurrency(balance);
   
-  const progress = profile && profile.planActivo > 0 ? (totalEarnings / (profile.planActivo * 3)) * 100 : 0;
+  const progress = profile && profile.planActivo && profile.planActivo > 0 ? (totalEarnings / (profile.planActivo * 3)) * 100 : 0;
 
   const chartConfig = {
     balance: {
@@ -850,7 +843,7 @@ export default function TestPage() {
                                 <p>Tu plan de inversión: No tienes un plan activo. Realiza una inversión para obtener uno.</p>
                             )}
                         </CardContent>
-                        {profile && profile.planActivo > 0 && (
+                        {profile && profile.planActivo && profile.planActivo > 0 && (
                             <CardFooter className="pt-4 flex-col items-start gap-2">
                                 <div className="w-full space-y-1">
                                     <div className="flex justify-between text-xs text-muted-foreground">
@@ -937,7 +930,7 @@ export default function TestPage() {
            <InvestmentPlansSection />
         </TabsContent>
         <TabsContent value="mi-red">
-          <MyNetworkTab user={profile} directReferrals={directReferrals} networkLoading={networkLoading} directBonus={directBonus} />
+          <MyNetworkTab user={profile} directReferrals={directReferrals} networkLoading={networkLoading} />
         </TabsContent>
       </Tabs>
       <FlagsMarquee />
