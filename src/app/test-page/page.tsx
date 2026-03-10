@@ -408,7 +408,7 @@ export default function TestPage() {
     if (
       profile &&
       (profile.planActivo || 0) > 0 &&
-      !profile.bonoEntregado &&
+      profile.bonoEntregado === false &&
       profile.invitadoPor &&
       !isProcessingBonus
     ) {

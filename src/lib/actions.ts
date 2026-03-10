@@ -202,9 +202,9 @@ export async function processInitialBonus(userId: string) {
       const { planActivo, bonoEntregado, invitadoPor } = userData;
 
       // Conditions to pay bonus: has a plan, bonus not yet paid, has a sponsor
-      if (!((planActivo || 0) > 0 && !bonoEntregado && invitadoPor)) {
+      if (!((planActivo || 0) > 0 && bonoEntregado === false && invitadoPor)) {
         // No conditions to pay bonus, just mark as checked if needed
-        if ((planActivo || 0) > 0 && !bonoEntregado) {
+        if ((planActivo || 0) > 0 && bonoEntregado === false) {
            transaction.update(userRef, { bonoEntregado: true });
         }
         return;

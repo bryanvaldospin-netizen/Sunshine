@@ -11,7 +11,7 @@ export type UserProfile = {
   planActivo?: number;
   fechaInicioPlan?: string | null;
   bonoDirecto: number;
-  bonoEntregado?: boolean;
+  bonoEntregado: boolean;
   fechaRegistro?: string;
 };
 
