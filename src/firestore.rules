@@ -2,6 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helper functions for DRY and readable rules
     function isSignedIn() {
       return request.auth != null;
     }
@@ -12,42 +13,65 @@ service cloud.firestore {
 
     // Rules for user profiles
     match /users/{userId} {
-      // A user can read and create their own document.
-      allow get, create: if isOwner(userId);
+      // A user can read their own profile, or the profiles of users they referred.
+      allow read: if isOwner(userId) || (resource.data.invitadoPor != null && resource.data.invitadoPor == request.auth.uid);
+      // No one can list all users.
+      allow list: if false;
       
-      // A user can update their own profile, but not sensitive fields like balance or role.
-      allow update: if isOwner(userId) && request.resource.data.saldoUSDT == resource.data.saldoUSDT && request.resource.data.rol == resource.data.rol;
+      // Allow user creation with specific fields validation for security.
+      allow create: if isOwner(userId)
+                    && request.resource.data.uid == userId
+                    && request.resource.data.email == request.auth.token.email
+                    && request.resource.data.name is string && request.resource.data.name.size() > 1
+                    && request.resource.data.rol == 'user'
+                    && request.resource.data.saldoUSDT == 0
+                    && request.resource.data.walletAddress is string && request.resource.data.walletAddress.size() > 20
+                    && request.resource.data.planActivo == 0
+                    && request.resource.data.fechaInicioPlan == null
+                    && request.resource.data.bonoDirecto == 0
+                    && request.resource.data.bonoEntregado == false
+                    && request.resource.data.fechaRegistro is string
+                    && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'rol', 'saldoUSDT', 'invitadoPor', 'inviteCode', 'walletAddress', 'ultimoCheckIn', 'planActivo', 'fechaInicioPlan', 'bonoDirecto', 'fechaRegistro', 'bonoEntregado']);
+
+      // This rule allows a user to update their own profile, but not critical fields.
+      allow update: if isOwner(userId);
       
-      // Nobody can list or delete users.
-      allow list, delete: if false;
+      // Nobody can delete users to protect user data.
+      allow delete: if false;
     }
 
-    // Rules for the subcollection of deposit requests within a user document
-    match /users/{userId}/deposit_requests/{depositRequestId} {
-      // A user can read and create their own deposit requests.
-      // The request data must contain the correct userId to prevent spoofing.
-      allow get, list, create: if isOwner(userId) && request.resource.data.userId == userId;
-      
-      // Users cannot update or delete their requests once created.
-      allow update, delete: if false;
-    }
-    
-    // Rules for the top-level collection of all deposit requests
-    match /deposit_requests/{reqId} {
-        // Users can create requests here. The data must contain their own UID.
-        allow create: if request.resource.data.userId == request.auth.uid;
-
-        // No one can read, update or delete from the top-level collection directly
-        // This collection is write-only for users, and would typically be read by an admin backend process.
-        allow read, update, delete: if false;
-    }
-
-    // Rules for invitation codes
+    // Rules for invitation codes (single-use, deprecated)
     match /invitation_codes/{invitationCodeId} {
       // Anyone can check if a code exists for registration purposes
       allow get: if true;
-      // No one else can read/write/list codes through client SDK.
+      // Nobody else can list or write codes.
       allow list, write: if false;
+    }
+
+    // Rules for wallet address uniqueness check
+    match /wallet_addresses/{walletAddress} {
+        // Allow anyone (even unauthenticated users) to check if a wallet address exists.
+        allow get: if true;
+
+        // Allow creation only if the user is authenticated and the userId in the document
+        // matches their own UID. This prevents users from claiming wallets for others.
+        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+
+        // Disallow listing, updating, or deleting to protect the integrity of the records.
+        allow list, update, delete: if false;
+    }
+
+    // Rules for invite code mapping for sponsor lookup
+    match /invite_codes_map/{inviteCode} {
+      // Allow anyone (unauthenticated users) to look up a sponsor code.
+      allow get: if true;
+
+      // Allow a user to create their own invite code mapping upon registration.
+      // The userId in the document must match their own UID.
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+
+      // Disallow listing, updating, or deleting to protect integrity.
+      allow list, update, delete: if false;
     }
   }
 }

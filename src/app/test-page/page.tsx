@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import type { UserProfile, Investment } from '@/types';
+import type { UserProfile } from '@/types';
+import { processInitialBonus } from '@/lib/actions';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon, User as UserIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { collection, query, where, getDocs, orderBy, limit, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -130,89 +131,6 @@ const InvestmentPlansSection = () => {
             </DialogContent>
         </Dialog>
     );
-};
-
-const ActivePlanCard = ({ plan, loading, user }: { plan: Investment | null, loading: boolean, user: UserProfile | null }) => {
-  const { t } = useTranslation();
-  const [countdown, setCountdown] = useState('');
-  const [progress, setProgress] = useState(0);
-
-  useEffect(() => {
-    if (!plan) return;
-
-    const intervalId = setInterval(() => {
-      const now = new Date();
-      const nextPaymentDate = new Date(plan.nextPaymentDate);
-      const startDate = new Date(plan.startDate);
-      
-      const distance = nextPaymentDate.getTime() - now.getTime();
-
-      if (distance < 0) {
-        setCountdown(t('dashboard.processingPayment'));
-        setProgress(100);
-        clearInterval(intervalId);
-        return;
-      }
-      
-      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-      
-      setCountdown(`${hours.toString().padStart(2, '0')}h ${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`);
-
-      const totalDuration = nextPaymentDate.getTime() - startDate.getTime();
-      const elapsed = now.getTime() - startDate.getTime();
-      const currentProgress = (elapsed / totalDuration) * 100;
-      setProgress(Math.min(currentProgress, 100));
-
-    }, 1000);
-
-    return () => clearInterval(intervalId);
-  }, [plan, t]);
-
-  if (loading) {
-    return (
-      <Card className="bg-gray-800 border-gray-700 text-white">
-        <CardHeader>
-          <Skeleton className="h-6 w-1/2 bg-gray-700" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-20 w-full bg-gray-700" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!plan) {
-    if (user && user.saldoUSDT > 0) {
-      return (
-        <Card className="bg-gray-800 border-gray-700 text-white flex items-center justify-center p-6">
-            <Button variant="outline" className="border-golden text-golden hover:bg-golden/10 hover:text-golden">
-                {t('dashboard.viewPlans')}
-            </Button>
-        </Card>
-      );
-    }
-    return null; // Don't show anything if no balance and no plan
-  }
-
-  return (
-     <Card className="bg-gray-800 border-gray-700 text-white">
-      <CardHeader>
-        <CardTitle className="text-xl font-semibold">{t('dashboard.activePlan')}: {plan.planName}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-           <Progress value={progress} className="w-full h-2 bg-gray-700 [&>div]:bg-golden" />
-           <p className="text-xs text-right text-gray-400 mt-1">{progress.toFixed(0)}{t('dashboard.completed')}</p>
-        </div>
-        <div className="text-center">
-            <p className="text-sm text-gray-400">{t('dashboard.nextPayment')}</p>
-            <p className="text-2xl font-bold font-mono text-golden">{countdown}</p>
-        </div>
-      </CardContent>
-    </Card>
-  );
 };
 
 const DailyBonusCard = ({ user }: { user: UserProfile }) => {
@@ -460,15 +378,13 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserPro
 export default function TestPage() {
   const { user: profile, loading: authLoading } = useAuth();
   const { t, setLocale } = useTranslation();
-  const { toast } = useToast();
   const router = useRouter();
 
   const [stats, setStats] = useState({ totalInvested: 0, earnings: 0, withdrawals: 0 });
   const [statsLoading, setStatsLoading] = useState(true);
   const [chartData, setChartData] = useState<any[]>([]);
-  const [activePlan, setActivePlan] = useState<Investment | null>(null);
-  const [planLoading, setPlanLoading] = useState(true);
   const [totalEarnings, setTotalEarnings] = useState(0);
+  const [isProcessingBonus, setIsProcessingBonus] = useState(false);
 
   // Network state moved to parent
   const [directReferrals, setDirectReferrals] = useState<UserProfile[]>([]);
@@ -486,6 +402,35 @@ export default function TestPage() {
     if (planAmount >= 20) return 0.015;   // 1.5%
     return 0;
   };
+
+  // Automated Bonus Processing Effect
+  useEffect(() => {
+    if (
+      profile &&
+      (profile.planActivo || 0) > 0 &&
+      !profile.bonoEntregado &&
+      profile.invitadoPor &&
+      !isProcessingBonus
+    ) {
+      console.log('Triggering initial bonus processing for user:', profile.uid);
+      setIsProcessingBonus(true);
+      processInitialBonus(profile.uid)
+        .then(result => {
+          if (result.success) {
+            console.log(result.message);
+          } else if (result.error) {
+            console.error('Failed to process bonus:', result.error);
+          }
+        })
+        .catch(error => {
+          console.error('Unhandled error processing bonus:', error);
+        })
+        .finally(() => {
+          setIsProcessingBonus(false);
+        });
+    }
+  }, [profile, isProcessingBonus]);
+
 
   // Fetch direct referrals
   useEffect(() => {
@@ -623,52 +568,6 @@ export default function TestPage() {
       return prevData;
     });
   }, [profile, authLoading]);
-
-  // Effect for Active Plan
-  useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
-
-    if (profile?.uid) {
-      setPlanLoading(true);
-      const investmentsQuery = query(
-        collection(db, 'investments'),
-        where('userId', '==', profile.uid),
-        where('status', '==', 'Activo'),
-        limit(1)
-      );
-
-      unsubscribe = onSnapshot(
-        investmentsQuery,
-        (planSnapshot) => {
-          if (!planSnapshot.empty) {
-            const planDoc = planSnapshot.docs[0];
-            setActivePlan({ id: planDoc.id, ...planDoc.data() } as Investment);
-          } else {
-            setActivePlan(null);
-          }
-          setPlanLoading(false);
-        },
-        (error) => {
-          console.error('Error fetching active plan:', error);
-          toast({
-            variant: 'destructive',
-            title: 'Error de Plan',
-            description: 'No se pudo cargar la información de tu plan activo.',
-          });
-          setPlanLoading(false);
-        }
-      );
-    } else if (!authLoading) {
-      setPlanLoading(false);
-      setActivePlan(null);
-    }
-    
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, [profile?.uid, authLoading, toast]);
 
   const statItems = useMemo(() => [
     { title: t('dashboard.totalInvestment'), value: stats.totalInvested, icon: PiggyBank },
@@ -884,9 +783,6 @@ export default function TestPage() {
                     </Card>
                 </div>
 
-                <div className="w-full max-w-5xl">
-                  <ActivePlanCard plan={activePlan} loading={planLoading} user={profile} />
-                </div>
               </div>
             </div>
         </TabsContent>

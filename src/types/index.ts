@@ -2,7 +2,7 @@ export type UserProfile = {
   uid: string;
   email: string;
   name: string;
-  rol: 'user' | 'admin';
+  rol: 'user';
   saldoUSDT: number;
   invitadoPor?: string | null;
   inviteCode?: string;
@@ -11,6 +11,7 @@ export type UserProfile = {
   planActivo?: number;
   fechaInicioPlan?: string | null;
   bonoDirecto: number;
+  bonoEntregado?: boolean;
   fechaRegistro?: string;
 };
 
@@ -29,15 +30,4 @@ export type InvitationCode = {
   id: string;
   used: boolean;
   usedBy: string | null;
-};
-
-export type Investment = {
-  id: string;
-  userId: string;
-  planName: string;
-  amount: number;
-  startDate: string; // ISO string
-  nextPaymentDate: string; // ISO string
-  status: 'Activo' | 'Completado';
-  bonoPagado?: boolean;
 };
