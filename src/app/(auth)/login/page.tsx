@@ -17,12 +17,27 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from '@/hooks/use-translation';
 import Link from 'next/link';
-import { GoogleAuthProvider, signInWithRedirect, signInWithEmailAndPassword } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithRedirect, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Por favor, introduce un email válido.' }),
   password: z.string().min(1, { message: 'La contraseña es obligatoria.' }),
+});
+
+const resetSchema = z.object({
+  resetEmail: z.string().email({ message: 'Por favor, introduce un email válido.' }),
 });
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -56,12 +71,20 @@ const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export default function LoginPage() {
   const { toast } = useToast();
   const { t } = useTranslation();
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: '',
       password: '',
+    },
+  });
+
+  const resetForm = useForm<z.infer<typeof resetSchema>>({
+    resolver: zodResolver(resetSchema),
+    defaultValues: {
+      resetEmail: '',
     },
   });
 
@@ -82,6 +105,29 @@ export default function LoginPage() {
     }
   }
 
+  async function onPasswordReset(values: z.infer<typeof resetSchema>) {
+    try {
+        await sendPasswordResetEmail(auth, values.resetEmail);
+        toast({
+            title: '¡Correo enviado!',
+            description: 'Revisa tu bandeja de entrada para restablecer tu contraseña.',
+        });
+        setIsResetDialogOpen(false);
+        resetForm.reset();
+    } catch (error: any) {
+        let description = 'Ha ocurrido un error. Por favor, inténtalo de nuevo.';
+        if (error.code === 'auth/user-not-found') {
+            description = 'No se encontró ninguna cuenta con este correo electrónico.';
+        }
+        toast({
+            variant: 'destructive',
+            title: 'Error al enviar correo',
+            description,
+        });
+    }
+  }
+
+
   async function handleGoogleSignIn() {
     const provider = new GoogleAuthProvider();
     try {
@@ -97,67 +143,110 @@ export default function LoginPage() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-golden to-red-800">
-          {t('auth.login')}
-        </CardTitle>
-        <CardDescription>Crea una cuenta o inicia sesión para continuar.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('auth.email')}</FormLabel>
-                  <FormControl>
-                    <Input placeholder="usuario@sunshine.com" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('auth.password')}</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <Button type="submit" className="w-full bg-gradient-to-r from-golden to-red-800 text-white" disabled={form.formState.isSubmitting}>
-              {form.formState.isSubmitting ? 'Iniciando...' : t('auth.login')}
-            </Button>
-          </form>
-        </Form>
-        <div className="mt-4 text-center text-sm">
-          ¿No tienes cuenta?{' '}
-          <Link href="/register" className="underline text-accent">
-            Regístrate
-          </Link>
-        </div>
-        <div className="relative my-4">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">O</span>
-          </div>
-        </div>
+    <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+        <Card>
+        <CardHeader>
+            <CardTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-golden to-red-800">
+            {t('auth.login')}
+            </CardTitle>
+            <CardDescription>Crea una cuenta o inicia sesión para continuar.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>{t('auth.email')}</FormLabel>
+                    <FormControl>
+                        <Input placeholder="usuario@sunshine.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>{t('auth.password')}</FormLabel>
+                    <FormControl>
+                        <Input type="password" placeholder="••••••••" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <Button type="submit" className="w-full bg-gradient-to-r from-golden to-red-800 text-white" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? 'Iniciando...' : t('auth.login')}
+                </Button>
+            </form>
+            </Form>
+            
+            <div className="mt-4 text-center text-xs">
+                <DialogTrigger asChild>
+                    <button className="underline text-muted-foreground hover:text-accent">
+                        ¿Olvidaste tu contraseña?
+                    </button>
+                </DialogTrigger>
+            </div>
 
-        <Button variant="outline" className="w-full" onClick={handleGoogleSignIn}>
-          <GoogleIcon className="mr-2" />
-          Iniciar sesión con Google
-        </Button>
-      </CardContent>
-    </Card>
+            <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">O</span>
+            </div>
+            </div>
+
+            <Button variant="outline" className="w-full" onClick={handleGoogleSignIn}>
+            <GoogleIcon className="mr-2" />
+            Iniciar sesión con Google
+            </Button>
+            
+            <div className="mt-4 text-center text-sm">
+            ¿No tienes cuenta?{' '}
+            <Link href="/register" className="underline text-accent">
+                Regístrate
+            </Link>
+            </div>
+        </CardContent>
+        </Card>
+
+        <DialogContent className="bg-gray-800 border-golden text-white">
+            <DialogHeader>
+            <DialogTitle>Restablecer Contraseña</DialogTitle>
+            <DialogDescription>
+                Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.
+            </DialogDescription>
+            </DialogHeader>
+            <Form {...resetForm}>
+            <form onSubmit={resetForm.handleSubmit(onPasswordReset)} className="space-y-4 py-4">
+                <FormField
+                control={resetForm.control}
+                name="resetEmail"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Correo Electrónico</FormLabel>
+                    <FormControl>
+                        <Input placeholder="usuario@sunshine.com" {...field} className="bg-gray-700 border-gray-600" />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <DialogFooter>
+                    <Button type="submit" className="w-full bg-gradient-to-r from-golden to-red-800 text-white" disabled={resetForm.formState.isSubmitting}>
+                        {resetForm.formState.isSubmitting ? 'Enviando...' : 'Enviar enlace de restablecimiento'}
+                    </Button>
+                </DialogFooter>
+            </form>
+            </Form>
+      </DialogContent>
+    </Dialog>
   );
 }
