@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { getWalletAddress } from '@/lib/actions';
-import { Copy, Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift } from 'lucide-react';
+import { Copy, Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, getDocs, orderBy, limit, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import TradingViewTicker from '@/components/trading-view-ticker';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 const FlagsMarquee = () => {
@@ -527,223 +528,258 @@ export default function TestPage() {
         <TradingViewTicker />
       </header>
 
-      <div className="p-4 md:p-8">
-        <div className="flex flex-col items-center justify-start w-full h-full pt-8 space-y-8">
-            <div className="text-center space-y-2">
-                <h1 className="text-3xl font-bold">{t('dashboard.greeting', { name: userName })}</h1>
-            </div>
-            
-            <div className="w-full max-w-5xl">
-              <Card className="bg-gray-800 border-golden text-white text-center">
-                <CardHeader>
-                  <CardTitle className="text-xl font-medium text-gray-300">
-                    {t('dashboard.balance')}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="py-6">
-                  {authLoading ? (
-                     <Skeleton className="h-16 w-1/2 mx-auto bg-gray-700" />
-                  ) : (
-                    <p className="text-6xl font-bold text-golden">{formattedBalance}</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-
-            {profile && !authLoading && (
-              <div className="w-full max-w-5xl">
-                <DailyBonusCard user={profile} />
-              </div>
-            )}
-            
-            <div className="w-full max-w-5xl">
-                <Card className="bg-gray-800 border-gray-700 text-white">
-                    <CardHeader>
-                        <CardTitle>Información de Cuenta</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3 pt-4">
-                         {authLoading ? (
-                           <p className="text-gray-400">Cargando datos...</p>
-                        ) : profile ? (
-                            <ul className="space-y-2 text-sm list-none">
-                                <li><strong className="text-gray-400 font-medium w-36 inline-block">Nombre:</strong> {profile.name}</li>
-                                <li><strong className="text-gray-400 font-medium w-36 inline-block">Correo:</strong> {profile.email}</li>
-                                <li className="flex items-center">
-                                    <strong className="text-gray-400 font-medium w-36 inline-block flex-shrink-0">Billetera de Retiro (TRC-20):</strong>
-                                    {profile.walletAddress ? (
-                                        <div className="flex items-center min-w-0 flex-1">
-                                            <span className="font-mono text-white truncate" title={profile.walletAddress}>{profile.walletAddress}</span>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={() => {
-                                                    if (profile.walletAddress) {
-                                                        navigator.clipboard.writeText(profile.walletAddress);
-                                                        toast({ title: 'Billetera copiada', description: 'La dirección de tu billetera ha sido copiada al portapapeles.' });
-                                                    }
-                                                }}
-                                                className="h-7 w-7 ml-2 text-gray-400 hover:text-white hover:bg-gray-700 flex-shrink-0"
-                                            >
-                                                <Copy className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    ) : (
-                                        <span className="text-gray-500">N/A</span>
-                                    )}
-                                </li>
-                                <li className="flex items-center">
-                                    <strong className="text-gray-400 font-medium w-36 inline-block flex-shrink-0">Código Invitación:</strong>
-                                    {profile.inviteCode ? (
-                                        <>
-                                            <span className="font-mono text-golden">{profile.inviteCode}</span>
-                                            <Button
-                                              variant="ghost"
-                                              size="icon"
-                                              onClick={() => {
-                                                if (!profile.inviteCode) return;
-                                                navigator.clipboard.writeText(profile.inviteCode);
-                                                toast({ title: t('profile.codeCopied'), description: t('profile.codeCopiedDesc') });
-                                              }}
-                                              className="h-7 w-7 ml-2 text-gray-400 hover:text-golden hover:bg-gray-700"
-                                            >
-                                              <Copy className="h-4 w-4" />
-                                            </Button>
-                                        </>
-                                    ) : (
-                                        <span className="text-gray-500">N/A</span>
-                                    )}
-                                </li>
-                                <li><strong className="text-gray-400 font-medium w-36 inline-block">Saldo Actual:</strong> {formattedBalance}</li>
-                                <li className="flex items-start">
-                                    <strong className="text-gray-400 font-medium w-36 inline-block flex-shrink-0">UID:</strong>
-                                    <span className="break-all">{profile.uid}</span>
-                                </li>
-                            </ul>
-                        ) : (
-                            <p className="text-gray-500">No se pudo cargar la información del perfil.</p>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
-
-            <div className="w-full max-w-5xl">
-               {statsLoading ? (
-                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
-                    <Skeleton className="h-28 bg-gray-800" />
-                    <Skeleton className="h-28 bg-gray-800" />
-                    <Skeleton className="h-28 bg-gray-800" />
+      <Tabs defaultValue="inicio" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 bg-gray-800/50 rounded-none sticky top-16 z-40 backdrop-blur-sm">
+          <TabsTrigger value="inicio"><Home className="mr-2 h-4 w-4" /> Inicio</TabsTrigger>
+          <TabsTrigger value="inversiones"><Briefcase className="mr-2 h-4 w-4" /> Inversiones</TabsTrigger>
+          <TabsTrigger value="mi-red"><Users className="mr-2 h-4 w-4" /> Mi Red</TabsTrigger>
+        </TabsList>
+        <TabsContent value="inicio">
+          <div className="p-4 md:p-8">
+            <div className="flex flex-col items-center justify-start w-full h-full pt-8 space-y-8">
+                <div className="text-center space-y-2">
+                    <h1 className="text-3xl font-bold">{t('dashboard.greeting', { name: userName })}</h1>
                 </div>
-               ) : (
-                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
-                    {statItems.map((item, index) => (
-                        <Card key={index} className="bg-gray-800 border-gray-700 text-white">
-                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                <CardTitle className="text-sm font-medium text-gray-400">{item.title}</CardTitle>
-                                <item.icon className="h-5 w-5 text-golden" />
-                            </CardHeader>
-                            <CardContent>
-                                <div className="text-2xl font-bold">{formatCurrency(item.value)}</div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
-               )}
-            </div>
-            
-            <div className="w-full max-w-5xl">
-                <Card className="bg-gray-800 border-gray-700 text-white">
+                
+                <div className="w-full max-w-5xl">
+                  <Card className="bg-gray-800 border-golden text-white text-center">
                     <CardHeader>
-                        <CardTitle>Estado de Inversión</CardTitle>
+                      <CardTitle className="text-xl font-medium text-gray-300">
+                        {t('dashboard.balance')}
+                      </CardTitle>
                     </CardHeader>
-                    <CardContent className="pt-4">
-                        {authLoading ? (
-                           <Skeleton className="h-5 w-3/4 bg-gray-700" />
-                        ) : profile && profile.planActivo && profile.planActivo > 0 ? (
-                            <div className="space-y-2">
-                                <p className="text-lg">Tu plan de inversión: <span className="font-bold text-golden">{formatCurrency(profile.planActivo)} USDT Activo</span></p>
-                                <p className="text-lg">Ganancias Generadas: <span className="font-bold text-green-400">{formatCurrency(generatedEarnings)} USDT</span></p>
-                                {profile.fechaInicioPlan && new Date(typeof (profile.fechaInicioPlan as any)?.toDate === 'function' ? (profile.fechaInicioPlan as any).toDate() : profile.fechaInicioPlan).toString() !== 'Invalid Date' && <p className="text-sm text-gray-400">Inversión iniciada el: {new Date(typeof (profile.fechaInicioPlan as any)?.toDate === 'function' ? (profile.fechaInicioPlan as any).toDate() : profile.fechaInicioPlan).toLocaleDateString('es-ES')}</p>}
-                            </div>
-                        ) : (
-                            <p>Tu plan de inversión: No tienes un plan activo. Realiza una inversión para obtener uno.</p>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
-
-            <div className="w-full max-w-5xl">
-                <InvestmentPlans userProfile={profile} />
-            </div>
-
-            <div className="w-full max-w-5xl">
-                <Card className="bg-gray-800 border-gray-700 text-white">
-                    <CardHeader>
-                        <CardTitle>{t('dashboard.balanceGrowth')}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-4 h-[290px] flex items-center justify-center">
-                      {statsLoading ? (
-                        <Skeleton className="w-full h-full bg-gray-700" />
-                      ) : chartData.length > 0 ? (
-                        <ChartContainer config={chartConfig} className="h-full w-full">
-                            <AreaChart
-                                data={chartData}
-                                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                            >
-                                <defs>
-                                    <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
-                                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid vertical={false} stroke="rgba(255, 255, 255, 0.1)" strokeDasharray="3 3" />
-                                <XAxis 
-                                    dataKey="date" 
-                                    tickLine={false}
-                                    axisLine={false}
-                                    stroke="rgba(255, 255, 255, 0.4)"
-                                    fontSize={12}
-                                />
-                                <YAxis
-                                    tickLine={false}
-                                    axisLine={false}
-                                    stroke="rgba(255, 255, 255, 0.4)"
-                                    fontSize={12}
-                                    tickFormatter={(value) => formatCurrency(value as number)}
-                                    domain={['dataMin - 100', 'dataMax + 100']}
-                                />
-                                <ChartTooltip 
-                                    cursor={true}
-                                    content={<ChartTooltipContent
-                                        indicator="line"
-                                        formatter={(value) => [formatCurrency(value as number), 'Saldo Acumulado']}
-                                        labelClassName="text-white"
-                                        className="bg-gray-900 border-golden"
-                                    />}
-                                />
-                                <Area 
-                                    dataKey="balance"
-                                    type="monotone" 
-                                    strokeWidth={2}
-                                    stroke="hsl(var(--primary))"
-                                    fill="url(#colorBalance)" 
-                                />
-                            </AreaChart>
-                        </ChartContainer>
+                    <CardContent className="py-6">
+                      {authLoading ? (
+                         <Skeleton className="h-16 w-1/2 mx-auto bg-gray-700" />
                       ) : (
-                        <p className="text-muted-foreground text-center">
-                          {t('dashboard.growthHistoryPlaceholder')}
-                        </p>
+                        <p className="text-6xl font-bold text-golden">{formattedBalance}</p>
                       )}
                     </CardContent>
-                </Card>
-            </div>
+                  </Card>
+                </div>
 
-            <div className="w-full max-w-5xl">
-              <ActivePlanCard plan={activePlan} loading={planLoading} user={profile} />
+                {profile && !authLoading && (
+                  <div className="w-full max-w-5xl">
+                    <DailyBonusCard user={profile} />
+                  </div>
+                )}
+                
+                <div className="w-full max-w-5xl">
+                    <Card className="bg-gray-800 border-gray-700 text-white">
+                        <CardHeader>
+                            <CardTitle>Información de Cuenta</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3 pt-4">
+                             {authLoading ? (
+                               <p className="text-gray-400">Cargando datos...</p>
+                            ) : profile ? (
+                                <ul className="space-y-2 text-sm list-none">
+                                    <li><strong className="text-gray-400 font-medium w-36 inline-block">Nombre:</strong> {profile.name}</li>
+                                    <li><strong className="text-gray-400 font-medium w-36 inline-block">Correo:</strong> {profile.email}</li>
+                                    <li className="flex items-center">
+                                        <strong className="text-gray-400 font-medium w-36 inline-block flex-shrink-0">Billetera de Retiro (TRC-20):</strong>
+                                        {profile.walletAddress ? (
+                                            <div className="flex items-center min-w-0 flex-1">
+                                                <span className="font-mono text-white truncate" title={profile.walletAddress}>{profile.walletAddress}</span>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => {
+                                                        if (profile.walletAddress) {
+                                                            navigator.clipboard.writeText(profile.walletAddress);
+                                                            toast({ title: 'Billetera copiada', description: 'La dirección de tu billetera ha sido copiada al portapapeles.' });
+                                                        }
+                                                    }}
+                                                    className="h-7 w-7 ml-2 text-gray-400 hover:text-white hover:bg-gray-700 flex-shrink-0"
+                                                >
+                                                    <Copy className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <span className="text-gray-500">N/A</span>
+                                        )}
+                                    </li>
+                                    <li className="flex items-center">
+                                        <strong className="text-gray-400 font-medium w-36 inline-block flex-shrink-0">Código Invitación:</strong>
+                                        {profile.inviteCode ? (
+                                            <>
+                                                <span className="font-mono text-golden">{profile.inviteCode}</span>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  onClick={() => {
+                                                    if (!profile.inviteCode) return;
+                                                    navigator.clipboard.writeText(profile.inviteCode);
+                                                    toast({ title: t('profile.codeCopied'), description: t('profile.codeCopiedDesc') });
+                                                  }}
+                                                  className="h-7 w-7 ml-2 text-gray-400 hover:text-golden hover:bg-gray-700"
+                                                >
+                                                  <Copy className="h-4 w-4" />
+                                                </Button>
+                                            </>
+                                        ) : (
+                                            <span className="text-gray-500">N/A</span>
+                                        )}
+                                    </li>
+                                    <li><strong className="text-gray-400 font-medium w-36 inline-block">Saldo Actual:</strong> {formattedBalance}</li>
+                                    <li className="flex items-start">
+                                        <strong className="text-gray-400 font-medium w-36 inline-block flex-shrink-0">UID:</strong>
+                                        <span className="break-all">{profile.uid}</span>
+                                    </li>
+                                </ul>
+                            ) : (
+                                <p className="text-gray-500">No se pudo cargar la información del perfil.</p>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="w-full max-w-5xl">
+                   {statsLoading ? (
+                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
+                        <Skeleton className="h-28 bg-gray-800" />
+                        <Skeleton className="h-28 bg-gray-800" />
+                        <Skeleton className="h-28 bg-gray-800" />
+                    </div>
+                   ) : (
+                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
+                        {statItems.map((item, index) => (
+                            <Card key={index} className="bg-gray-800 border-gray-700 text-white">
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                    <CardTitle className="text-sm font-medium text-gray-400">{item.title}</CardTitle>
+                                    <item.icon className="h-5 w-5 text-golden" />
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="text-2xl font-bold">{formatCurrency(item.value)}</div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                   )}
+                </div>
+                
+                <div className="w-full max-w-5xl">
+                    <Card className="bg-gray-800 border-gray-700 text-white">
+                        <CardHeader>
+                            <CardTitle>Estado de Inversión</CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-4">
+                            {authLoading ? (
+                               <Skeleton className="h-5 w-3/4 bg-gray-700" />
+                            ) : profile && profile.planActivo && profile.planActivo > 0 ? (
+                                <div className="space-y-2">
+                                    <p className="text-lg">Tu plan de inversión: <span className="font-bold text-golden">{formatCurrency(profile.planActivo)} USDT Activo</span></p>
+                                    <p className="text-lg">Ganancias Generadas: <span className="font-bold text-green-400">{formatCurrency(generatedEarnings)} USDT</span></p>
+                                    {profile.fechaInicioPlan && new Date(typeof (profile.fechaInicioPlan as any)?.toDate === 'function' ? (profile.fechaInicioPlan as any).toDate() : profile.fechaInicioPlan).toString() !== 'Invalid Date' && <p className="text-sm text-gray-400">Inversión iniciada el: {new Date(typeof (profile.fechaInicioPlan as any)?.toDate === 'function' ? (profile.fechaInicioPlan as any).toDate() : profile.fechaInicioPlan).toLocaleDateString('es-ES')}</p>}
+                                </div>
+                            ) : (
+                                <p>Tu plan de inversión: No tienes un plan activo. Realiza una inversión para obtener uno.</p>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="w-full max-w-5xl">
+                    <InvestmentPlans userProfile={profile} />
+                </div>
+
+                <div className="w-full max-w-5xl">
+                    <Card className="bg-gray-800 border-gray-700 text-white">
+                        <CardHeader>
+                            <CardTitle>{t('dashboard.balanceGrowth')}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-4 h-[290px] flex items-center justify-center">
+                          {statsLoading ? (
+                            <Skeleton className="w-full h-full bg-gray-700" />
+                          ) : chartData.length > 0 ? (
+                            <ChartContainer config={chartConfig} className="h-full w-full">
+                                <AreaChart
+                                    data={chartData}
+                                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                                >
+                                    <defs>
+                                        <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
+                                            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid vertical={false} stroke="rgba(255, 255, 255, 0.1)" strokeDasharray="3 3" />
+                                    <XAxis 
+                                        dataKey="date" 
+                                        tickLine={false}
+                                        axisLine={false}
+                                        stroke="rgba(255, 255, 255, 0.4)"
+                                        fontSize={12}
+                                    />
+                                    <YAxis
+                                        tickLine={false}
+                                        axisLine={false}
+                                        stroke="rgba(255, 255, 255, 0.4)"
+                                        fontSize={12}
+                                        tickFormatter={(value) => formatCurrency(value as number)}
+                                        domain={['dataMin - 100', 'dataMax + 100']}
+                                    />
+                                    <ChartTooltip 
+                                        cursor={true}
+                                        content={<ChartTooltipContent
+                                            indicator="line"
+                                            formatter={(value) => [formatCurrency(value as number), 'Saldo Acumulado']}
+                                            labelClassName="text-white"
+                                            className="bg-gray-900 border-golden"
+                                        />}
+                                    />
+                                    <Area 
+                                        dataKey="balance"
+                                        type="monotone" 
+                                        strokeWidth={2}
+                                        stroke="hsl(var(--primary))"
+                                        fill="url(#colorBalance)" 
+                                    />
+                                </AreaChart>
+                            </ChartContainer>
+                          ) : (
+                            <p className="text-muted-foreground text-center">
+                              {t('dashboard.growthHistoryPlaceholder')}
+                            </p>
+                          )}
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="w-full max-w-5xl">
+                  <ActivePlanCard plan={activePlan} loading={planLoading} user={profile} />
+                </div>
+              </div>
             </div>
+        </TabsContent>
+        <TabsContent value="inversiones">
+          <div className="p-4 md:p-8">
+            <Card className="bg-gray-800 border-gray-700 text-white w-full">
+              <CardHeader>
+                <CardTitle>Inversiones</CardTitle>
+                <CardDescription>Esta sección se encuentra en construcción.</CardDescription>
+              </CardHeader>
+              <CardContent className="h-64 flex items-center justify-center">
+                  <p className="text-muted-foreground">Próximamente...</p>
+              </CardContent>
+            </Card>
           </div>
-        </div>
-        <FlagsMarquee />
+        </TabsContent>
+        <TabsContent value="mi-red">
+          <div className="p-4 md:p-8">
+            <Card className="bg-gray-800 border-gray-700 text-white w-full">
+              <CardHeader>
+                <CardTitle>Mi Red</CardTitle>
+                <CardDescription>Esta sección se encuentra en construcción.</CardDescription>
+              </CardHeader>
+              <CardContent className="h-64 flex items-center justify-center">
+                  <p className="text-muted-foreground">Próximamente...</p>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
+      <FlagsMarquee />
     </main>
   );
 }
