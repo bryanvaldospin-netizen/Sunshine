@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon } from 'lucide-react';
+import { Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon, User as UserIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, getDocs, orderBy, limit, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -31,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Copy } from 'lucide-react';
+import Link from 'next/link';
 
 
 const FlagsMarquee = () => {
@@ -724,9 +725,13 @@ export default function TestPage() {
       </header>
 
       <Tabs defaultValue="inicio" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-gray-800/50 rounded-none sticky top-16 z-40 backdrop-blur-sm">
+        <TabsList className="grid w-full grid-cols-4 bg-gray-800/50 rounded-none sticky top-16 z-40 backdrop-blur-sm">
           <TabsTrigger value="inicio"><Home className="mr-2 h-4 w-4" /> Inicio</TabsTrigger>
           <TabsTrigger value="inversiones"><Briefcase className="mr-2 h-4 w-4" /> Inversiones</TabsTrigger>
+          <Link href="/profile" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium text-muted-foreground ring-offset-background transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+            <UserIcon className="mr-2 h-4 w-4" />
+            <span>{t('profile.title')}</span>
+          </Link>
           <TabsTrigger value="mi-red"><Users className="mr-2 h-4 w-4" /> Mi Red</TabsTrigger>
         </TabsList>
         <TabsContent value="inicio">
