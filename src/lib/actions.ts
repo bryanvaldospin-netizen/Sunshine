@@ -7,7 +7,11 @@ import * as admin from 'firebase-admin';
 // Initialize Firebase Admin SDK
 // This gives the server-side actions privileged access to bypass security rules.
 if (!admin.apps.length) {
-    admin.initializeApp();
+    try {
+        admin.initializeApp();
+    } catch (error) {
+        console.error("Firebase Admin initialization error:", error);
+    }
 }
 const adminDb = admin.firestore();
 const adminAuth = admin.auth();
@@ -22,7 +26,7 @@ const registerSchema = z.object({
   walletAddress: z.string().min(20, 'La dirección de la billetera no es válida.'),
 });
 
-export async function registerUser(values: z.infer<typeof registerSchema>): Promise<{success: true, token: string} | {error: string}> {
+export async function registerUser(values: z.infer<typeof registerSchema>): Promise<{success: true, token: string | null, message?: string} | {error: string}> {
   try {
      if (!admin.apps.length || !adminDb) {
         throw new Error('La conexión con el servidor de autenticación falló.');
@@ -111,9 +115,14 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
 
     await batch.commit();
 
-    const customToken = await adminAuth.createCustomToken(user.uid);
+    try {
+        const customToken = await adminAuth.createCustomToken(user.uid);
+        return { success: true, token: customToken };
+    } catch (tokenError) {
+        console.error("Error creating custom token:", tokenError);
+        return { success: true, token: null, message: '¡Registro completo! Por favor, inicia sesión para continuar.' };
+    }
     
-    return { success: true, token: customToken };
   } catch (error: any) {
     console.error('Error durante el registro:', error.message);
     if (error.code === 'auth/email-already-exists') {

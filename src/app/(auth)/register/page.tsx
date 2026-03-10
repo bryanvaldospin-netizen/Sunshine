@@ -66,26 +66,36 @@ export default function RegisterPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     const result = await registerUser(values);
-    if (result?.error) {
+    
+    if ('error' in result) {
       toast({
         variant: 'destructive',
         title: 'Error de registro',
         description: result.error,
       });
-    } else if (result?.success && 'token' in result) {
-      try {
-        await signInWithCustomToken(auth, result.token);
+    } else if (result.success) {
+      if (result.token) {
+        try {
+          await signInWithCustomToken(auth, result.token);
+          toast({
+            title: '¡Registro exitoso!',
+            description: '¡Bienvenido! Tu cuenta ha sido creada. Redirigiendo...',
+          });
+          router.push('/test-page');
+        } catch (authError) {
+          console.error("Sign in after registration failed:", authError);
+          toast({
+            variant: 'destructive',
+            title: 'Error de inicio de sesión',
+            description: 'Tu cuenta fue creada, pero no pudimos iniciar sesión. Por favor, intenta iniciar sesión manualmente.',
+          });
+          router.push('/login');
+        }
+      } else {
+        // Handle case where registration is successful but token generation failed
         toast({
-          title: '¡Registro exitoso!',
-          description: `¡Bienvenido! Tu cuenta ha sido creada. Redirigiendo...`,
-        });
-        router.push('/test-page');
-      } catch (authError) {
-        console.error("Sign in after registration failed:", authError);
-        toast({
-          variant: 'destructive',
-          title: 'Error de inicio de sesión',
-          description: 'Tu cuenta fue creada, pero no pudimos iniciar sesión. Por favor, intenta iniciar sesión manualmente.',
+          title: '¡Registro casi completo!',
+          description: result.message || 'Tu cuenta ha sido creada. Por favor, inicia sesión.',
         });
         router.push('/login');
       }
