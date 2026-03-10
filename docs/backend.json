@@ -63,8 +63,9 @@
           "description": "The accumulated amount of direct referral bonuses in USDT."
         },
         "bonoEntregado": {
-          "type": "boolean",
-          "description": "A flag to indicate if the initial investment bonus has been paid to the sponsor."
+          "type": ["boolean", "string"],
+          "enum": [false, true, "reclamado"],
+          "description": "Indica el estado del bono de bienvenida: false (inactivo), true (listo para reclamar), 'reclamado' (pagado)."
         },
         "fechaRegistro": {
           "type": "string",

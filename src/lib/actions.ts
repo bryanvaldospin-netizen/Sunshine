@@ -218,33 +218,32 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
       return { error: 'No tienes permiso para reclamar este bono.' };
     }
 
-    // Security Check: Has the bonus been paid?
-    if (referralData.bonoEntregado) {
-      return { error: 'Este bono ya ha sido cobrado.' };
-    }
-    
     // Security Check: Is there an active plan?
     if (!referralData.planActivo || referralData.planActivo <= 0) {
       return { error: 'El referido no tiene un plan de inversión activo.' };
+    }
+
+    // CRUCIAL Security Check: Can this bonus be claimed? It must be `true`.
+    if (referralData.bonoEntregado !== true) {
+      return { error: 'Este bono no está listo para ser reclamado o ya fue pagado.' };
     }
     
     const commission = referralData.planActivo * 0.10;
 
     await adminDb.runTransaction(async (transaction) => {
-      // Re-fetch sponsor inside transaction for consistency
       const sponsorSnap = await transaction.get(sponsorRef);
       if (!sponsorSnap.exists) {
         throw new Error('El patrocinador no fue encontrado durante la transacción.');
       }
-      
-      // Update referral to mark bonus as paid
-      transaction.update(referralRef, { bonoEntregado: true });
       
       // Update sponsor with the commission
       transaction.update(sponsorRef, {
         bonoDirecto: admin.firestore.FieldValue.increment(commission),
         saldoUSDT: admin.firestore.FieldValue.increment(commission),
       });
+
+      // Update referral to mark bonus as 'reclamado'
+      transaction.update(referralRef, { bonoEntregado: 'reclamado' });
     });
 
     return { success: true, message: '¡Bono de 10% reclamado con éxito!' };

@@ -343,22 +343,28 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserPro
                                     </Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                    {(ref.planActivo ?? 0) > 0 ? (
-                                        ref.bonoEntregado ? (
-                                            <span className="text-green-400 font-semibold text-sm">Cobrado ✅</span>
-                                        ) : (
-                                            <Button
-                                                size="sm"
-                                                className="bg-golden hover:bg-amber-500 text-black h-8 px-3"
-                                                onClick={() => handleClaimBonus(ref.uid)}
-                                                disabled={claiming[ref.uid]}
-                                            >
-                                                {claiming[ref.uid] ? 'Cargando...' : 'Reclamar 10%'}
-                                            </Button>
-                                        )
-                                    ) : (
-                                        <span className="text-xs text-gray-500">Sin plan</span>
-                                    )}
+                                    {(() => {
+                                        if (ref.bonoEntregado === 'reclamado') {
+                                            return <span className="text-green-400 font-semibold text-sm">Cobrado ✅</span>;
+                                        }
+                                        if (ref.bonoEntregado === true) {
+                                            return (
+                                                <Button
+                                                    size="sm"
+                                                    className="bg-golden hover:bg-amber-500 text-black h-8 px-3"
+                                                    onClick={() => handleClaimBonus(ref.uid)}
+                                                    disabled={claiming[ref.uid]}
+                                                >
+                                                    {claiming[ref.uid] ? 'Cargando...' : 'Reclamar 10%'}
+                                                </Button>
+                                            );
+                                        }
+                                        // This covers bonoEntregado === false, undefined, or null
+                                        if ((ref.planActivo ?? 0) > 0) {
+                                             return <Badge variant="outline" className="text-muted-foreground border-gray-600">Esperando Activación</Badge>;
+                                        }
+                                        return <span className="text-xs text-gray-500">Sin plan</span>;
+                                    })()}
                                 </TableCell>
                             </TableRow>
                         ))
