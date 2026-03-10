@@ -236,7 +236,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserPro
     if (networkLoading || directReferrals.length === 0) {
       return { plan2PlusCount: 0 };
     }
-    const count = directReferrals.filter(ref => (ref.planActivo || 0) >= 101).length;
+    const count = directReferrals.filter(ref => (ref.planActivo ?? 0) >= 101).length;
     return { plan2PlusCount: count };
   }, [directReferrals, networkLoading]);
 
@@ -339,7 +339,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserPro
                                 <TableCell className="text-muted-foreground">{ref.email}</TableCell>
                                 <TableCell>
                                     <Badge className={(ref.planActivo ?? 0) > 0 ? 'bg-green-600 text-white' : 'bg-gray-600 text-white'}>
-                                        {(ref.planActivo ?? 0) > 0 ? formatCurrency(ref.planActivo!) : 'Inactivo'}
+                                        {(ref.planActivo ?? 0) > 0 ? formatCurrency(ref.planActivo ?? 0) : 'Inactivo'}
                                     </Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
@@ -359,8 +359,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserPro
                                                 </Button>
                                             );
                                         }
-                                        // This covers bonoEntregado === false, undefined, or null
-                                        if ((ref.planActivo ?? 0) > 0) {
+                                        if ((ref.planActivo ?? 0) > 0 && ref.bonoEntregado === false) {
                                              return <Badge variant="outline" className="text-muted-foreground border-gray-600">Esperando Activación</Badge>;
                                         }
                                         return <span className="text-xs text-gray-500">Sin plan</span>;
@@ -494,9 +493,10 @@ export default function TestPage() {
     }
 
     let personalEarnings = 0;
-    const { planActivo, fechaInicioPlan } = profile;
+    const planActivo = profile.planActivo ?? 0;
+    const fechaInicioPlan = profile.fechaInicioPlan;
 
-    if (planActivo && planActivo > 0 && fechaInicioPlan) {
+    if (planActivo > 0 && fechaInicioPlan) {
       const dateValue = fechaInicioPlan as any;
       const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
       
@@ -512,10 +512,8 @@ export default function TestPage() {
       }
     }
     
-    // Total earnings include personal and network bonuses
     const combinedEarnings = personalEarnings + (profile.bonoDirecto || 0);
     
-    // Apply 300% ROI cap only if there is an active plan
     const maxEarnings = planActivo > 0 ? planActivo * 3 : Infinity;
     const finalEarnings = isNaN(combinedEarnings) ? 0 : Math.min(combinedEarnings, maxEarnings);
 
@@ -528,7 +526,7 @@ export default function TestPage() {
   useEffect(() => {
     if (profile) {
       setStats({
-        totalInvested: profile.planActivo || 0,
+        totalInvested: profile.planActivo ?? 0,
         earnings: totalEarnings,
         withdrawals: 0, 
       });
@@ -608,10 +606,11 @@ export default function TestPage() {
 
   const balance = profile?.saldoUSDT ?? 0;
   const userName = profile?.name || t('dashboard.investor');
+  const planActivo = profile?.planActivo ?? 0;
 
   const formattedBalance = formatCurrency(balance);
   
-  const progress = profile && profile.planActivo && profile.planActivo > 0 ? (totalEarnings / (profile.planActivo * 3)) * 100 : 0;
+  const progress = planActivo > 0 ? (totalEarnings / (planActivo * 3)) * 100 : 0;
 
   const chartConfig = {
     balance: {
@@ -716,18 +715,18 @@ export default function TestPage() {
                         <CardContent className="pt-4">
                             {authLoading ? (
                                <Skeleton className="h-5 w-3/4 bg-gray-700" />
-                            ) : profile && profile.planActivo && profile.planActivo > 0 ? (
+                            ) : planActivo > 0 ? (
                                 <div className="space-y-2">
-                                    <p className="text-lg">Tu plan de inversión: <span className="font-bold text-golden">{formatCurrency(profile.planActivo)} USDT Activo</span></p>
-                                    <p className="text-lg">Tasa de ganancia diaria: <span className="font-bold text-cyan-400">{(getDailyRate(profile.planActivo) * 100).toFixed(1)}%</span></p>
-                                    <p className="text-lg">Ganancias Totales (Plan + Red): <span className="font-bold text-green-400">{formatCurrency(totalEarnings)}</span> / <span className="text-sm text-gray-400" title="Límite de Retorno (300%)">{formatCurrency(profile.planActivo * 3)}</span></p>
-                                    {profile.fechaInicioPlan && new Date(typeof (profile.fechaInicioPlan as any)?.toDate === 'function' ? (profile.fechaInicioPlan as any).toDate() : profile.fechaInicioPlan).toString() !== 'Invalid Date' && <p className="text-sm text-gray-400">Inversión iniciada el: {new Date(typeof (profile.fechaInicioPlan as any)?.toDate === 'function' ? (profile.fechaInicioPlan as any).toDate() : profile.fechaInicioPlan).toLocaleDateString('es-ES')}</p>}
+                                    <p className="text-lg">Tu plan de inversión: <span className="font-bold text-golden">{formatCurrency(planActivo)} USDT Activo</span></p>
+                                    <p className="text-lg">Tasa de ganancia diaria: <span className="font-bold text-cyan-400">{(getDailyRate(planActivo) * 100).toFixed(1)}%</span></p>
+                                    <p className="text-lg">Ganancias Totales (Plan + Red): <span className="font-bold text-green-400">{formatCurrency(totalEarnings)}</span> / <span className="text-sm text-gray-400" title="Límite de Retorno (300%)">{formatCurrency(planActivo * 3)}</span></p>
+                                    {profile?.fechaInicioPlan && new Date(typeof (profile.fechaInicioPlan as any)?.toDate === 'function' ? (profile.fechaInicioPlan as any).toDate() : profile.fechaInicioPlan).toString() !== 'Invalid Date' && <p className="text-sm text-gray-400">Inversión iniciada el: {new Date(typeof (profile.fechaInicioPlan as any)?.toDate === 'function' ? (profile.fechaInicioPlan as any).toDate() : profile.fechaInicioPlan).toLocaleDateString('es-ES')}</p>}
                                 </div>
                             ) : (
                                 <p>Tu plan de inversión: No tienes un plan activo. Realiza una inversión para obtener uno.</p>
                             )}
                         </CardContent>
-                        {profile && profile.planActivo && profile.planActivo > 0 && (
+                        {planActivo > 0 && (
                             <CardFooter className="pt-4 flex-col items-start gap-2">
                                 <div className="w-full space-y-1">
                                     <div className="flex justify-between text-xs text-muted-foreground">

@@ -15,7 +15,6 @@ if (!admin.apps.length) {
     
     admin.initializeApp({
       credential: serviceAccount ? admin.credential.cert(serviceAccount) : admin.credential.applicationDefault(),
-      projectId: 'studio-2504766329-6c1a7',
     });
   } catch (e: any) {
     console.error("Failed to initialize firebase-admin:", e.message);
@@ -129,6 +128,10 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
     if (error instanceof z.ZodError) {
       return { error: error.errors.map(e => e.message).join(', ') };
     }
+    if (error.message && (error.message.includes('Failed to determine service account') || error.message.includes('Credential implementation provided to initializeApp() via the "credential" property failed to fetch a valid Google OAuth2 access token.'))) {
+      console.error("Admin SDK Initialization Error captured in registerUser:", error.message);
+      return { error: 'Error del servidor: No se pudo conectar con los servicios de autenticación. Por favor, inténtalo de nuevo más tarde.' };
+    }
     return { error: error.message || 'Ocurrió un error inesperado durante el registro.' };
   }
 }
@@ -215,35 +218,30 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
       }
       const referralData = referralSnap.data() as UserProfile;
 
-      // Security Check: Is the requester the actual sponsor?
       if (referralData.invitadoPor !== sponsorId) {
         throw new Error('No tienes permiso para reclamar este bono.');
       }
 
-      // Security Check: Is there an active plan?
-      if (!referralData.planActivo || referralData.planActivo <= 0) {
+      if ((referralData.planActivo ?? 0) <= 0) {
         throw new Error('El referido no tiene un plan de inversión activo.');
       }
 
-      // CRUCIAL Security Check: Can this bonus be claimed? It must be `true`.
       if (referralData.bonoEntregado !== true) {
         throw new Error('Este bono no está listo para ser reclamado o ya fue pagado.');
       }
     
-      const commission = referralData.planActivo * 0.10;
+      const commission = (referralData.planActivo ?? 0) * 0.10;
 
       const sponsorSnap = await transaction.get(sponsorRef);
       if (!sponsorSnap.exists) {
         throw new Error('El patrocinador no fue encontrado durante la transacción.');
       }
       
-      // Update sponsor with the commission
       transaction.update(sponsorRef, {
         bonoDirecto: admin.firestore.FieldValue.increment(commission),
         saldoUSDT: admin.firestore.FieldValue.increment(commission),
       });
 
-      // Update referral to mark bonus as 'reclamado'
       transaction.update(referralRef, { bonoEntregado: 'reclamado' });
     });
 
@@ -252,6 +250,6 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
   } catch (error: any) {
     console.error(`Error en processInitialBonus para el referido ${referralId}:`, error.message);
     
-    return { error: `Error del Servidor: Revisa el cuadro de estatus en Mi Red.` };
+    return { error: `Error del Servidor: ${error.message}` };
   }
 }
