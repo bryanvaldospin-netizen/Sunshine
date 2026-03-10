@@ -114,5 +114,44 @@ export async function getWalletAddress() {
   return process.env.USDT_WALLET_ADDRESS || '0xe37a298c740caf1411cbccda7b250a0664a00129';
 }
 
+export async function syncInviteCodes() {
+  try {
+    const usersCollectionRef = collection(db, 'users');
+    const usersSnapshot = await getDocs(usersCollectionRef);
+
+    if (usersSnapshot.empty) {
+      return { success: true, message: 'No se encontraron usuarios para sincronizar.' };
+    }
+
+    const batch = writeBatch(db);
+    let syncedCount = 0;
+
+    for (const userDoc of usersSnapshot.docs) {
+      const userData = userDoc.data();
+      const userId = userDoc.id;
+      
+      if (userData.inviteCode && typeof userData.inviteCode === 'string') {
+        const inviteCode = userData.inviteCode;
+        
+        const inviteCodeMapRef = doc(db, 'invite_codes_map', inviteCode);
+        const inviteCodeMapSnap = await getDoc(inviteCodeMapRef);
+
+        if (!inviteCodeMapSnap.exists()) {
+          batch.set(inviteCodeMapRef, { userId });
+          syncedCount++;
+        }
+      }
+    }
+
+    if (syncedCount > 0) {
+      await batch.commit();
+    }
+
+    return { success: true, message: `Se sincronizaron ${syncedCount} nuevos códigos de invitación.` };
+  } catch (error: any) {
+    console.error('Error sincronizando códigos:', error);
+    return { error: 'Falló la sincronización de códigos de invitación: ' + error.message };
+  }
+}
     
     
