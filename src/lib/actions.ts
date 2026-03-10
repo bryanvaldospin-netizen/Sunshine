@@ -15,6 +15,7 @@ import {
   getDocs,
   runTransaction,
   increment,
+  updateDoc,
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { z } from 'zod';
@@ -201,12 +202,13 @@ export async function processInitialBonus(userId: string) {
       
       const { planActivo, bonoEntregado, invitadoPor } = userData;
 
-      // Exit if bonus is already paid or no active plan
       if (bonoEntregado === true || !(planActivo && planActivo > 0)) {
         return "No action needed. Bonus already paid or no active plan.";
       }
       
-      // If there's a sponsor, try to pay them
+      // CRITICAL: Update the user's bonus status FIRST within the transaction to prevent loops.
+      transaction.update(userRef, { bonoEntregado: true });
+      
       if (invitadoPor) {
           const sponsorRef = doc(db, 'users', invitadoPor);
           const sponsorSnap = await transaction.get(sponsorRef);
@@ -248,15 +250,12 @@ export async function processInitialBonus(userId: string) {
           }
       }
       
-      // Mark the user's bonus as paid, regardless of whether a sponsor was paid
-      transaction.update(userRef, { bonoEntregado: true });
       return `Bono inicial para el usuario ${userId} procesado correctamente.`;
     });
 
     return { success: true, message: resultMessage };
 
   } catch (error: any) {
-    console.error('Error procesando el bono inicial:', error);
     return { error: error.message || 'Error inesperado procesando el bono.' };
   }
 }

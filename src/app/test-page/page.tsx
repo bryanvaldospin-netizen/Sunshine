@@ -406,22 +406,13 @@ export default function TestPage() {
 
   // Automated Bonus Processing Effect
   useEffect(() => {
-    // Add the requested console.log for debugging purposes
-    if (profile) {
-      console.log('Revisando bono: plan=' + (profile.planActivo || 0) + ' entregado=' + profile.bonoEntregado);
-    }
-    
-    // Condition to trigger the bonus processing
     const shouldProcessBonus = profile && (profile.planActivo || 0) > 0 && profile.bonoEntregado === false;
 
     if (shouldProcessBonus && !isProcessingBonus) {
-      console.log('Triggering initial bonus processing for user:', profile.uid);
       setIsProcessingBonus(true);
       processInitialBonus(profile.uid)
         .then(result => {
           if (result.success) {
-            console.log(result.message);
-            // Provide visual feedback on success
             toast({
               title: "Éxito",
               description: "Comisión de red procesada.",
@@ -493,7 +484,6 @@ export default function TestPage() {
     const { planActivo, fechaInicioPlan } = profile;
 
     if (planActivo && planActivo > 0 && fechaInicioPlan) {
-      console.log('fechaInicioPlan from Firestore:', fechaInicioPlan); // Temporary Debug Log
       const dateValue = fechaInicioPlan as any;
       const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
       
