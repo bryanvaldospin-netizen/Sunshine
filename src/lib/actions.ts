@@ -50,7 +50,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
       const sponsorCodeRef = adminDb.collection('invite_codes_map').doc(sponsorCode);
       const sponsorCodeSnap = await sponsorCodeRef.get();
 
-      if (!sponsorCodeSnap.exists()) {
+      if (!sponsorCodeSnap.exists) {
         return { error: 'El código de patrocinador no existe' };
       }
       const sponsorData = sponsorCodeSnap.data();
@@ -69,7 +69,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
             }
             const codeRef = adminDb.collection('invite_codes_map').doc(code);
             const codeSnap = await codeRef.get();
-            if (!codeSnap.exists()) {
+            if (!codeSnap.exists) {
                 isUnique = true;
             }
         }
@@ -158,7 +158,7 @@ export async function syncInviteCodes() {
         const inviteCode = userData.inviteCode;
         const inviteCodeMapRef = adminDb.collection('invite_codes_map').doc(inviteCode);
         const inviteCodeMapSnap = await inviteCodeMapRef.get();
-        if (!inviteCodeMapSnap.exists()) {
+        if (!inviteCodeMapSnap.exists) {
           batch.set(inviteCodeMapRef, { userId });
           syncedCodesCount++;
         }
@@ -233,7 +233,7 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
     await adminDb.runTransaction(async (transaction) => {
       // Re-fetch sponsor inside transaction for consistency
       const sponsorSnap = await transaction.get(sponsorRef);
-      if (!sponsorSnap.exists()) {
+      if (!sponsorSnap.exists) {
         throw new Error('El patrocinador no fue encontrado durante la transacción.');
       }
       
