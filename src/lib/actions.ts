@@ -135,12 +135,14 @@ export async function syncInviteCodes() {
     }
 
     const batch = writeBatch(db);
-    let syncedCount = 0;
+    let syncedCodesCount = 0;
+    let updatedUsersCount = 0;
 
     for (const userDoc of usersSnapshot.docs) {
       const userData = userDoc.data();
       const userId = userDoc.id;
       
+      // Part 1: Sync invite codes to invite_codes_map
       if (userData.inviteCode && typeof userData.inviteCode === 'string') {
         const inviteCode = userData.inviteCode;
         
@@ -149,19 +151,35 @@ export async function syncInviteCodes() {
 
         if (!inviteCodeMapSnap.exists()) {
           batch.set(inviteCodeMapRef, { userId });
-          syncedCount++;
+          syncedCodesCount++;
         }
+      }
+
+      // Part 2: Add bonoDirecto field if missing
+      if (userData.bonoDirecto === undefined) {
+        batch.update(userDoc.ref, { bonoDirecto: 0 });
+        updatedUsersCount++;
       }
     }
 
-    if (syncedCount > 0) {
+    if (syncedCodesCount > 0 || updatedUsersCount > 0) {
       await batch.commit();
     }
 
-    return { success: true, message: `Se sincronizaron ${syncedCount} nuevos códigos de invitación.` };
+    const messages = [];
+    if (syncedCodesCount > 0) {
+        messages.push(`Se sincronizaron ${syncedCodesCount} nuevos códigos de invitación.`);
+    }
+    if (updatedUsersCount > 0) {
+        messages.push(`Se actualizaron ${updatedUsersCount} perfiles con 'bonoDirecto'.`);
+    }
+
+    const message = messages.length > 0 ? messages.join(' ') : 'Todos los usuarios ya están actualizados.';
+    
+    return { success: true, message };
   } catch (error: any) {
-    console.error('Error sincronizando códigos:', error);
-    return { error: 'Falló la sincronización de códigos de invitación: ' + error.message };
+    console.error('Error sincronizando datos:', error);
+    return { error: 'Falló la sincronización de datos: ' + error.message };
   }
 }
 
