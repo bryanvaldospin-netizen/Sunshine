@@ -144,6 +144,32 @@
         }
       },
       "required": ["userId"]
+    },
+    "Transaction": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Transaction",
+      "type": "object",
+      "description": "Represents a single financial transaction in a user's history.",
+      "properties": {
+        "fecha": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The ISO 8601 timestamp of the transaction."
+        },
+        "tipo": {
+          "type": "string",
+          "description": "The type of transaction (e.g., 'Bono Directo', 'Depósito')."
+        },
+        "descripcion": {
+          "type": "string",
+          "description": "A brief description of the transaction."
+        },
+        "monto": {
+          "type": "number",
+          "description": "The amount of the transaction in USDT. Positive for income, negative for expenses."
+        }
+      },
+      "required": ["fecha", "tipo", "descripcion", "monto"]
     }
   },
   "auth": {
@@ -167,6 +193,20 @@
               "name": "userId",
               "description": "The unique Firebase Authentication User ID."
             }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/transacciones/{transactionId}",
+        "definition": {
+          "entityName": "Transaction",
+          "schema": {
+            "$ref": "#/backend/entities/Transaction"
+          },
+          "description": "Stores the transaction history for a single user. Only the user can read their own history.",
+          "params": [
+            { "name": "userId", "description": "The UID of the user." },
+            { "name": "transactionId", "description": "The unique ID for the transaction." }
           ]
         }
       },

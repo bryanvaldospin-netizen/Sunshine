@@ -243,9 +243,18 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
             bonoDirecto: admin.firestore.FieldValue.increment(commission),
             saldoUSDT: admin.firestore.FieldValue.increment(commission),
           });
+          
+          const sponsorTransactionRef = sponsorRef.collection('transacciones').doc();
+          transaction.set(sponsorTransactionRef, {
+              fecha: new Date().toISOString(),
+              tipo: 'Bono Directo',
+              descripcion: `Comisión por inversión de ${referralData.name}`,
+              monto: commission
+          });
+
           message = '¡Comisión enviada!';
         } else {
-            message = 'Bono no pagado: Patrocinador alcanzó límite del 300%.';
+            message = 'Bono no pagado: Patrocinador alcanzó límite del 300% o no tiene plan activo.';
         }
       }
       

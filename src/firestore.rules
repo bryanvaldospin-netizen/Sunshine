@@ -39,6 +39,14 @@ service cloud.firestore {
       
       // Nobody can delete users to protect user data.
       allow delete: if false;
+
+      // Rules for user transactions subcollection
+      match /transacciones/{transactionId} {
+        // A user can read their own transactions.
+        allow read, list: if isOwner(userId);
+        // Only the server can create/update/delete transactions.
+        allow write: if false;
+      }
     }
 
     // Rules for invitation codes (single-use, deprecated)

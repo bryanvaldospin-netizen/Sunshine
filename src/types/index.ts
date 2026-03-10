@@ -32,3 +32,10 @@ export type InvitationCode = {
   used: boolean;
   usedBy: string | null;
 };
+
+export type Transaction = {
+  fecha: string; // ISO string
+  tipo: string;
+  descripcion: string;
+  monto: number;
+};

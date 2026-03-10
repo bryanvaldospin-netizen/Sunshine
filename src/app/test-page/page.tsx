@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import type { UserProfile } from '@/types';
+import type { UserProfile, Transaction } from '@/types';
 import { processInitialBonus } from '@/lib/actions';
 import { useMemoFirebase } from '@/firebase';
 
@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon, User as UserIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -448,6 +448,90 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserPro
   );
 };
 
+const TransactionHistory = ({ userId }: { userId: string }) => {
+  const { t } = useTranslation();
+  const [transactions, setTransactions] = useState<(Transaction & {id: string})[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!userId) {
+        setIsLoading(false);
+        return;
+    }
+    
+    const transactionsQuery = query(collection(db, 'users', userId, 'transacciones'), orderBy('fecha', 'desc'), limit(5));
+
+    const unsubscribe = onSnapshot(transactionsQuery, (snapshot) => {
+        const txs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction & {id: string}));
+        setTransactions(txs);
+        setIsLoading(false);
+    }, (error) => {
+        console.error("Error fetching transactions:", error);
+        setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [userId]);
+
+
+  const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(value);
+
+  const formatDate = (isoString: string) => {
+    return new Date(isoString).toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+    });
+  }
+
+  return (
+    <Card className="bg-gray-800 border-gray-700 text-white">
+      <CardHeader>
+        <CardTitle>Actividad Reciente</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow className="border-gray-700 hover:bg-gray-800">
+              <TableHead className="text-white">Fecha</TableHead>
+              <TableHead className="text-white">Descripción</TableHead>
+              <TableHead className="text-right text-white">Monto</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <TableRow key={i} className="border-gray-700">
+                  <TableCell colSpan={3}><Skeleton className="h-8 w-full bg-gray-700"/></TableCell>
+                </TableRow>
+              ))
+            ) : transactions && transactions.length > 0 ? (
+              transactions.map((tx) => (
+                <TableRow key={tx.id} className="border-gray-700 hover:bg-gray-700/50">
+                  <TableCell className="text-muted-foreground text-xs">{formatDate(tx.fecha)}</TableCell>
+                  <TableCell className="font-medium">{tx.descripcion}</TableCell>
+                  <TableCell className="text-right font-semibold text-green-400">
+                    + {formatCurrency(tx.monto)}
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
+                  Aún no tienes movimientos registrados.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+};
+
 
 export default function TestPage() {
   const { user: profile, loading: authLoading } = useAuth();
@@ -763,6 +847,12 @@ export default function TestPage() {
                         )}
                     </Card>
                 </div>
+                
+                {profile && !authLoading && (
+                  <div className="w-full max-w-5xl">
+                      <TransactionHistory userId={profile.uid} />
+                  </div>
+                )}
 
                 <div className="w-full max-w-5xl">
                     <Card className="bg-gray-800 border-gray-700 text-white">
