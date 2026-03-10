@@ -4,8 +4,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import type { UserProfile } from '@/types';
+import type { UserProfile, SystemStats } from '@/types';
 import { processInitialBonus } from '@/lib/actions';
+import { useDoc, useMemoFirebase } from '@/firebase';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -201,6 +202,9 @@ const DailyBonusCard = ({ user }: { user: UserProfile }) => {
 
 const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserProfile | null, directReferrals: UserProfile[], networkLoading: boolean }) => {
   const { toast } = useToast();
+  const commissionStatusRef = useMemoFirebase(() => doc(db, 'system_stats', 'commissions'), []);
+  const { data: commissionStatus, isLoading: statusLoading } = useDoc<SystemStats>(commissionStatusRef);
+
 
   const { plan2PlusCount } = useMemo(() => {
     if (networkLoading || directReferrals.length === 0) {
@@ -241,6 +245,26 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserPro
 
   return (
     <div className="p-4 md:p-8 space-y-8">
+      <Card className="bg-gray-800 border-cyan-500 text-white">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Zap className="text-cyan-400" />
+            Estatus de Comisiones de Red
+          </CardTitle>
+          <CardDescription>Estado en tiempo real del procesamiento automático de bonos.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Bonos Aprobados:</span>
+            {statusLoading ? <Skeleton className="h-6 w-12 bg-gray-700" /> : <span className="font-bold text-2xl text-white">{commissionStatus?.bonosAprobados || 0}</span>}
+          </div>
+          <div className="space-y-1">
+             <span className="text-muted-foreground text-sm">Último Mensaje del Sistema:</span>
+             {statusLoading ? <Skeleton className="h-5 w-full bg-gray-700" /> : <p className="text-xs font-mono bg-black/50 p-2 rounded-md border border-gray-700">{commissionStatus?.ultimoMensaje || 'Esperando eventos...'}</p>}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="bg-gray-800 border-gray-700 text-white">
           <CardHeader>
@@ -411,17 +435,17 @@ export default function TestPage() {
     }
 
     const shouldProcessBonus = (profile.planActivo || 0) > 0 && profile.bonoEntregado === false;
-
+    
     if (shouldProcessBonus) {
       setIsProcessingBonus(true);
       processInitialBonus(profile.uid)
         .then(result => {
-          if (result && result.success) {
+          if (result?.success) {
             toast({
               title: "Éxito",
               description: result.message || "Comisión de red procesada.",
             });
-          } else if (result && result.error) {
+          } else if (result?.error) {
             toast({
               variant: "destructive",
               title: "Error de Bono",
@@ -429,7 +453,6 @@ export default function TestPage() {
             });
           } else if (!result) {
             // Explicitly handle the undefined case
-            console.error("processInitialBonus returned undefined. Check server logs for initialization errors.");
             toast({
               variant: "destructive",
               title: "Error del Servidor",

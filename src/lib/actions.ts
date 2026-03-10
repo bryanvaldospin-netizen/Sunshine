@@ -122,7 +122,6 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
     
     return { success: true, token: customToken };
   } catch (error: any) {
-    // console.error('Error detectado:', error); // Avoid logging sensitive errors in production
     if (error.code === 'auth/email-already-exists') {
       return { error: 'Este correo electrónico ya está en uso.' };
     }
@@ -181,8 +180,9 @@ export async function syncInviteCodes() {
     }
 
     if (syncedCodesCount > 0 || updatedUsersCount > 0 || bonoEntregadoCount > 0) {
-      await batch.commit();
+        await batch.commit();
     }
+
 
     const messages = [];
     if (syncedCodesCount > 0) messages.push(`Se sincronizaron ${syncedCodesCount} nuevos códigos de invitación.`);
@@ -199,78 +199,68 @@ export async function syncInviteCodes() {
 }
 
 export async function processInitialBonus(userId: string) {
+  const statusRef = adminDb.collection('system_stats').doc('commissions');
+
   try {
     const userRef = adminDb.collection('users').doc(userId);
 
-    const resultMessage = await adminDb.runTransaction(async (transaction) => {
+    await adminDb.runTransaction(async (transaction) => {
       const userSnap = await transaction.get(userRef);
 
       if (!userSnap.exists) {
-        // We throw an error here to make the transaction fail.
-        throw new Error("User not found. No action taken.");
+        throw new Error(`Usuario con ID ${userId} no encontrado.`);
       }
       
       const userData = userSnap.data() as UserProfile;
       const { planActivo, bonoEntregado, invitadoPor } = userData;
 
-      if (bonoEntregado === true || !(planActivo && planActivo > 0)) {
-        return "No action needed. Bonus already paid or no active plan.";
+      // Safety checks: Stop if bonus is paid or no active plan.
+      if (bonoEntregado === true || !planActivo || planActivo <= 0) {
+        return; 
       }
       
-      // CRITICAL: First action is to mark the bonus as paid to prevent loops.
+      // Step 1: Mark bonus as paid immediately to prevent loops.
       transaction.update(userRef, { bonoEntregado: true });
       
       if (!invitadoPor) {
-          return "Bonus marked as delivered for user with no sponsor.";
+        transaction.set(statusRef, { 
+          ultimoMensaje: `Bono procesado para ${userData.name} (sin patrocinador). Plan: ${planActivo} USDT.`,
+          bonosAprobados: admin.firestore.FieldValue.increment(1)
+        }, { merge: true });
+        return;
       }
 
       const sponsorRef = adminDb.collection('users').doc(invitadoPor);
       const sponsorSnap = await transaction.get(sponsorRef);
 
-      if (sponsorSnap.exists) {
-          const sponsorData = sponsorSnap.data() as UserProfile;
-          const commission = (planActivo || 0) * 0.10;
-
-          const getDailyRate = (amount: number): number => {
-            if (amount >= 1001) return 0.025;
-            if (amount >= 501) return 0.020;
-            if (amount >= 101) return 0.018;
-            if (amount >= 20) return 0.015;
-            return 0;
-          };
-          
-          let personalEarnings = 0;
-          const sponsorPlanActivo = sponsorData.planActivo || 0;
-          if (sponsorPlanActivo > 0 && sponsorData.fechaInicioPlan) {
-            const dateValue = sponsorData.fechaInicioPlan as any;
-            const startDate = (dateValue && typeof dateValue.toDate === 'function') ? dateValue.toDate() : new Date(dateValue);
-            if (!isNaN(startDate.getTime())) {
-                const diffDays = Math.floor((new Date().getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-                if (diffDays > 0) personalEarnings = sponsorPlanActivo * getDailyRate(sponsorPlanActivo) * diffDays;
-            }
-          }
-
-          const currentTotalEarnings = personalEarnings + (sponsorData.bonoDirecto || 0);
-          const maxEarnings = sponsorPlanActivo > 0 ? sponsorPlanActivo * 3 : Infinity;
-          const remainingCapacity = maxEarnings - currentTotalEarnings;
-          const payableCommission = Math.max(0, Math.min(commission, remainingCapacity));
-          
-          if (payableCommission > 0) {
-            transaction.update(sponsorRef, {
-              bonoDirecto: admin.firestore.FieldValue.increment(payableCommission),
-              saldoUSDT: admin.firestore.FieldValue.increment(payableCommission),
-            });
-          }
-           return `Successfully processed commission for sponsor ${invitadoPor}.`;
+      if (!sponsorSnap.exists) {
+        transaction.set(statusRef, { 
+          ultimoMensaje: `Error: Patrocinador con ID ${invitadoPor} no encontrado para el usuario ${userData.name}.`,
+        }, { merge: true });
+        return;
       }
       
-      return "Sponsor not found, bonus marked as delivered on referred user.";
+      // Step 2: Calculate 10% commission and pay the sponsor.
+      const commission = planActivo * 0.10;
+      
+      transaction.update(sponsorRef, {
+        bonoDirecto: admin.firestore.FieldValue.increment(commission),
+        saldoUSDT: admin.firestore.FieldValue.increment(commission),
+      });
+
+      // Step 3: Update system status log.
+      transaction.set(statusRef, { 
+        ultimoMensaje: `Éxito: ${sponsorSnap.data()?.name} recibió ${commission.toFixed(2)} USDT de comisión por ${userData.name}.`,
+        bonosAprobados: admin.firestore.FieldValue.increment(1)
+      }, { merge: true });
     });
 
-    return { success: true, message: resultMessage };
+    return { success: true, message: "Comisión de red procesada." };
 
   } catch (error: any) {
-    // console.error('Error processing initial bonus with Admin SDK:', error.message);
-    return { error: 'An error occurred on the server while processing the bonus.' };
+    await statusRef.set({
+        ultimoMensaje: `Error del sistema al procesar bono para ${userId}: ${error.message}`
+    }, { merge: true });
+    return { error: 'Ocurrió un error en el servidor al procesar el bono.' };
   }
 }
