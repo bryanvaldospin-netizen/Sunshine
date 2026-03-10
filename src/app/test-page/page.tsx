@@ -306,29 +306,32 @@ export default function TestPage() {
   
     // Fetch direct referrals
     useEffect(() => {
-      if (!user?.uid) {
-        setLoading(false);
-        return;
-      };
-  
-      const referralsQuery = query(
-        collection(db, 'users'),
-        where('invitadoPor', '==', user.uid)
-      );
-  
-      const unsubscribe = onSnapshot(referralsQuery, (snapshot) => {
-        const refs = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
-        setDirectReferrals(refs);
-        setLoading(false);
-      }, (error) => {
-        console.error("Error fetching referrals:", error);
-        toast({
-          variant: "destructive",
-          title: "Error de Red",
-          description: "No se pudo cargar la información de tu red.",
+      let unsubscribe = () => {};
+
+      if (user?.uid) {
+        setLoading(true);
+        const referralsQuery = query(
+          collection(db, 'users'),
+          where('invitadoPor', '==', user.uid)
+        );
+    
+        unsubscribe = onSnapshot(referralsQuery, (snapshot) => {
+          const refs = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
+          setDirectReferrals(refs);
+          setLoading(false);
+        }, (error) => {
+          console.error("Error fetching referrals:", error);
+          toast({
+            variant: "destructive",
+            title: "Error de Red",
+            description: "No se pudo cargar la información de tu red.",
+          });
+          setLoading(false);
         });
+      } else {
         setLoading(false);
-      });
+        setDirectReferrals([]);
+      }
   
       return () => unsubscribe();
     }, [user?.uid, toast]);
@@ -570,6 +573,8 @@ export default function TestPage() {
 
   // Effect for Active Plan
   useEffect(() => {
+    let unsubscribe = () => {}; // Initialize to a no-op
+
     if (profile?.uid) {
       setPlanLoading(true);
       const investmentsQuery = query(
@@ -579,7 +584,7 @@ export default function TestPage() {
         limit(1)
       );
 
-      const unsubscribe = onSnapshot(
+      unsubscribe = onSnapshot(
         investmentsQuery,
         (planSnapshot) => {
           if (!planSnapshot.empty) {
@@ -600,12 +605,12 @@ export default function TestPage() {
           setPlanLoading(false);
         }
       );
-
-      return () => unsubscribe();
     } else if (!authLoading) {
       setPlanLoading(false);
       setActivePlan(null);
     }
+    
+    return () => unsubscribe(); // Return the cleanup function
   }, [profile?.uid, authLoading, toast]);
 
   const statItems = useMemo(() => [
