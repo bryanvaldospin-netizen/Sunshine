@@ -6,19 +6,8 @@ import * as admin from 'firebase-admin';
 
 // Initialize Firebase Admin SDK
 // This gives the server-side actions privileged access to bypass security rules.
-// It assumes service account credentials are in the environment, a standard secure practice.
 if (!admin.apps.length) {
-  try {
-    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
-      ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-      : undefined;
-    
-    admin.initializeApp({
-      credential: serviceAccount ? admin.credential.cert(serviceAccount) : admin.credential.applicationDefault(),
-    });
-  } catch (e: any) {
-    console.error("Failed to initialize firebase-admin:", e.message);
-  }
+    admin.initializeApp();
 }
 const adminDb = admin.firestore();
 const adminAuth = admin.auth();
@@ -35,6 +24,10 @@ const registerSchema = z.object({
 
 export async function registerUser(values: z.infer<typeof registerSchema>): Promise<{success: true, token: string} | {error: string}> {
   try {
+     if (!admin.apps.length || !adminDb) {
+        throw new Error('La conexión con el servidor de autenticación falló.');
+    }
+
     const validatedValues = registerSchema.parse(values);
     const { email, password, name, walletAddress, sponsorCode } = validatedValues;
     
@@ -122,15 +115,15 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
     
     return { success: true, token: customToken };
   } catch (error: any) {
+    console.error('Error durante el registro:', error.message);
     if (error.code === 'auth/email-already-exists') {
       return { error: 'Este correo electrónico ya está en uso.' };
     }
     if (error instanceof z.ZodError) {
       return { error: error.errors.map(e => e.message).join(', ') };
     }
-    if (error.message && (error.message.includes('Failed to determine service account') || error.message.includes('Credential implementation provided to initializeApp() via the "credential" property failed to fetch a valid Google OAuth2 access token.'))) {
-      console.error("Admin SDK Initialization Error captured in registerUser:", error.message);
-      return { error: 'Error del servidor: No se pudo conectar con los servicios de autenticación. Por favor, inténtalo de nuevo más tarde.' };
+    if (error.message.includes('La conexión con el servidor de autenticación falló')) {
+       return { error: 'Error del servidor: No se pudo conectar con los servicios de autenticación. Por favor, inténtalo de nuevo más tarde.' };
     }
     return { error: error.message || 'Ocurrió un error inesperado durante el registro.' };
   }
@@ -208,48 +201,58 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
   }
 
   const referralRef = adminDb.collection('users').doc(referralId);
-  const sponsorRef = adminDb.collection('users').doc(sponsorId);
+  const sponsorRef = adminDb.collection('users').doc(sponsorId.trim());
 
   try {
-    await adminDb.runTransaction(async (transaction) => {
+    const resultMessage = await adminDb.runTransaction(async (transaction) => {
       const referralSnap = await transaction.get(referralRef);
-      if (!referralSnap.exists) {
-        throw new Error('El usuario referido no existe.');
-      }
+      if (!referralSnap.exists) throw new Error('El usuario referido no existe.');
       const referralData = referralSnap.data() as UserProfile;
 
-      if (referralData.invitadoPor !== sponsorId) {
-        throw new Error('No tienes permiso para reclamar este bono.');
-      }
+      if (referralData.invitadoPor !== sponsorId) throw new Error('No tienes permiso para reclamar este bono.');
+      if (referralData.bonoEntregado !== true) throw new Error('Este bono no está listo para ser reclamado o ya fue pagado.');
+      
+      const planActivo = referralData.planActivo ?? 0;
+      const inversionAnterior = referralData.inversionAnterior ?? 0;
 
-      if ((referralData.planActivo ?? 0) <= 0) {
-        throw new Error('El referido no tiene un plan de inversión activo.');
-      }
+      let message = 'Bono procesado sin comisión (sin nueva inversión).';
+      
+      if (planActivo > inversionAnterior) {
+        const sponsorSnap = await transaction.get(sponsorRef);
+        if (!sponsorSnap.exists) throw new Error('El patrocinador no fue encontrado.');
+        const sponsorData = sponsorSnap.data() as UserProfile;
 
-      if (referralData.bonoEntregado !== true) {
-        throw new Error('Este bono no está listo para ser reclamado o ya fue pagado.');
-      }
-    
-      const commission = (referralData.planActivo ?? 0) * 0.10;
+        const investmentDifference = planActivo - inversionAnterior;
+        const commission = investmentDifference * 0.10;
 
-      const sponsorSnap = await transaction.get(sponsorRef);
-      if (!sponsorSnap.exists) {
-        throw new Error('El patrocinador no fue encontrado durante la transacción.');
+        const sponsorPlan = sponsorData.planActivo ?? 0;
+        const sponsorBonos = sponsorData.bonoDirecto ?? 0;
+        const sponsorMaxBonus = sponsorPlan * 3;
+        
+        if (sponsorPlan > 0 && (sponsorBonos + commission <= sponsorMaxBonus)) {
+          transaction.update(sponsorRef, {
+            bonoDirecto: admin.firestore.FieldValue.increment(commission),
+            saldoUSDT: admin.firestore.FieldValue.increment(commission),
+          });
+          message = '¡Comisión enviada!';
+        } else {
+            message = 'Bono no pagado: Patrocinador alcanzó límite del 300%.';
+        }
       }
       
-      transaction.update(sponsorRef, {
-        bonoDirecto: admin.firestore.FieldValue.increment(commission),
-        saldoUSDT: admin.firestore.FieldValue.increment(commission),
+      // Always update the referral's status to prevent retries
+      transaction.update(referralRef, { 
+        bonoEntregado: 'reclamado',
+        inversionAnterior: planActivo
       });
 
-      transaction.update(referralRef, { bonoEntregado: 'reclamado' });
+      return message;
     });
 
-    return { success: true, message: '¡Bono de 10% reclamado con éxito!' };
+    return { success: true, message: resultMessage };
 
   } catch (error: any) {
     console.error(`Error en processInitialBonus para el referido ${referralId}:`, error.message);
-    
     return { error: `Error del Servidor: ${error.message}` };
   }
 }
