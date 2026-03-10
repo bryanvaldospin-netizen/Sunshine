@@ -49,10 +49,11 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
     // Find sponsor if sponsorCode is provided
     let invitadoPor = null;
     if (sponsorCode) {
+      console.log('Buscando patrocinador:', sponsorCode);
       const sponsorQuery = query(collection(db, 'users'), where('inviteCode', '==', sponsorCode), limit(1));
       const sponsorSnap = await getDocs(sponsorQuery);
       if (sponsorSnap.empty) {
-        return { error: 'El código de invitación de tu patrocinador no es válido. Verifica el código o regístrate sin uno.' };
+        return { error: 'El código de patrocinador no existe' };
       }
       const sponsorDoc = sponsorSnap.docs[0];
       invitadoPor = sponsorDoc.id; // The sponsor's UID
@@ -91,14 +92,14 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
 
     return { success: true };
   } catch (error: any) {
+    console.error('Error detectado:', error);
     if (error.code === 'auth/email-already-in-use') {
       return { error: 'Este correo electrónico ya está en uso.' };
     }
     if (error instanceof z.ZodError) {
       return { error: error.errors.map(e => e.message).join(', ') };
     }
-    console.error("Registration Error:", error);
-    return { error: 'Ocurrió un error inesperado durante el registro.' };
+    return { error: error.message || 'Ocurrió un error inesperado durante el registro.' };
   }
 }
 
