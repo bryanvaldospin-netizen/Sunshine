@@ -34,6 +34,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Copy } from 'lucide-react';
 import Link from 'next/link';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 const FlagsMarquee = () => {
@@ -348,16 +349,39 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserPro
                                             return <span className="text-green-400 font-semibold text-sm">Cobrado ✅</span>;
                                         }
                                         if (ref.bonoEntregado === true) {
-                                            return (
-                                                <Button
-                                                    size="sm"
-                                                    className="bg-golden hover:bg-amber-500 text-black h-8 px-3"
-                                                    onClick={() => handleClaimBonus(ref.uid)}
-                                                    disabled={claiming[ref.uid]}
-                                                >
-                                                    {claiming[ref.uid] ? 'Cargando...' : 'Reclamar 10%'}
-                                                </Button>
-                                            );
+                                            if ((user?.planActivo ?? 0) > 0) {
+                                                return (
+                                                    <Button
+                                                        size="sm"
+                                                        className="bg-golden hover:bg-amber-500 text-black h-8 px-3"
+                                                        onClick={() => handleClaimBonus(ref.uid)}
+                                                        disabled={claiming[ref.uid]}
+                                                    >
+                                                        {claiming[ref.uid] ? 'Cargando...' : 'Reclamar 10%'}
+                                                    </Button>
+                                                );
+                                            } else {
+                                                return (
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <span tabIndex={0}>
+                                                                    <Button
+                                                                        size="sm"
+                                                                        className="bg-gray-500 text-white h-8 px-3 cursor-not-allowed"
+                                                                        disabled
+                                                                    >
+                                                                        ⚠️ Activa un plan para cobrar
+                                                                    </Button>
+                                                                </span>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p>Según el reglamento, necesitas una inversión activa para generar comisiones de red.</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                );
+                                            }
                                         }
                                         if ((ref.planActivo ?? 0) > 0 && ref.bonoEntregado === false) {
                                              return <Badge variant="outline" className="text-muted-foreground border-gray-600">Esperando Activación</Badge>;
