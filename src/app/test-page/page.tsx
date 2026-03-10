@@ -10,8 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { syncInviteCodes } from '@/lib/actions';
-import { Copy, Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon } from 'lucide-react';
+import { Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, getDocs, orderBy, limit, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -31,6 +30,7 @@ import TradingViewTicker from '@/components/trading-view-ticker';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Copy } from 'lucide-react';
 
 
 const FlagsMarquee = () => {
@@ -486,16 +486,6 @@ export default function TestPage() {
     return 0;
   };
 
-  const handleSync = async () => {
-    toast({ title: "Sincronizando...", description: "Migrando códigos de invitación de usuarios existentes. Por favor espera." });
-    const result = await syncInviteCodes();
-    if (result.error) {
-        toast({ variant: 'destructive', title: "Error de Sincronización", description: result.error });
-    } else if (result.success) {
-        toast({ title: "Sincronización Completa", description: result.message });
-    }
-  };
-
   // Fetch direct referrals
   useEffect(() => {
     let unsubscribe: () => void = () => {};
@@ -769,86 +759,6 @@ export default function TestPage() {
                   </div>
                 )}
                 
-                <div className="w-full max-w-5xl">
-                    <Card className="bg-gray-800 border-gray-700 text-white">
-                        <CardHeader>
-                            <CardTitle>Información de Cuenta</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3 pt-4">
-                             {authLoading ? (
-                               <p className="text-gray-400">Cargando datos...</p>
-                            ) : profile ? (
-                                <>
-                                  <ul className="space-y-2 text-sm list-none">
-                                      <li><strong className="text-gray-400 font-medium w-36 inline-block">Nombre:</strong> {profile.name}</li>
-                                      <li><strong className="text-gray-400 font-medium w-36 inline-block">Correo:</strong> {profile.email}</li>
-                                      <li className="flex items-center">
-                                          <strong className="text-gray-400 font-medium w-36 inline-block flex-shrink-0">Billetera de Retiro (TRC-20):</strong>
-                                          {profile.walletAddress ? (
-                                              <div className="flex items-center min-w-0 flex-1">
-                                                  <span className="font-mono text-white truncate" title={profile.walletAddress}>{profile.walletAddress}</span>
-                                                  <Button
-                                                      variant="ghost"
-                                                      size="icon"
-                                                      onClick={() => {
-                                                          if (profile.walletAddress) {
-                                                              navigator.clipboard.writeText(profile.walletAddress);
-                                                              toast({ title: 'Billetera copiada', description: 'La dirección de tu billetera ha sido copiada al portapapeles.' });
-                                                          }
-                                                      }}
-                                                      className="h-7 w-7 ml-2 text-gray-400 hover:text-white hover:bg-gray-700 flex-shrink-0"
-                                                  >
-                                                      <Copy className="h-4 w-4" />
-                                                  </Button>
-                                              </div>
-                                          ) : (
-                                              <span className="text-gray-500">N/A</span>
-                                          )}
-                                      </li>
-                                      <li className="flex items-center">
-                                          <strong className="text-gray-400 font-medium w-36 inline-block flex-shrink-0">Código Invitación:</strong>
-                                          {profile.inviteCode ? (
-                                              <>
-                                                  <span className="font-mono text-golden">{profile.inviteCode}</span>
-                                                  <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    onClick={() => {
-                                                      if (!profile.inviteCode) return;
-                                                      navigator.clipboard.writeText(profile.inviteCode);
-                                                      toast({ title: t('profile.codeCopied'), description: t('profile.codeCopiedDesc') });
-                                                    }}
-                                                    className="h-7 w-7 ml-2 text-gray-400 hover:text-golden hover:bg-gray-700"
-                                                  >
-                                                    <Copy className="h-4 w-4" />
-                                                  </Button>
-                                              </>
-                                          ) : (
-                                              <span className="text-gray-500">N/A</span>
-                                          )}
-                                      </li>
-                                      <li><strong className="text-gray-400 font-medium w-36 inline-block">Saldo Actual:</strong> {formattedBalance}</li>
-                                      <li className="flex items-start">
-                                          <strong className="text-gray-400 font-medium w-36 inline-block flex-shrink-0">UID:</strong>
-                                          <span className="break-all">{profile.uid}</span>
-                                      </li>
-                                  </ul>
-                                  <div className="border-t border-gray-700 mt-4 pt-4">
-                                      <Button onClick={handleSync} variant="outline" className="border-amber-600 text-amber-600 hover:bg-amber-600/10 hover:text-amber-500">
-                                          Sincronizar Códigos Antiguos
-                                      </Button>
-                                      <p className="text-xs text-muted-foreground mt-2">
-                                          Usa este botón una sola vez para migrar los códigos de invitación de usuarios existentes al nuevo sistema.
-                                      </p>
-                                  </div>
-                                </>
-                            ) : (
-                                <p className="text-gray-500">No se pudo cargar la información del perfil.</p>
-                            )}
-                        </CardContent>
-                    </Card>
-                </div>
-
                 <div className="w-full max-w-5xl">
                    {statsLoading ? (
                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
