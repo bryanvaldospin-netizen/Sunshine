@@ -4,27 +4,25 @@ import { z } from 'zod';
 import type { UserProfile } from '@/types';
 import * as admin from 'firebase-admin';
 
-// Client SDK imports, used for registration which is initiated by the client
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, getDoc, writeBatch } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
-import { getDocs, query, collection } from 'firebase/firestore';
-
-
 // Initialize Firebase Admin SDK
 // This gives the server-side actions privileged access to bypass security rules.
 // It assumes service account credentials are in the environment, a standard secure practice.
 if (!admin.apps.length) {
-  const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
-    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-    : undefined;
-  
-  admin.initializeApp({
-    credential: serviceAccount ? admin.credential.cert(serviceAccount) : admin.credential.applicationDefault(),
-    projectId: 'studio-2504766329-6c1a7',
-  });
+  try {
+    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
+      ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+      : undefined;
+    
+    admin.initializeApp({
+      credential: serviceAccount ? admin.credential.cert(serviceAccount) : admin.credential.applicationDefault(),
+      projectId: 'studio-2504766329-6c1a7',
+    });
+  } catch (e: any) {
+    console.error("Failed to initialize firebase-admin:", e.message);
+  }
 }
 const adminDb = admin.firestore();
+const adminAuth = admin.auth();
 
 
 // USER ACTIONS
@@ -36,28 +34,27 @@ const registerSchema = z.object({
   walletAddress: z.string().min(20, 'La dirección de la billetera no es válida.'),
 });
 
-export async function registerUser(values: z.infer<typeof registerSchema>) {
+export async function registerUser(values: z.infer<typeof registerSchema>): Promise<{success: true, token: string} | {error: string}> {
   try {
     const validatedValues = registerSchema.parse(values);
     const { email, password, name, walletAddress, sponsorCode } = validatedValues;
     
-    // Using client 'db' here is fine, as it's just a read operation before user creation
-    const walletRef = doc(db, 'wallet_addresses', walletAddress);
-    const walletSnap = await getDoc(walletRef);
-    if (walletSnap.exists()) {
+    const walletRef = adminDb.collection('wallet_addresses').doc(walletAddress);
+    const walletSnap = await walletRef.get();
+    if (walletSnap.exists) {
       return { error: 'Error: Esta billetera ya está vinculada a otra cuenta. Usa una dirección única.' };
     }
 
     let invitadoPor: string | null = null;
     if (sponsorCode) {
-      const sponsorCodeRef = doc(db, 'invite_codes_map', sponsorCode);
-      const sponsorCodeSnap = await getDoc(sponsorCodeRef);
+      const sponsorCodeRef = adminDb.collection('invite_codes_map').doc(sponsorCode);
+      const sponsorCodeSnap = await sponsorCodeRef.get();
 
       if (!sponsorCodeSnap.exists()) {
         return { error: 'El código de patrocinador no existe' };
       }
       const sponsorData = sponsorCodeSnap.data();
-      invitadoPor = sponsorData.userId;
+      invitadoPor = sponsorData!.userId;
     }
 
     const generateUniqueInviteCode = async (): Promise<string> => {
@@ -70,8 +67,8 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
             for (let i = 0; i < 6; i++) {
                 code += chars.charAt(Math.floor(Math.random() * chars.length));
             }
-            const codeRef = doc(db, 'invite_codes_map', code);
-            const codeSnap = await getDoc(codeRef);
+            const codeRef = adminDb.collection('invite_codes_map').doc(code);
+            const codeSnap = await codeRef.get();
             if (!codeSnap.exists()) {
                 isUnique = true;
             }
@@ -80,12 +77,17 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
     };
 
     const inviteCode = await generateUniqueInviteCode();
-    // 'auth' here is the client auth instance, which is correct for creating a user.
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-    const batch = writeBatch(db);
     
-    const userDocRef = doc(db, 'users', user.uid);
+    const userRecord = await adminAuth.createUser({
+      email,
+      password,
+      displayName: name,
+    });
+    const user = userRecord;
+
+    const batch = adminDb.batch();
+    
+    const userDocRef = adminDb.collection('users').doc(user.uid);
     batch.set(userDocRef, {
       uid: user.uid,
       name,
@@ -103,23 +105,25 @@ export async function registerUser(values: z.infer<typeof registerSchema>) {
       fechaRegistro: new Date().toISOString(),
     });
 
-    const newWalletRef = doc(db, 'wallet_addresses', walletAddress);
+    const newWalletRef = adminDb.collection('wallet_addresses').doc(walletAddress);
     batch.set(newWalletRef, {
         userId: user.uid,
         createdAt: new Date().toISOString()
     });
     
-    const userInviteCodeRef = doc(db, 'invite_codes_map', inviteCode);
+    const userInviteCodeRef = adminDb.collection('invite_codes_map').doc(inviteCode);
     batch.set(userInviteCodeRef, {
         userId: user.uid
     });
 
     await batch.commit();
+
+    const customToken = await adminAuth.createCustomToken(user.uid);
     
-    return { success: true };
+    return { success: true, token: customToken };
   } catch (error: any) {
-    console.error('Error detectado:', error);
-    if (error.code === 'auth/email-already-in-use') {
+    // console.error('Error detectado:', error); // Avoid logging sensitive errors in production
+    if (error.code === 'auth/email-already-exists') {
       return { error: 'Este correo electrónico ya está en uso.' };
     }
     if (error instanceof z.ZodError) {
@@ -135,14 +139,14 @@ export async function getWalletAddress() {
 
 export async function syncInviteCodes() {
   try {
-    const usersCollectionRef = collection(db, 'users');
-    const usersSnapshot = await getDocs(usersCollectionRef);
+    const usersCollectionRef = adminDb.collection('users');
+    const usersSnapshot = await usersCollectionRef.get();
 
     if (usersSnapshot.empty) {
       return { success: true, message: 'No se encontraron usuarios para sincronizar.' };
     }
 
-    const batch = writeBatch(db);
+    const batch = adminDb.batch();
     let syncedCodesCount = 0;
     let updatedUsersCount = 0;
     let bonoEntregadoCount = 0;
@@ -153,8 +157,8 @@ export async function syncInviteCodes() {
       
       if (userData.inviteCode && typeof userData.inviteCode === 'string') {
         const inviteCode = userData.inviteCode;
-        const inviteCodeMapRef = doc(db, 'invite_codes_map', inviteCode);
-        const inviteCodeMapSnap = await getDoc(inviteCodeMapRef);
+        const inviteCodeMapRef = adminDb.collection('invite_codes_map').doc(inviteCode);
+        const inviteCodeMapSnap = await inviteCodeMapRef.get();
         if (!inviteCodeMapSnap.exists()) {
           batch.set(inviteCodeMapRef, { userId });
           syncedCodesCount++;
@@ -202,7 +206,8 @@ export async function processInitialBonus(userId: string) {
       const userSnap = await transaction.get(userRef);
 
       if (!userSnap.exists) {
-        return "User not found. No action taken.";
+        // We throw an error here to make the transaction fail.
+        throw new Error("User not found. No action taken.");
       }
       
       const userData = userSnap.data() as UserProfile;
@@ -265,7 +270,7 @@ export async function processInitialBonus(userId: string) {
     return { success: true, message: resultMessage };
 
   } catch (error: any) {
-    console.error('Error processing initial bonus with Admin SDK:', error.message);
+    // console.error('Error processing initial bonus with Admin SDK:', error.message);
     return { error: 'An error occurred on the server while processing the bonus.' };
   }
 }

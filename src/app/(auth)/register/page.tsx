@@ -23,6 +23,8 @@ import { useTranslation } from '@/hooks/use-translation';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
+import { signInWithCustomToken } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 // Updated schema to remove user-created invite code
 const formSchema = z.object({
@@ -70,12 +72,23 @@ export default function RegisterPage() {
         title: 'Error de registro',
         description: result.error,
       });
-    } else if (result?.success) {
-      toast({
-        title: '¡Registro exitoso!',
-        description: `¡Bienvenido! Tu cuenta ha sido creada y tu código de invitación generado. Redirigiendo...`,
-      });
-      router.push('/test-page');
+    } else if (result?.success && 'token' in result) {
+      try {
+        await signInWithCustomToken(auth, result.token);
+        toast({
+          title: '¡Registro exitoso!',
+          description: `¡Bienvenido! Tu cuenta ha sido creada. Redirigiendo...`,
+        });
+        router.push('/test-page');
+      } catch (authError) {
+        console.error("Sign in after registration failed:", authError);
+        toast({
+          variant: 'destructive',
+          title: 'Error de inicio de sesión',
+          description: 'Tu cuenta fue creada, pero no pudimos iniciar sesión. Por favor, intenta iniciar sesión manualmente.',
+        });
+        router.push('/login');
+      }
     }
   }
 
