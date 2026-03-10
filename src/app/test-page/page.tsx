@@ -416,12 +416,12 @@ export default function TestPage() {
       setIsProcessingBonus(true);
       processInitialBonus(profile.uid)
         .then(result => {
-          if (result.success) {
+          if (result?.success) {
             toast({
               title: "Éxito",
               description: result.message || "Comisión de red procesada.",
             });
-          } else if (result.error) {
+          } else if (result?.error) {
             toast({
               variant: "destructive",
               title: "Error de Bono",
