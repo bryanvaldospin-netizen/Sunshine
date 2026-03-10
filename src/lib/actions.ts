@@ -221,16 +221,16 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
       if (referralData.invitadoPor !== sponsorId) throw new Error('No tienes permiso para reclamar este bono.');
       if (referralData.bonoEntregado !== true) throw new Error('Este bono no está listo para ser reclamado o ya fue pagado.');
       
+      const sponsorSnap = await transaction.get(sponsorRef);
+      if (!sponsorSnap.exists) throw new Error('El patrocinador no fue encontrado.');
+      const sponsorData = sponsorSnap.data() as UserProfile;
+      
       const planActivo = referralData.planActivo ?? 0;
       const inversionAnterior = referralData.inversionAnterior ?? 0;
-
-      let message = 'Bono procesado sin comisión (sin nueva inversión).';
       
-      if (planActivo > inversionAnterior) {
-        const sponsorSnap = await transaction.get(sponsorRef);
-        if (!sponsorSnap.exists) throw new Error('El patrocinador no fue encontrado.');
-        const sponsorData = sponsorSnap.data() as UserProfile;
+      let message = '¡Bono de 10% reclamado con éxito!';
 
+      if (planActivo > inversionAnterior) {
         const investmentDifference = planActivo - inversionAnterior;
         const commission = investmentDifference * 0.10;
 
@@ -251,14 +251,11 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
               descripcion: `Comisión por inversión de ${referralData.name}`,
               monto: commission
           });
-
-          message = '¡Comisión enviada!';
         } else {
-            message = 'Bono no pagado: Patrocinador alcanzó límite del 300% o no tiene plan activo.';
+            message = 'Bono procesado, pero comisión no pagada: Patrocinador alcanzó límite del 300% o no tiene plan activo.';
         }
       }
       
-      // Always update the referral's status to prevent retries
       transaction.update(referralRef, { 
         bonoEntregado: 'reclamado',
         inversionAnterior: planActivo
@@ -272,5 +269,35 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
   } catch (error: any) {
     console.error(`Error en processInitialBonus para el referido ${referralId}:`, error.message);
     return { error: `Error del Servidor: ${error.message}` };
+  }
+}
+
+export async function createInvestmentTransaction(userId: string, newPlanAmount: number, oldPlanAmount: number): Promise<{success: true} | {error: string}> {
+  if (!userId) {
+    return { error: 'User ID is missing.' };
+  }
+  
+  const investmentAmount = newPlanAmount - oldPlanAmount;
+  if (investmentAmount <= 0) {
+    // This isn't an error, just no new investment to log.
+    return { success: true };
+  }
+  
+  try {
+    const userTransactionRef = adminDb.collection('users').doc(userId).collection('transacciones').doc();
+    
+    await userTransactionRef.set({
+      fecha: new Date().toISOString(),
+      tipo: 'Activación de Plan',
+      descripcion: `Inversión de ${investmentAmount.toFixed(2)} USDT`,
+      monto: investmentAmount
+    });
+    
+    return { success: true };
+
+  } catch (error: any) {
+    console.error(`Error creating investment transaction for user ${userId}:`, error);
+    // Don't bubble up as a critical error to the client, just log it.
+    return { error: `Server Error: ${error.message}` };
   }
 }

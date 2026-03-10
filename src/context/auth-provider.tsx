@@ -1,10 +1,11 @@
 'use client';
 
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { onAuthStateChanged, User as FirebaseUser, setPersistence, browserLocalPersistence, getRedirectResult } from 'firebase/auth';
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile } from '@/types';
+import { createInvestmentTransaction } from '@/lib/actions';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -22,6 +23,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const userRef = useRef(user);
+  userRef.current = user;
 
   useEffect(() => {
     const setAuthPersistence = async () => {
@@ -44,12 +47,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (currentFirebaseUser) {
         setFirebaseUser(currentFirebaseUser);
         
-        // Subscribe to user profile
         const userDocRef = doc(db, 'users', currentFirebaseUser.uid);
         
         unsubscribeFromSnapshot = onSnapshot(userDocRef, (docSnap) => {
           if (docSnap.exists()) {
             const userData = docSnap.data() as UserProfile;
+            const previousUser = userRef.current;
+            const previousPlanActivo = previousUser?.planActivo ?? 0;
+            const newPlanActivo = userData.planActivo ?? 0;
+
+            if (newPlanActivo > previousPlanActivo) {
+                createInvestmentTransaction(currentFirebaseUser.uid, newPlanActivo, previousPlanActivo)
+                    .catch(e => console.error("Failed to create investment transaction:", e));
+            }
             
             // Backwards compatibility for existing users
             if (userData.planActivo === undefined || userData.fechaInicioPlan === undefined) {

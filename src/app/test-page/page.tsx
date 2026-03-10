@@ -513,8 +513,8 @@ const TransactionHistory = ({ userId }: { userId: string }) => {
                 <TableRow key={tx.id} className="border-gray-700 hover:bg-gray-700/50">
                   <TableCell className="text-muted-foreground text-xs">{formatDate(tx.fecha)}</TableCell>
                   <TableCell className="font-medium">{tx.descripcion}</TableCell>
-                  <TableCell className="text-right font-semibold text-green-400">
-                    + {formatCurrency(tx.monto)}
+                  <TableCell className={`text-right font-semibold ${tx.tipo === 'Bono Directo' ? 'text-green-400' : 'text-white'}`}>
+                    {tx.tipo === 'Bono Directo' ? '+ ' : ''}{formatCurrency(tx.monto)}
                   </TableCell>
                 </TableRow>
               ))
