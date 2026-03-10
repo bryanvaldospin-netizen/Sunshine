@@ -200,8 +200,37 @@ const DailyBonusCard = ({ user }: { user: UserProfile }) => {
     );
 };
 
-const MyNetworkTab = ({ user, directReferrals, networkLoading, isProcessingBonus }: { user: UserProfile | null, directReferrals: UserProfile[], networkLoading: boolean, isProcessingBonus: boolean }) => {
+const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserProfile | null, directReferrals: UserProfile[], networkLoading: boolean }) => {
   const { toast } = useToast();
+  const [claiming, setClaiming] = useState<Record<string, boolean>>({});
+
+  const handleClaimBonus = async (referralId: string) => {
+    if (!user) return;
+    setClaiming(prev => ({ ...prev, [referralId]: true }));
+    try {
+        const result = await processInitialBonus(referralId, user.uid);
+        if (result?.success) {
+            toast({
+                title: "¡Éxito!",
+                description: result.message,
+            });
+        } else {
+            toast({
+                variant: 'destructive',
+                title: "Error al reclamar",
+                description: result?.error || "Ocurrió un error inesperado.",
+            });
+        }
+    } catch (error) {
+        toast({
+            variant: 'destructive',
+            title: "Error de Red",
+            description: "No se pudo conectar con el servidor.",
+        });
+    } finally {
+        setClaiming(prev => ({ ...prev, [referralId]: false }));
+    }
+  };
 
   const { plan2PlusCount } = useMemo(() => {
     if (networkLoading || directReferrals.length === 0) {
@@ -242,29 +271,6 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, isProcessingBonus
 
   return (
     <div className="p-4 md:p-8 space-y-8">
-      <Card className="bg-gray-800 border-cyan-500 text-white">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Zap className="text-cyan-400" />
-            Estatus de Bonos
-          </CardTitle>
-          <CardDescription>Estado del procesamiento automático de bonos.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-           <div className="flex items-center gap-4">
-            <span className="text-muted-foreground">Estado del sistema:</span>
-            <span className={`font-medium ${isProcessingBonus ? 'text-amber-400' : 'text-green-400'}`}>
-              {isProcessingBonus ? 'Procesando...' : 'Activo'}
-            </span>
-          </div>
-           <p className="text-xs text-muted-foreground">
-             {isProcessingBonus 
-               ? 'Calculando y enviando comisión de referido...' 
-               : 'Vigilando nuevas activaciones de plan en tiempo real.'}
-           </p>
-        </CardContent>
-      </Card>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="bg-gray-800 border-gray-700 text-white">
           <CardHeader>
@@ -307,7 +313,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, isProcessingBonus
       <Card className="bg-gray-800 border-gray-700 text-white">
         <CardHeader>
             <CardTitle>Mis Invitados Directos</CardTitle>
-            <CardDescription>Lista de usuarios que se han registrado con tu código.</CardDescription>
+            <CardDescription>Lista de usuarios que se han registrado con tu código. Reclama tu bono cuando activen un plan.</CardDescription>
         </CardHeader>
         <CardContent>
             <Table>
@@ -315,8 +321,8 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, isProcessingBonus
                     <TableRow className="border-gray-700 hover:bg-gray-800">
                         <TableHead className="text-white">Nombre</TableHead>
                         <TableHead className="text-white">Email</TableHead>
-                        <TableHead className="text-white">Estado de Plan</TableHead>
-                        <TableHead className="text-right text-white">Fecha de Registro</TableHead>
+                        <TableHead className="text-white">Plan Activo</TableHead>
+                        <TableHead className="text-right text-white">Acción</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -333,11 +339,26 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, isProcessingBonus
                                 <TableCell className="text-muted-foreground">{ref.email}</TableCell>
                                 <TableCell>
                                     <Badge className={(ref.planActivo ?? 0) > 0 ? 'bg-green-600 text-white' : 'bg-gray-600 text-white'}>
-                                        {(ref.planActivo ?? 0) > 0 ? 'Activo' : 'Inactivo'}
+                                        {(ref.planActivo ?? 0) > 0 ? formatCurrency(ref.planActivo!) : 'Inactivo'}
                                     </Badge>
                                 </TableCell>
-                                <TableCell className="text-right text-muted-foreground">
-                                    {ref.fechaRegistro ? new Date(ref.fechaRegistro).toLocaleDateString('es-ES') : 'N/A'}
+                                <TableCell className="text-right">
+                                    {(ref.planActivo ?? 0) > 0 ? (
+                                        ref.bonoEntregado ? (
+                                            <span className="text-green-400 font-semibold text-sm">Cobrado ✅</span>
+                                        ) : (
+                                            <Button
+                                                size="sm"
+                                                className="bg-golden hover:bg-amber-500 text-black h-8 px-3"
+                                                onClick={() => handleClaimBonus(ref.uid)}
+                                                disabled={claiming[ref.uid]}
+                                            >
+                                                {claiming[ref.uid] ? 'Cargando...' : 'Reclamar 10%'}
+                                            </Button>
+                                        )
+                                    ) : (
+                                        <span className="text-xs text-gray-500">Sin plan</span>
+                                    )}
                                 </TableCell>
                             </TableRow>
                         ))
@@ -409,8 +430,7 @@ export default function TestPage() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [chartData, setChartData] = useState<any[]>([]);
   const [totalEarnings, setTotalEarnings] = useState(0);
-  const [isProcessingBonus, setIsProcessingBonus] = useState(false);
-
+  
   // Network state moved to parent
   const [directReferrals, setDirectReferrals] = useState<UserProfile[]>([]);
   const [networkLoading, setNetworkLoading] = useState(true);
@@ -427,43 +447,6 @@ export default function TestPage() {
     if (planAmount >= 20) return 0.015;   // 1.5%
     return 0;
   };
-
-  // Automated Bonus Processing Effect
-  useEffect(() => {
-    if (authLoading || !profile || isProcessingBonus) {
-      return;
-    }
-
-    const shouldProcessBonus = (profile.planActivo || 0) > 0 && profile.bonoEntregado === false;
-    
-    if (shouldProcessBonus) {
-      setIsProcessingBonus(true);
-      processInitialBonus(profile.uid)
-        .then(result => {
-          if (!result) {
-            console.error("Server Action 'processInitialBonus' returned undefined.");
-            return;
-          }
-
-          if (result.success && result.message === "¡Comisión enviada!") {
-            toast({
-              title: "Éxito",
-              description: result.message,
-            });
-          } else if (result.error) {
-            toast({
-              variant: "destructive",
-              title: "Error de Bono",
-              description: result.error,
-            });
-          }
-        })
-        .finally(() => {
-          setIsProcessingBonus(false);
-        });
-    }
-  }, [profile, authLoading, isProcessingBonus, toast]);
-
 
   // Fetch direct referrals
   useEffect(() => {
@@ -822,7 +805,7 @@ export default function TestPage() {
            <InvestmentPlansSection />
         </TabsContent>
         <TabsContent value="mi-red">
-          <MyNetworkTab user={profile} directReferrals={directReferrals} networkLoading={networkLoading} isProcessingBonus={isProcessingBonus} />
+          <MyNetworkTab user={profile} directReferrals={directReferrals} networkLoading={networkLoading} />
         </TabsContent>
       </Tabs>
       <FlagsMarquee />

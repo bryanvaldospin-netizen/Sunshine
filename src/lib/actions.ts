@@ -198,63 +198,59 @@ export async function syncInviteCodes() {
   }
 }
 
-export async function processInitialBonus(userId: string): Promise<{success: true, message: string} | {error: string}> {
-  const userRef = adminDb.collection('users').doc(userId);
+export async function processInitialBonus(referralId: string, sponsorId: string): Promise<{success: true, message: string} | {error: string}> {
+  if (!referralId || !sponsorId) {
+    return { error: 'Faltan IDs de referido o patrocinador.' };
+  }
+
+  const referralRef = adminDb.collection('users').doc(referralId);
+  const sponsorRef = adminDb.collection('users').doc(sponsorId);
 
   try {
-    let actionTaken = false;
+    const referralSnap = await referralRef.get();
+    if (!referralSnap.exists) {
+      return { error: 'El usuario referido no existe.' };
+    }
+    const referralData = referralSnap.data() as UserProfile;
+
+    // Security Check: Is the requester the actual sponsor?
+    if (referralData.invitadoPor !== sponsorId) {
+      return { error: 'No tienes permiso para reclamar este bono.' };
+    }
+
+    // Security Check: Has the bonus been paid?
+    if (referralData.bonoEntregado) {
+      return { error: 'Este bono ya ha sido cobrado.' };
+    }
+    
+    // Security Check: Is there an active plan?
+    if (!referralData.planActivo || referralData.planActivo <= 0) {
+      return { error: 'El referido no tiene un plan de inversión activo.' };
+    }
+    
+    const commission = referralData.planActivo * 0.10;
+
     await adminDb.runTransaction(async (transaction) => {
-      const userSnap = await transaction.get(userRef);
-
-      if (!userSnap.exists) {
-        console.error(`processInitialBonus: User with ID ${userId} not found.`);
-        return;
-      }
-      
-      const userData = userSnap.data() as UserProfile;
-      const { planActivo, bonoEntregado } = userData;
-
-      if (bonoEntregado === true || !planActivo || planActivo <= 0) {
-        return;
-      }
-      
-      actionTaken = true;
-      transaction.update(userRef, { bonoEntregado: true });
-      
-      let { invitadoPor } = userData;
-
-      if (!invitadoPor) {
-        return;
-      }
-      invitadoPor = invitadoPor.trim();
-      if (!invitadoPor) {
-        return;
-      }
-
-      const sponsorRef = adminDb.collection('users').doc(invitadoPor);
+      // Re-fetch sponsor inside transaction for consistency
       const sponsorSnap = await transaction.get(sponsorRef);
-
-      if (!sponsorSnap.exists) {
-        console.error(`processInitialBonus: Sponsor with ID '${invitadoPor}' not found for user ${userData.name}.`);
-        return;
+      if (!sponsorSnap.exists()) {
+        throw new Error('El patrocinador no fue encontrado durante la transacción.');
       }
       
-      const commission = planActivo * 0.10;
+      // Update referral to mark bonus as paid
+      transaction.update(referralRef, { bonoEntregado: true });
       
+      // Update sponsor with the commission
       transaction.update(sponsorRef, {
         bonoDirecto: admin.firestore.FieldValue.increment(commission),
         saldoUSDT: admin.firestore.FieldValue.increment(commission),
       });
     });
 
-    if (actionTaken) {
-        return { success: true, message: '¡Comisión enviada!' };
-    } else {
-        return { success: true, message: "No action needed." };
-    }
+    return { success: true, message: '¡Bono de 10% reclamado con éxito!' };
 
   } catch (error: any) {
-    console.error(`Error en processInitialBonus para el usuario ${userId}:`, error.message);
-    return { error: 'Error del servidor al procesar el bono.' };
+    console.error(`Error en processInitialBonus para el referido ${referralId}:`, error.message);
+    return { error: `Error del Servidor: ${error.message}` };
   }
 }
