@@ -9,6 +9,7 @@ export type UserProfile = {
   ultimoCheckIn?: string;
   walletAddress?: string;
   planActivo?: number;
+  inversionAnterior: number;
   fechaInicioPlan?: string | null;
   bonoDirecto: number;
   bonoEntregado: boolean | 'reclamado';

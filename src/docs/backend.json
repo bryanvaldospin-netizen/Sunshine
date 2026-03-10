@@ -53,6 +53,10 @@
           "type": "number",
           "description": "The amount of the user's active investment plan in USDT. 0 if no active plan."
         },
+        "inversionAnterior": {
+          "type": "number",
+          "description": "Stores the value of the previous investment to calculate commissions on the difference when a plan is upgraded."
+        },
         "fechaInicioPlan": {
           "type": "string",
           "format": "date-time",
@@ -63,8 +67,9 @@
           "description": "The accumulated amount of direct referral bonuses in USDT."
         },
         "bonoEntregado": {
-          "type": "boolean",
-          "description": "A flag to indicate if the initial investment bonus has been paid to the sponsor."
+          "type": ["boolean", "string"],
+          "enum": [false, true, "reclamado"],
+          "description": "Indica el estado del bono de bienvenida: false (inactivo), true (listo para reclamar), 'reclamado' (pagado)."
         },
         "fechaRegistro": {
           "type": "string",

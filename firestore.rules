@@ -27,11 +27,12 @@ service cloud.firestore {
                     && request.resource.data.saldoUSDT == 0
                     && request.resource.data.walletAddress is string && request.resource.data.walletAddress.size() > 20
                     && request.resource.data.planActivo == 0
+                    && request.resource.data.inversionAnterior == 0
                     && request.resource.data.fechaInicioPlan == null
                     && request.resource.data.bonoDirecto == 0
                     && request.resource.data.bonoEntregado == false
                     && request.resource.data.fechaRegistro is string
-                    && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'rol', 'saldoUSDT', 'invitadoPor', 'inviteCode', 'walletAddress', 'ultimoCheckIn', 'planActivo', 'fechaInicioPlan', 'bonoDirecto', 'fechaRegistro', 'bonoEntregado']);
+                    && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'rol', 'saldoUSDT', 'invitadoPor', 'inviteCode', 'walletAddress', 'ultimoCheckIn', 'planActivo', 'fechaInicioPlan', 'bonoDirecto', 'fechaRegistro', 'bonoEntregado', 'inversionAnterior']);
 
       // This rule allows a user to update their own profile.
       allow update: if isOwner(userId);

@@ -47,7 +47,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
 
     let invitadoPor: string | null = null;
     if (sponsorCode) {
-      const sponsorCodeRef = adminDb.collection('invite_codes_map').doc(sponsorCode);
+      const sponsorCodeRef = adminDb.collection('invite_codes_map').doc(sponsorCode.trim());
       const sponsorCodeSnap = await sponsorCodeRef.get();
 
       if (!sponsorCodeSnap.exists) {
@@ -99,6 +99,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
       walletAddress: walletAddress,
       ultimoCheckIn: null,
       planActivo: 0,
+      inversionAnterior: 0,
       fechaInicioPlan: null,
       bonoDirecto: 0,
       bonoEntregado: false,
@@ -207,30 +208,30 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
   const sponsorRef = adminDb.collection('users').doc(sponsorId);
 
   try {
-    const referralSnap = await referralRef.get();
-    if (!referralSnap.exists) {
-      return { error: 'El usuario referido no existe.' };
-    }
-    const referralData = referralSnap.data() as UserProfile;
-
-    // Security Check: Is the requester the actual sponsor?
-    if (referralData.invitadoPor !== sponsorId) {
-      return { error: 'No tienes permiso para reclamar este bono.' };
-    }
-
-    // Security Check: Is there an active plan?
-    if (!referralData.planActivo || referralData.planActivo <= 0) {
-      return { error: 'El referido no tiene un plan de inversión activo.' };
-    }
-
-    // CRUCIAL Security Check: Can this bonus be claimed? It must be `true`.
-    if (referralData.bonoEntregado !== true) {
-      return { error: 'Este bono no está listo para ser reclamado o ya fue pagado.' };
-    }
-    
-    const commission = referralData.planActivo * 0.10;
-
     await adminDb.runTransaction(async (transaction) => {
+      const referralSnap = await transaction.get(referralRef);
+      if (!referralSnap.exists) {
+        throw new Error('El usuario referido no existe.');
+      }
+      const referralData = referralSnap.data() as UserProfile;
+
+      // Security Check: Is the requester the actual sponsor?
+      if (referralData.invitadoPor !== sponsorId) {
+        throw new Error('No tienes permiso para reclamar este bono.');
+      }
+
+      // Security Check: Is there an active plan?
+      if (!referralData.planActivo || referralData.planActivo <= 0) {
+        throw new Error('El referido no tiene un plan de inversión activo.');
+      }
+
+      // CRUCIAL Security Check: Can this bonus be claimed? It must be `true`.
+      if (referralData.bonoEntregado !== true) {
+        throw new Error('Este bono no está listo para ser reclamado o ya fue pagado.');
+      }
+    
+      const commission = referralData.planActivo * 0.10;
+
       const sponsorSnap = await transaction.get(sponsorRef);
       if (!sponsorSnap.exists) {
         throw new Error('El patrocinador no fue encontrado durante la transacción.');
@@ -250,6 +251,7 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
 
   } catch (error: any) {
     console.error(`Error en processInitialBonus para el referido ${referralId}:`, error.message);
-    return { error: `Error del Servidor: ${error.message}` };
+    
+    return { error: `Error del Servidor: Revisa el cuadro de estatus en Mi Red.` };
   }
 }
