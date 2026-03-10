@@ -4,21 +4,11 @@ import { z } from 'zod';
 import type { UserProfile } from '@/types';
 import * as admin from 'firebase-admin';
 
-const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-let credentials;
-if (serviceAccount) {
-    try {
-        credentials = JSON.parse(serviceAccount);
-    } catch (e) {
-        console.error("Error parsing service account key:", e);
-    }
-}
-
-// Initialize Firebase Admin SDK with explicit project ID and credentials
+// Initialize Firebase Admin SDK with explicit project ID
+// This gives the server-side actions privileged access to bypass security rules.
 if (!admin.apps.length) {
     try {
         admin.initializeApp({
-            credential: admin.credential.cert(credentials),
             projectId: "studio-2504766329-6c1a7",
         });
     } catch (error) {
