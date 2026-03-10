@@ -143,26 +143,6 @@
         }
       },
       "required": ["userId"]
-    },
-    "SystemStats": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "SystemStats",
-      "type": "object",
-      "description": "Stores global system statistics, like commission processing status.",
-      "properties": {
-        "bonosAprobados": {
-          "type": "number",
-          "description": "A counter for successfully processed commission bonuses."
-        },
-        "ultimoMensaje": {
-          "type": "string",
-          "description": "The status message of the last processed commission."
-        }
-      },
-      "required": [
-        "bonosAprobados",
-        "ultimoMensaje"
-      ]
     }
   },
   "auth": {
@@ -233,22 +213,6 @@
             {
               "name": "inviteCodeId",
               "description": "The user's unique invite code string."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/system_stats/{statId}",
-        "definition": {
-          "entityName": "SystemStats",
-          "schema": {
-            "$ref": "#/backend/entities/SystemStats"
-          },
-          "description": "Stores global system statistics. Typically contains a single document, e.g., 'commissions'.",
-          "params": [
-            {
-              "name": "statId",
-              "description": "The identifier for the statistics document, e.g., 'commissions'."
             }
           ]
         }

@@ -73,13 +73,5 @@ service cloud.firestore {
       // Disallow listing, updating, or deleting to protect integrity.
       allow list, update, delete: if false;
     }
-
-    // Rules for global system stats
-    match /system_stats/{statId} {
-        // Allow any authenticated user to read status updates.
-        allow get, list: if isSignedIn();
-        // Disallow client-side writes completely. Only server actions can write.
-        allow write: if false;
-    }
   }
 }

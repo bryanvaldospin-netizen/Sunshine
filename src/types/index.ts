@@ -31,8 +31,3 @@ export type InvitationCode = {
   used: boolean;
   usedBy: string | null;
 };
-
-export type SystemStats = {
-  bonosAprobados: number;
-  ultimoMensaje: string;
-};

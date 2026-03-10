@@ -199,48 +199,44 @@ export async function syncInviteCodes() {
 }
 
 export async function processInitialBonus(userId: string): Promise<{success: true, message: string} | {error: string}> {
-  const statusRef = adminDb.collection('system_stats').doc('commissions');
   const userRef = adminDb.collection('users').doc(userId);
 
   try {
-    let successMessage = '';
-    let isNoOp = false; // Flag for no operation needed
-    
+    let actionTaken = false;
     await adminDb.runTransaction(async (transaction) => {
       const userSnap = await transaction.get(userRef);
 
       if (!userSnap.exists) {
-        throw new Error(`Usuario con ID ${userId} no encontrado.`);
+        console.error(`processInitialBonus: User with ID ${userId} not found.`);
+        return;
       }
       
       const userData = userSnap.data() as UserProfile;
       const { planActivo, bonoEntregado } = userData;
-      let { invitadoPor } = userData;
 
-      // Safety checks: Stop if bonus is already paid or no active plan.
       if (bonoEntregado === true || !planActivo || planActivo <= 0) {
-        isNoOp = true; // Mark as no-op
         return;
       }
       
-      // Step 1: Mark bonus as paid immediately to prevent loops.
+      actionTaken = true;
       transaction.update(userRef, { bonoEntregado: true });
       
-      // Handle UID validation
-      if (invitadoPor) {
-        invitadoPor = invitadoPor.trim();
-      }
+      let { invitadoPor } = userData;
 
       if (!invitadoPor) {
-        successMessage = `Bono procesado para ${userData.name} (sin patrocinador). Plan: ${planActivo} USDT.`;
-        return; // End transaction successfully
+        return;
+      }
+      invitadoPor = invitadoPor.trim();
+      if (!invitadoPor) {
+        return;
       }
 
       const sponsorRef = adminDb.collection('users').doc(invitadoPor);
       const sponsorSnap = await transaction.get(sponsorRef);
 
       if (!sponsorSnap.exists) {
-        throw new Error(`Patrocinador con ID '${invitadoPor}' no encontrado para el usuario ${userData.name}.`);
+        console.error(`processInitialBonus: Sponsor with ID '${invitadoPor}' not found for user ${userData.name}.`);
+        return;
       }
       
       const commission = planActivo * 0.10;
@@ -249,39 +245,16 @@ export async function processInitialBonus(userId: string): Promise<{success: tru
         bonoDirecto: admin.firestore.FieldValue.increment(commission),
         saldoUSDT: admin.firestore.FieldValue.increment(commission),
       });
-
-      const sponsorData = sponsorSnap.data();
-      successMessage = `Éxito: ${sponsorData?.name} recibió ${commission.toFixed(2)} USDT de comisión por ${userData.name}.`;
     });
 
-    if (isNoOp) {
-      // Don't log, don't show toast. Just return a success that the client can ignore.
-      return { success: true, message: "No action needed." };
+    if (actionTaken) {
+        return { success: true, message: '¡Comisión enviada!' };
+    } else {
+        return { success: true, message: "No action needed." };
     }
-
-    // After the transaction succeeds, try to update status.
-    if (successMessage) {
-        try {
-            await statusRef.set({
-                ultimoMensaje: successMessage,
-                bonosAprobados: admin.firestore.FieldValue.increment(1)
-            }, { merge: true });
-        } catch (statusError: any) {
-            console.error('Error al actualizar system_stats (éxito):', statusError.message);
-        }
-    }
-
-    return { success: true, message: "Comisión de red procesada." };
 
   } catch (error: any) {
-    try {
-        await statusRef.set({
-            ultimoMensaje: `Error en transacción para ${userId}: ${error.message}`
-        }, { merge: true });
-    } catch (statusError: any) {
-        console.error('Error al actualizar system_stats (fallo):', statusError.message);
-    }
-    
-    return { error: 'Error técnico: Revisa el cuadro de estatus en Mi Red.' };
+    console.error(`Error en processInitialBonus para el usuario ${userId}:`, error.message);
+    return { error: 'Error del servidor al procesar el bono.' };
   }
 }
