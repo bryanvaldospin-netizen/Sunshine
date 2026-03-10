@@ -117,7 +117,7 @@ export default function LoginPage() {
     } catch (error: any) {
         let description = 'Ha ocurrido un error. Por favor, inténtalo de nuevo.';
         if (error.code === 'auth/user-not-found') {
-            description = 'No se encontró ninguna cuenta con este correo electrónico.';
+            description = 'No encontramos una cuenta con ese correo.';
         }
         toast({
             variant: 'destructive',
