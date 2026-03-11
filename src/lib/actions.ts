@@ -423,12 +423,15 @@ export async function claimAndFinalizeCycle(userId: string): Promise<{success: t
         throw new Error('Este ciclo ya ha sido reclamado y está vencido.');
       }
 
+      // Calculate the final amount to be claimed, subtracting bonuses already paid out from the total.
+      const amountToClaim = finalEarnings - (userData.bonoDirecto || 0);
+
       const expirationDate = new Date();
       expirationDate.setDate(expirationDate.getDate() + 3);
 
       // Perform updates
       transaction.update(userRef, {
-        saldoUSDT: admin.firestore.FieldValue.increment(finalEarnings),
+        saldoUSDT: admin.firestore.FieldValue.increment(amountToClaim),
         planActivo: 0,
         bonoDirecto: 0,
         inversionAnterior: 0,
@@ -442,11 +445,11 @@ export async function claimAndFinalizeCycle(userId: string): Promise<{success: t
       transaction.set(transactionRef, {
         fecha: new Date().toISOString(),
         tipo: 'Reclamo de Ciclo',
-        descripcion: `Ciclo de ${planActivo} USDT completado. Ganancias de ${finalEarnings.toFixed(2)} USDT añadidas al saldo.`,
-        monto: finalEarnings,
+        descripcion: `Ciclo de ${planActivo} USDT completado. Reclamo final de ${amountToClaim.toFixed(2)} USDT.`,
+        monto: amountToClaim,
       });
 
-      return `¡Ciclo completado! ${finalEarnings.toFixed(2)} USDT han sido añadidos a tu saldo.`;
+      return `¡Ciclo completado! ${amountToClaim.toFixed(2)} USDT han sido añadidos a tu saldo para alcanzar el 300%.`;
     });
 
     return { success: true, message };
