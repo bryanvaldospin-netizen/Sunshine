@@ -47,6 +47,20 @@ const TabsTrigger = React.forwardRef<
         )
     }
   
+    // For regular triggers, if we are on a page handled by a link, they should be inactive.
+    const onLinkedPage = pathname.startsWith('/my-withdrawals') || pathname.startsWith('/profile');
+    if (onLinkedPage) {
+        // Force inactive state if we are on a page handled by a link tab
+        return (<TabsPrimitive.Trigger
+            ref={ref as React.Ref<HTMLButtonElement>}
+            className={cn(tabTriggerStyle, className)}
+            data-state={'inactive'}
+            {...props}
+        >
+          {children}
+        </TabsPrimitive.Trigger>)
+    }
+
     return (<TabsPrimitive.Trigger
         ref={ref as React.Ref<HTMLButtonElement>}
         className={cn(tabTriggerStyle, className)}
