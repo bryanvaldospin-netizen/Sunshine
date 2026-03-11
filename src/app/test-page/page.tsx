@@ -28,7 +28,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import TradingViewTicker from '@/components/trading-view-ticker';
+import { AnnouncementMarquee } from '@/components/announcement-marquee';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -36,31 +36,6 @@ import { Copy } from 'lucide-react';
 import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-
-const FlagsMarquee = () => {
-    const flags = [
-        "🇪🇨", "🇺🇸", "🇪🇸", "🇯🇵", "🇧🇷", "🇨🇦", "🇩🇪", "🇫🇷", "🇮🇹", "🇦🇺", "🇬🇧", "🇨🇳", "🇮🇳", "🇷🇺", "🇿🇦",
-        "🇲🇽", "🇦🇷", "🇨🇴", "🇵🇪", "🇨🇱", "🇰🇷", "🇳🇬", "🇪🇬", "🇸🇪", "🇳🇴", "🇩🇰", "🇫🇮", "🇨🇭", "🇵🇹", "🇮🇪"
-    ];
-    
-    return (
-        <footer className="fixed bottom-0 left-0 right-0 w-full bg-black/80 backdrop-blur-sm z-50">
-            <div className="relative flex w-full overflow-hidden">
-                <div className="flex animate-marquee whitespace-nowrap py-3">
-                    {flags.map((flag, index) => (
-                        <span key={`marquee1-${index}`} className="text-4xl mx-4">{flag}</span>
-                    ))}
-                </div>
-
-                <div className="absolute top-0 flex animate-marquee2 whitespace-nowrap py-3">
-                    {flags.map((flag, index) => (
-                        <span key={`marquee2-${index}`} className="text-4xl mx-4">{flag}</span>
-                    ))}
-                </div>
-            </div>
-        </footer>
-    );
-};
 
 const InvestmentPlansSection = () => {
     const { t } = useTranslation();
@@ -757,7 +732,7 @@ export default function TestPage() {
                 {t('profile.logout')}
             </Button>
           </div>
-        <TradingViewTicker />
+        <AnnouncementMarquee />
       </header>
 
       <Tabs defaultValue="inicio" className="w-full">
@@ -936,7 +911,6 @@ export default function TestPage() {
           <MyNetworkTab user={profile} directReferrals={directReferrals} networkLoading={networkLoading} />
         </TabsContent>
       </Tabs>
-      <FlagsMarquee />
     </main>
   );
 }
