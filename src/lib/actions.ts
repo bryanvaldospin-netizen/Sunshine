@@ -393,15 +393,15 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
   }
 }
 
-export async function claimAndFinalizeCycle(userId: string): Promise<{success: true, message: string} | {error: string}> {
+export async function claimAndFinalizeCycle(userId: string): Promise<{success: true, message: string} | {success: false, error: string}> {
   if (!userId) {
-    return { error: 'ID de usuario no proporcionado.' };
+    return { success: false, error: 'ID de usuario no proporcionado.' };
   }
 
   const userRef = adminDb.collection('users').doc(userId);
 
   try {
-    const message = await adminDb.runTransaction(async (transaction) => {
+    await adminDb.runTransaction(async (transaction) => {
       const userSnap = await transaction.get(userRef);
       if (!userSnap.exists) {
         throw new Error('Usuario no encontrado.');
@@ -411,6 +411,10 @@ export async function claimAndFinalizeCycle(userId: string): Promise<{success: t
       const planActivo = userData.planActivo ?? 0;
       if (planActivo <= 0) {
         throw new Error('No hay un plan activo para reclamar.');
+      }
+      
+      if (userData.estadoPlan === 'vencido') {
+        throw new Error('Este ciclo ya ha sido reclamado y está vencido.');
       }
 
       // This server-side logic must be consistent with the frontend calculation
@@ -425,7 +429,6 @@ export async function claimAndFinalizeCycle(userId: string): Promise<{success: t
             return 0;
         };
         
-        // Handle Firestore Timestamp object or ISO string
         const dateValue = fechaInicioPlan as any;
         const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
 
@@ -445,20 +448,17 @@ export async function claimAndFinalizeCycle(userId: string): Promise<{success: t
       if (finalEarnings < maxEarnings) {
         throw new Error('Aún no has alcanzado el 300% de retorno para reclamar el ciclo.');
       }
-      
-      if (userData.estadoPlan === 'vencido') {
-        throw new Error('Este ciclo ya ha sido reclamado y está vencido.');
-      }
 
       // Calculate the final amount to be claimed, subtracting bonuses already paid out from the total.
       const amountToClaim = finalEarnings - (userData.bonoDirecto || 0);
+      const newBalance = (userData.saldoUSDT || 0) + amountToClaim;
 
       const expirationDate = new Date();
       expirationDate.setDate(expirationDate.getDate() + 3);
 
       // Perform updates
       transaction.update(userRef, {
-        saldoUSDT: admin.firestore.FieldValue.increment(amountToClaim),
+        saldoUSDT: newBalance,
         planActivo: 0,
         bonoDirecto: 0,
         inversionAnterior: 0,
@@ -475,14 +475,12 @@ export async function claimAndFinalizeCycle(userId: string): Promise<{success: t
         descripcion: `Ciclo de ${planActivo} USDT completado. Reclamo final de ${amountToClaim.toFixed(2)} USDT.`,
         monto: amountToClaim,
       });
-
-      return `¡Ciclo completado! ${amountToClaim.toFixed(2)} USDT han sido añadidos a tu saldo para alcanzar el 300%.`;
     });
 
-    return { success: true, message };
+    return { success: true, message: '¡Ciclo completado con éxito!' };
 
   } catch (error: any) {
     console.error(`Error en claimAndFinalizeCycle para el usuario ${userId}:`, error.message);
-    return { error: `Error del Servidor: ${error.message}` };
+    return { success: false, error: `Error del Servidor: ${error.message}` };
   }
 }
