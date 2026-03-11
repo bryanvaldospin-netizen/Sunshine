@@ -158,7 +158,7 @@ export default function RegisterPage() {
               name="walletAddress"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Billetera USDT (TRC-20)</FormLabel>
+                  <FormLabel>Billetera USDT (BEP-20)</FormLabel>
                   <FormControl>
                     <Input placeholder="Introduce tu dirección de billetera única" {...field} />
                   </FormControl>
