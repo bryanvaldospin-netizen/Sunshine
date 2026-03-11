@@ -828,21 +828,31 @@ export default function TestPage() {
   const handleClaimCycle = async () => {
     if (!profile) return;
     setIsClaiming(true);
-    const result = await claimAndFinalizeCycle(profile.uid);
+    try {
+        const result = await claimAndFinalizeCycle(profile.uid);
 
-    if (result.success) {
-        toast({
-            title: '¡Ciclo Reclamado!',
-            description: result.message,
-        });
-    } else {
+        if (result && result.success) {
+            toast({
+                title: '¡Ciclo Reclamado!',
+                description: result.message,
+            });
+        } else {
+            toast({
+                variant: 'destructive',
+                title: 'Error al Reclamar',
+                description: result?.error || 'Ocurrió un error inesperado al reclamar el ciclo.',
+            });
+        }
+    } catch(e) {
+        console.error("Error in handleClaimCycle:", e);
         toast({
             variant: 'destructive',
-            title: 'Error al Reclamar',
-            description: result.error,
+            title: 'Error',
+            description: 'No se pudo conectar con el servidor. Inténtalo de nuevo.'
         });
+    } finally {
+        setIsClaiming(false);
     }
-    setIsClaiming(false);
   };
 
   const balance = profile?.saldoUSDT ?? 0;
