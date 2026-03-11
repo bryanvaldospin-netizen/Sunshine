@@ -3,6 +3,8 @@
 import { z } from 'zod';
 import type { UserProfile } from '@/types';
 import * as admin from 'firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
+
 
 // Initialize Firebase Admin SDK with explicit project ID
 // This gives the server-side actions privileged access to bypass security rules.
@@ -146,6 +148,9 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
     console.error('Error durante el registro:', error.message);
     if (error.code === 'auth/email-already-exists') {
       return { error: 'Este correo electrónico ya está en uso.' };
+    }
+     if (error.code === 'permission-denied') {
+      return { error: 'Error de permisos al intentar registrar el usuario. Por favor, revisa la configuración del servidor.' };
     }
     if (error instanceof z.ZodError) {
       return { error: error.errors.map(e => e.message).join(', ') };
@@ -318,5 +323,44 @@ export async function createInvestmentTransaction(userId: string, newPlanAmount:
     console.error(`Error creating investment transaction for user ${userId}:`, error);
     // Don't bubble up as a critical error to the client, just log it.
     return { error: `Server Error: ${error.message}` };
+  }
+}
+
+const withdrawalSchema = z.object({
+  amount: z.number().positive('El monto debe ser un número positivo.'),
+  user: z.object({
+    uid: z.string(),
+    email: z.string().email(),
+    saldoUSDT: z.number(),
+  }),
+});
+
+export async function createWithdrawalToken(values: z.infer<typeof withdrawalSchema>): Promise<{ success: true, token: string } | { error: string }> {
+  try {
+    const validatedValues = withdrawalSchema.parse(values);
+    const { amount, user } = validatedValues;
+
+    if (amount > user.saldoUSDT) {
+      return { error: 'Saldo insuficiente para esta operación.' };
+    }
+
+    const token = `COMPROBANTE-${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+
+    await adminDb.collection('retiro_tokens').add({
+      correo: user.email,
+      token,
+      monto: amount,
+      estado: 'pendiente',
+      fecha: FieldValue.serverTimestamp(),
+      uid: user.uid,
+    });
+
+    return { success: true, token };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { error: error.errors.map(e => e.message).join(', ') };
+    }
+    console.error('Error creating withdrawal token:', error);
+    return { error: 'Ocurrió un error inesperado al generar el token.' };
   }
 }
