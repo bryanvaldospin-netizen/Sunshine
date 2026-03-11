@@ -15,6 +15,7 @@ service cloud.firestore {
     match /users/{userId} {
       // A user can read their own profile, or the profiles of users they referred.
       allow read: if isOwner(userId) || (resource.data.invitadoPor != null && resource.data.invitadoPor == request.auth.uid);
+      
       // No one can list all users.
       allow list: if false;
       
@@ -34,8 +35,13 @@ service cloud.firestore {
                     && request.resource.data.fechaRegistro is string
                     && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'rol', 'saldoUSDT', 'invitadoPor', 'inviteCode', 'walletAddress', 'ultimoCheckIn', 'planActivo', 'fechaInicioPlan', 'bonoDirecto', 'fechaRegistro', 'bonoEntregado', 'inversionAnterior']);
 
-      // This rule allows a user to update their own profile.
-      allow update: if isOwner(userId);
+      // This rule allows a user to update their own profile BUT prevents them
+      // from changing their balance, bonuses, plan, or role from the client.
+      allow update: if isOwner(userId)
+                    && request.resource.data.saldoUSDT == resource.data.saldoUSDT
+                    && request.resource.data.bonoDirecto == resource.data.bonoDirecto
+                    && request.resource.data.planActivo == resource.data.planActivo
+                    && request.resource.data.rol == resource.data.rol;
       
       // Nobody can delete users to protect user data.
       allow delete: if false;
@@ -59,15 +65,11 @@ service cloud.firestore {
 
     // Rules for wallet address uniqueness check
     match /wallet_addresses/{walletAddress} {
-        // Allow anyone (even unauthenticated users) to check if a wallet address exists.
-        allow get: if true;
-
-        // Allow creation only if the user is authenticated and the userId in the document
-        // matches their own UID. This prevents users from claiming wallets for others.
-        allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-
-        // Disallow listing, updating, or deleting to protect the integrity of the records.
-        allow list, update, delete: if false;
+        // Allow authenticated users to check if a specific wallet address exists.
+        allow get: if isSignedIn();
+        // Disallow listing all wallets, and all writes from the client.
+        // Creation is handled by a secure server action.
+        allow list, write: if false;
     }
 
     // Rules for invite code mapping for sponsor lookup
@@ -81,6 +83,24 @@ service cloud.firestore {
 
       // Disallow listing, updating, or deleting to protect integrity.
       allow list, update, delete: if false;
+    }
+    
+    // Rules for withdrawal requests
+    match /retiro_tokens/{tokenId} {
+        // Allow a user to create and read their OWN withdrawal requests.
+        allow create: if isSignedIn() && request.auth.uid == request.resource.data.uid;
+        allow read: if isSignedIn() && request.auth.uid == resource.data.uid;
+        // Prohibit updating or deleting from the client.
+        allow update, delete: if false;
+    }
+    
+    // Rules for deposit requests
+    match /deposit_requests/{depositId} {
+        // Allow a user to create and read their OWN deposit requests.
+        allow create: if isSignedIn() && request.auth.uid == request.resource.data.uid;
+        allow read: if isSignedIn() && request.auth.uid == resource.data.uid;
+        // Prohibit updating or deleting from the client.
+        allow update, delete: if false;
     }
   }
 }
