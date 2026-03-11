@@ -5,13 +5,17 @@ import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import type { UserProfile, Transaction } from '@/types';
-import { processInitialBonus } from '@/lib/actions';
+import { processInitialBonus, createWithdrawalToken } from '@/lib/actions';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon, User as UserIcon, Wallet } from 'lucide-react';
+import { Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon, User as UserIcon, Wallet, Info } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, onSnapshot, doc, updateDoc, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -515,6 +519,130 @@ const TransactionHistory = ({ userId }: { userId: string }) => {
   );
 };
 
+const WithdrawalSection = ({ user }: { user: UserProfile }) => {
+  const { toast } = useToast();
+  const [generatedToken, setGeneratedToken] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const formSchema = z.object({
+    amount: z.coerce.number().positive({ message: 'Por favor, introduce un monto válido.' }),
+  });
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      amount: 0,
+    },
+  });
+
+  const handleGenerateToken = async (values: z.infer<typeof formSchema>) => {
+    if (!user) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Debes iniciar sesión para realizar esta acción.' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setGeneratedToken(null);
+
+    const result = await createWithdrawalToken({
+      amount: values.amount,
+      user: {
+        uid: user.uid,
+        email: user.email,
+        saldoUSDT: user.saldoUSDT,
+      },
+    });
+
+    if (result.success) {
+      setGeneratedToken(result.token);
+      toast({ title: '¡Éxito!', description: 'Tu token de retiro ha sido generado.' });
+      form.reset();
+    } else {
+      toast({ variant: 'destructive', title: 'Error', description: result.error });
+    }
+    setIsSubmitting(false);
+  };
+
+  const handleCopyToken = () => {
+    if (generatedToken) {
+      navigator.clipboard.writeText(generatedToken);
+      toast({ title: 'Copiado', description: 'Token copiado al portapapeles.' });
+    }
+  };
+
+  return (
+    <Card className="bg-gray-800 border-golden text-white w-full">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-xl font-bold">
+          <Wallet />
+          Solicitar Retiro
+        </CardTitle>
+        <CardDescription>
+          Genera un token para autorizar tu solicitud de retiro de fondos.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 pt-4">
+          <div className="lg:col-span-3 space-y-6">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleGenerateToken)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="amount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Monto a Retirar (USDT)</FormLabel>
+                      <FormControl>
+                        <Input type="number" placeholder="Ej: 100" {...field} className="bg-gray-700 border-gray-600" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" className="w-full bg-gradient-to-r from-golden to-red-800 text-white" disabled={isSubmitting}>
+                  {isSubmitting ? 'Generando...' : 'Generar Token'}
+                </Button>
+              </form>
+            </Form>
+
+            {generatedToken && (
+              <div className="mt-6 p-4 border border-golden rounded-lg bg-gray-900/50 text-center">
+                <p className="text-sm text-gray-400 mb-2">Tu token de retiro es:</p>
+                <p className="text-2xl font-mono font-bold text-golden break-all">{generatedToken}</p>
+                <div className="mt-4 flex flex-col sm:flex-row gap-4">
+                  <Button onClick={handleCopyToken} variant="outline" className="w-full border-gray-500 text-gray-300 hover:bg-gray-700">
+                    <Copy className="mr-2 h-4 w-4" />
+                    Copiar Token
+                  </Button>
+                  <Button asChild className="w-full bg-golden text-black hover:bg-amber-400">
+                    <a href="https://form.jotform.com/260687723494065" target="_blank" rel="noopener noreferrer">
+                      Completar Retiro en Jotform
+                    </a>
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="lg:col-span-2 space-y-4 rounded-lg bg-gray-900/40 p-4 border border-gray-700">
+              <h3 className="text-lg font-bold flex items-center gap-2"><Info /> Pasos para Retirar</h3>
+              <ol className="list-decimal list-inside space-y-3 text-gray-300 text-sm">
+                  <li>
+                      <strong>Genera tu Token:</strong> Introduce el monto a retirar y haz clic en 'Generar Token'.
+                  </li>
+                  <li>
+                      <strong>Copia el Token:</strong> Una vez que aparezca, usa el botón 'Copiar Token'.
+                  </li>
+                  <li>
+                      <strong>Completa en Jotform:</strong> Haz clic en el botón para ir al formulario seguro y pega tu token para finalizar.
+                  </li>
+              </ol>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 
 export default function TestPage() {
   const { user: profile, loading: authLoading } = useAuth();
@@ -734,10 +862,9 @@ export default function TestPage() {
       </header>
 
       <Tabs defaultValue="inicio" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 bg-gray-800/50 rounded-none sticky top-16 z-40 backdrop-blur-sm">
+        <TabsList className="grid w-full grid-cols-4 bg-gray-800/50 rounded-none sticky top-16 z-40 backdrop-blur-sm">
           <TabsTrigger value="inicio"><Home className="mr-2 h-4 w-4" /> Inicio</TabsTrigger>
           <TabsTrigger value="inversiones"><Briefcase className="mr-2 h-4 w-4" /> Inversiones</TabsTrigger>
-          <TabsTrigger value="my-withdrawals" asLink href="/my-withdrawals"><Wallet className="mr-2 h-4 w-4" /> Mis Retiros</TabsTrigger>
           <TabsTrigger value="profile" asLink href="/profile"><UserIcon className="mr-2 h-4 w-4" />{t('profile.title')}</TabsTrigger>
           <TabsTrigger value="mi-red"><Users className="mr-2 h-4 w-4" /> Mi Red</TabsTrigger>
         </TabsList>
@@ -827,6 +954,12 @@ export default function TestPage() {
                         )}
                     </Card>
                 </div>
+
+                {profile && !authLoading && (
+                  <div className="w-full max-w-5xl">
+                    <WithdrawalSection user={profile} />
+                  </div>
+                )}
                 
                 {profile && !authLoading && (
                   <div className="w-full max-w-5xl">
