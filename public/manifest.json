@@ -4,7 +4,7 @@
   "description": "Sunshine Investment App",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#111827",
+  "background_color": "#000000",
   "theme_color": "#D4AF37",
   "icons": [
     {
