@@ -32,7 +32,7 @@ export default function RootLayout({
         <meta name="format-detection" content="telephone=no" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="theme-color" content="#D4AF37" />
-        <link rel="apple-touch-icon" href="/icono.png" />
+        <link rel="apple-touch-icon" href="/icono.png?v=2" />
       </head>
       <body className={cn('min-h-screen bg-background font-body antialiased')}>
         <AuthProvider>
