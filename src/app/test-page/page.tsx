@@ -893,11 +893,11 @@ export default function TestPage() {
                   </Card>
                 </div>
 
-                {profile && !authLoading && (
+                {/* {profile && !authLoading && (
                   <div className="w-full max-w-5xl">
                     <DailyBonusCard user={profile} />
                   </div>
-                )}
+                )} */}
                 
                 <div className="w-full max-w-5xl">
                    {statsLoading ? (
