@@ -250,40 +250,67 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
       if (!sponsorSnap.exists) throw new Error('El patrocinador no fue encontrado.');
       const sponsorData = sponsorSnap.data() as UserProfile;
       
-      const planActivo = referralData.planActivo ?? 0;
-      const inversionAnterior = referralData.inversionAnterior ?? 0;
-      
-      let message = '¡Bono de 10% reclamado con éxito!';
-
-      if (planActivo > inversionAnterior) {
-        const investmentDifference = planActivo - inversionAnterior;
-        const commission = investmentDifference * 0.10;
-
-        const sponsorPlan = sponsorData.planActivo ?? 0;
-        const sponsorBonos = sponsorData.bonoDirecto ?? 0;
-        const sponsorMaxBonus = sponsorPlan * 3;
-        
-        if (sponsorPlan > 0 && (sponsorBonos + commission <= sponsorMaxBonus)) {
-          transaction.update(sponsorRef, {
-            bonoDirecto: admin.firestore.FieldValue.increment(commission),
-            saldoUSDT: admin.firestore.FieldValue.increment(commission),
+      const sponsorPlan = sponsorData.planActivo ?? 0;
+      // CRITICAL: Sponsor must have an active plan to receive commissions.
+      if (sponsorPlan <= 0) {
+          transaction.update(referralRef, { 
+              bonoEntregado: 'reclamado',
+              inversionAnterior: referralData.planActivo ?? 0
           });
-          
+          return 'Bono no pagado: El patrocinador necesita un plan activo para recibir comisiones.';
+      }
+      
+      const investmentDifference = (referralData.planActivo ?? 0) - (referralData.inversionAnterior ?? 0);
+      if (investmentDifference <= 0) {
+          transaction.update(referralRef, { bonoEntregado: 'reclamado' });
+          return 'No hay nueva inversión para comisionar.';
+      }
+
+      // --- Sustainability Shield Logic ---
+      const potentialCommission = investmentDifference * 0.10;
+      const sponsorBonos = sponsorData.bonoDirecto ?? 0;
+      const sponsorMaxBonus = sponsorPlan * 3;
+
+      if (sponsorBonos >= sponsorMaxBonus) {
+          transaction.update(referralRef, { 
+              bonoEntregado: 'reclamado',
+              inversionAnterior: referralData.planActivo ?? 0
+          });
+          return 'Límite de ganancias del patrocinador (300%) alcanzado. El bono no fue entregado.';
+      }
+
+      const availableRoom = sponsorMaxBonus - sponsorBonos;
+      const payableCommission = Math.min(potentialCommission, availableRoom);
+
+      let message: string;
+
+      if (payableCommission > 0) {
+          transaction.update(sponsorRef, {
+              bonoDirecto: admin.firestore.FieldValue.increment(payableCommission),
+              saldoUSDT: admin.firestore.FieldValue.increment(payableCommission),
+          });
+
           const sponsorTransactionRef = sponsorRef.collection('transacciones').doc();
           transaction.set(sponsorTransactionRef, {
               fecha: new Date().toISOString(),
               tipo: 'Bono Directo',
               descripcion: `Comisión por inversión de ${referralData.name}`,
-              monto: commission
+              monto: payableCommission
           });
-        } else {
-            message = 'Bono procesado, pero comisión no pagada: Patrocinador alcanzó límite del 300% o no tiene plan activo.';
-        }
+          
+          if (payableCommission < potentialCommission) {
+              message = `Bono parcial de ${payableCommission.toFixed(2)} USDT reclamado. Patrocinador alcanzó el límite del 300%.`;
+          } else {
+              message = `¡Bono de ${payableCommission.toFixed(2)} USDT reclamado con éxito!`;
+          }
+      } else {
+          message = 'El bono no pudo ser pagado porque el patrocinador no tenía margen de ganancia.';
       }
-      
+
+      // Finalize update on the referral, marking the bonus as processed.
       transaction.update(referralRef, { 
-        bonoEntregado: 'reclamado',
-        inversionAnterior: planActivo
+          bonoEntregado: 'reclamado',
+          inversionAnterior: referralData.planActivo ?? 0
       });
 
       return message;
