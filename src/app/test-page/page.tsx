@@ -38,6 +38,7 @@ import { Badge } from '@/components/ui/badge';
 import { Copy } from 'lucide-react';
 import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { InstallPWA } from '@/components/install-pwa';
 
 
 const InvestmentPlansSection = () => {
@@ -1040,6 +1041,7 @@ export default function TestPage() {
           <MyNetworkTab user={profile} directReferrals={directReferrals} networkLoading={networkLoading} />
         </TabsContent>
       </Tabs>
+      <InstallPWA />
     </main>
   );
 }

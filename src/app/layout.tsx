@@ -8,6 +8,7 @@ import { LanguageProvider } from '@/context/language-provider';
 export const metadata: Metadata = {
   title: 'Sunshine',
   description: 'Sunshine Investment App',
+  manifest: '/manifest.json',
 };
 
 export default function RootLayout({
@@ -24,6 +25,14 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap"
           rel="stylesheet"
         />
+        <meta name="application-name" content="Sunshine" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Sunshine" />
+        <meta name="format-detection" content="telephone=no" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="theme-color" content="#D4AF37" />
+        <link rel="apple-touch-icon" href="/icono.png" />
       </head>
       <body className={cn('min-h-screen bg-background font-body antialiased')}>
         <AuthProvider>
