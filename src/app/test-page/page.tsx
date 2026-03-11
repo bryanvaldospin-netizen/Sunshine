@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import type { UserProfile, Transaction } from '@/types';
-import { processInitialBonus, createWithdrawalToken } from '@/lib/actions';
+import { processInitialBonus, createWithdrawalToken, claimAndFinalizeCycle } from '@/lib/actions';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -649,11 +649,13 @@ export default function TestPage() {
   const { user: profile, loading: authLoading } = useAuth();
   const { t, setLocale } = useTranslation();
   const router = useRouter();
+  const { toast } = useToast();
 
   const [stats, setStats] = useState({ totalInvested: 0, earnings: 0, withdrawals: 0 });
   const [statsLoading, setStatsLoading] = useState(true);
   const [chartData, setChartData] = useState<any[]>([]);
   const [totalEarnings, setTotalEarnings] = useState(0);
+  const [isClaiming, setIsClaiming] = useState(false);
   
   // Network state moved to parent
   const [directReferrals, setDirectReferrals] = useState<UserProfile[]>([]);
@@ -823,6 +825,26 @@ export default function TestPage() {
     }
   };
 
+  const handleClaimCycle = async () => {
+    if (!profile) return;
+    setIsClaiming(true);
+    const result = await claimAndFinalizeCycle(profile.uid);
+
+    if (result.success) {
+        toast({
+            title: '¡Ciclo Reclamado!',
+            description: result.message,
+        });
+    } else {
+        toast({
+            variant: 'destructive',
+            title: 'Error al Reclamar',
+            description: result.error,
+        });
+    }
+    setIsClaiming(false);
+  };
+
   const balance = profile?.saldoUSDT ?? 0;
   const userName = profile?.name || t('dashboard.investor');
   const planActivo = profile?.planActivo ?? 0;
@@ -930,7 +952,14 @@ export default function TestPage() {
                         </CardHeader>
                         <CardContent className="pt-4">
                             {authLoading ? (
-                               <Skeleton className="h-5 w-3/4 bg-gray-700" />
+                               <Skeleton className="h-20 w-full bg-gray-700" />
+                            ) : profile?.estadoPlan === 'vencido' ? (
+                                <div className="p-4 text-center bg-red-900/50 border border-red-700 rounded-lg">
+                                    <p className="font-bold text-amber-400">Tu plan ha vencido.</p>
+                                    <p className="text-sm text-gray-300">
+                                        Tienes hasta el {profile.fechaVencimiento ? new Date(profile.fechaVencimiento).toLocaleDateString('es-ES') : 'pronto'} para activar un nuevo plan y seguir generando ganancias.
+                                    </p>
+                                </div>
                             ) : planActivo > 0 ? (
                                 <div className="space-y-2">
                                     <p className="text-lg">Tu plan de inversión: <span className="font-bold text-golden">{formatCurrency(planActivo)} USDT Activo</span></p>
@@ -942,8 +971,8 @@ export default function TestPage() {
                                 <p>Tu plan de inversión: No tienes un plan activo. Realiza una inversión para obtener uno.</p>
                             )}
                         </CardContent>
-                        {planActivo > 0 && (
-                            <CardFooter className="pt-4 flex-col items-start gap-2">
+                        {planActivo > 0 && profile?.estadoPlan !== 'vencido' && (
+                            <CardFooter className="pt-4 flex-col items-start gap-4">
                                 <div className="w-full space-y-1">
                                     <div className="flex justify-between text-xs text-muted-foreground">
                                         <span>Progreso de Retorno (Límite 300%)</span>
@@ -951,6 +980,16 @@ export default function TestPage() {
                                     </div>
                                     <Progress value={progress} className="h-2 [&>div]:bg-golden" />
                                 </div>
+
+                                {progress >= 100 && (
+                                    <Button
+                                        onClick={handleClaimCycle}
+                                        disabled={isClaiming}
+                                        className="w-full bg-gradient-to-r from-teal-500 to-cyan-600 text-white text-lg py-6 disabled:opacity-50"
+                                    >
+                                        {isClaiming ? 'Procesando...' : 'Ciclo Completado: Reclamar y Finalizar'}
+                                    </Button>
+                                )}
                             </CardFooter>
                         )}
                     </Card>

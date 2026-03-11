@@ -104,6 +104,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
       bonoDirecto: 0,
       bonoEntregado: false,
       fechaRegistro: new Date().toISOString(),
+      estadoPlan: 'activo',
     });
 
     const newWalletRef = adminDb.collection('wallet_addresses').doc(walletAddress);
@@ -362,5 +363,96 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
     }
     console.error('Error creating withdrawal token:', error);
     return { error: 'Ocurrió un error inesperado al generar el token.' };
+  }
+}
+
+export async function claimAndFinalizeCycle(userId: string): Promise<{success: true, message: string} | {error: string}> {
+  if (!userId) {
+    return { error: 'ID de usuario no proporcionado.' };
+  }
+
+  const userRef = adminDb.collection('users').doc(userId);
+
+  try {
+    const message = await adminDb.runTransaction(async (transaction) => {
+      const userSnap = await transaction.get(userRef);
+      if (!userSnap.exists) {
+        throw new Error('Usuario no encontrado.');
+      }
+      const userData = userSnap.data() as UserProfile;
+
+      const planActivo = userData.planActivo ?? 0;
+      if (planActivo <= 0) {
+        throw new Error('No hay un plan activo para reclamar.');
+      }
+
+      // This server-side logic must be consistent with the frontend calculation
+      let personalEarnings = 0;
+      const fechaInicioPlan = userData.fechaInicioPlan;
+      if (planActivo > 0 && fechaInicioPlan) {
+        const getDailyRate = (amount: number): number => {
+            if (amount >= 1001) return 0.025;
+            if (amount >= 501) return 0.020;
+            if (amount >= 101) return 0.018;
+            if (amount >= 20) return 0.015;
+            return 0;
+        };
+        
+        // Handle Firestore Timestamp object or ISO string
+        const dateValue = fechaInicioPlan as any;
+        const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
+
+        const now = new Date();
+        const diffTime = now.getTime() - startDate.getTime();
+        if (diffTime > 0) {
+          const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+          const dailyRate = getDailyRate(planActivo);
+          personalEarnings = planActivo * dailyRate * diffDays;
+        }
+      }
+      
+      const combinedEarnings = personalEarnings + (userData.bonoDirecto || 0);
+      const maxEarnings = planActivo * 3;
+      const finalEarnings = Math.min(combinedEarnings, maxEarnings);
+
+      if (finalEarnings < maxEarnings) {
+        throw new Error('Aún no has alcanzado el 300% de retorno para reclamar el ciclo.');
+      }
+      
+      if (userData.estadoPlan === 'vencido') {
+        throw new Error('Este ciclo ya ha sido reclamado y está vencido.');
+      }
+
+      const expirationDate = new Date();
+      expirationDate.setDate(expirationDate.getDate() + 3);
+
+      // Perform updates
+      transaction.update(userRef, {
+        saldoUSDT: admin.firestore.FieldValue.increment(finalEarnings),
+        planActivo: 0,
+        bonoDirecto: 0,
+        inversionAnterior: 0,
+        fechaInicioPlan: null,
+        estadoPlan: 'vencido',
+        fechaVencimiento: expirationDate.toISOString(),
+      });
+
+      // Create transaction record
+      const transactionRef = userRef.collection('transacciones').doc();
+      transaction.set(transactionRef, {
+        fecha: new Date().toISOString(),
+        tipo: 'Reclamo de Ciclo',
+        descripcion: `Ciclo de ${planActivo} USDT completado. Ganancias de ${finalEarnings.toFixed(2)} USDT añadidas al saldo.`,
+        monto: finalEarnings,
+      });
+
+      return `¡Ciclo completado! ${finalEarnings.toFixed(2)} USDT han sido añadidos a tu saldo.`;
+    });
+
+    return { success: true, message };
+
+  } catch (error: any) {
+    console.error(`Error en claimAndFinalizeCycle para el usuario ${userId}:`, error.message);
+    return { error: `Error del Servidor: ${error.message}` };
   }
 }

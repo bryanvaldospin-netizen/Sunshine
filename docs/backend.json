@@ -53,6 +53,10 @@
           "type": "number",
           "description": "The amount of the user's active investment plan in USDT. 0 if no active plan."
         },
+        "inversionAnterior": {
+          "type": "number",
+          "description": "Stores the value of the previous investment to calculate commissions on the difference when a plan is upgraded."
+        },
         "fechaInicioPlan": {
           "type": "string",
           "format": "date-time",
@@ -71,6 +75,16 @@
           "type": "string",
           "format": "date-time",
           "description": "The ISO 8601 timestamp of when the user account was created."
+        },
+        "estadoPlan": {
+          "type": "string",
+          "enum": ["activo", "vencido"],
+          "description": "Indica si el plan de inversión actual del usuario está activo o ha expirado después de alcanzar el retorno del 300%."
+        },
+        "fechaVencimiento": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Marca de tiempo de cuándo expira oficialmente el plan, dando al usuario un período de gracia para actualizar."
         }
       },
       "required": [

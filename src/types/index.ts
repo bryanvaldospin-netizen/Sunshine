@@ -14,6 +14,8 @@ export type UserProfile = {
   bonoDirecto: number;
   bonoEntregado: boolean | 'reclamado';
   fechaRegistro?: string;
+  estadoPlan?: 'activo' | 'vencido';
+  fechaVencimiento?: string | null;
 };
 
 export type DepositRequest = {
