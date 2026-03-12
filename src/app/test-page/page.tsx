@@ -46,7 +46,7 @@ const InvestmentPlansSection = () => {
     const { toast } = useToast();
     const [open, setOpen] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<{name: string, investment: string, dailyRate: string} | null>(null);
-    const walletAddress = '0xe37a298c740caf1411cbccda7b250a0664a00129';
+    const walletAddress = '0x471d4424e1016a256a8d13283522302cb020a4d2';
 
     const handleCopy = () => {
         navigator.clipboard.writeText(walletAddress);
