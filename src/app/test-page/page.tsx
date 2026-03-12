@@ -94,7 +94,7 @@ const InvestmentPlansSection = () => {
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                    <Label htmlFor="wallet-address">Billetera de Depósito (USDT - BEP20)</Label>
+                    <Label htmlFor="wallet-address">Billetera de Depósito (USDT - BEP-20)</Label>
                     <div className="flex items-center gap-2">
                         <Input id="wallet-address" readOnly value={walletAddress} className="bg-gray-700 border-gray-600 truncate text-sm"/>
                         <Button variant="outline" size="icon" onClick={handleCopy} className="border-golden text-golden hover:bg-golden/10 hover:text-golden flex-shrink-0">
@@ -813,8 +813,8 @@ export default function TestPage() {
   const statItems = useMemo(() => [
     { title: t('dashboard.totalInvestment'), value: stats.totalInvested, icon: PiggyBank },
     { title: t('dashboard.generatedEarnings'), value: stats.earnings, icon: TrendingUp },
-    { title: t('dashboard.totalWithdrawals'), value: stats.withdrawals, icon: CircleDollarSign },
-  ], [t, stats]);
+    { title: t('dashboard.totalWithdrawals'), value: profile?.saldoUSDT ?? 0, icon: CircleDollarSign },
+  ], [t, stats, profile]);
 
 
   const handleLogout = async () => {
@@ -943,6 +943,12 @@ export default function TestPage() {
                 <div className="text-center space-y-2">
                     <h1 className="text-3xl font-bold">{t('dashboard.greeting', { name: userName })}</h1>
                 </div>
+
+                <div className="text-center -my-4">
+                  <p className="text-xs text-golden/70 tracking-[0.2em] uppercase">
+                    ATENCIÓN AL CLIENTE: LUNES A VIERNES 10 AM - 12 AM | SÁBADO Y DOMINGO 12 PM - 12 AM
+                  </p>
+                </div>
                 
                 <div className="w-full max-w-5xl">
                   <Card className="bg-gray-800 border-golden text-white text-center">
@@ -960,12 +966,6 @@ export default function TestPage() {
                     </CardContent>
                   </Card>
                 </div>
-
-                {/* {profile && !authLoading && (
-                  <div className="w-full max-w-5xl">
-                    <DailyBonusCard user={profile} />
-                  </div>
-                )} */}
                 
                 <div className="w-full max-w-5xl">
                    {statsLoading ? (
