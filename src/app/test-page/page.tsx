@@ -750,7 +750,7 @@ export default function TestPage() {
       setStats({
         totalInvested: profile.planActivo ?? 0,
         earnings: totalEarnings,
-        withdrawals: 0, 
+        withdrawals: profile.saldoUSDT ?? 0,
       });
       setStatsLoading(false);
     } else if (!authLoading) {
