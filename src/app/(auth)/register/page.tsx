@@ -31,7 +31,7 @@ const formSchema = z.object({
   name: z.string().min(2, { message: 'El nombre debe tener al menos 2 caracteres.' }),
   email: z.string().email({ message: 'Por favor, introduce un email válido.' }),
   password: z.string().min(6, { message: 'La contraseña debe tener al menos 6 caracteres.' }),
-  walletAddress: z.string().min(20, { message: 'Por favor, introduce una dirección de billetera USDT (TRC-20) válida.' }),
+  walletAddress: z.string().min(20, { message: 'Por favor, introduce una dirección de billetera USDT (BEP-20) válida.' }),
   sponsorCode: z.string().optional(),
   terms: z.literal(true, {
     errorMap: () => ({ message: 'Debes aceptar los términos y condiciones.' }),

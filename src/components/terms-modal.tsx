@@ -29,7 +29,7 @@ export function TermsAndConditionsModal({ children }: { children: React.ReactNod
             <p>
               Los presentes Términos y Condiciones regulan la relación entre el usuario inversor
               (en adelante, "el Usuario") y Sunshine (en adelante, "la Plataforma") para la
-              realización de depósitos de inversión en USDT (Tether) a través de la red TRC-20.
+              realización de depósitos de inversión en USDT (Tether) a través de la red BEP-20.
             </p>
 
             <h3 className="font-bold text-foreground">2. Proceso de Depósito</h3>
@@ -39,7 +39,7 @@ export function TermsAndConditionsModal({ children }: { children: React.ReactNod
             </p>
             <p>
               <strong>2.2. Transferencia:</strong> El Usuario es el único responsable de realizar la transferencia del
-              monto exacto de USDT a la dirección de billetera TRC-20 proporcionada por la
+              monto exacto de USDT a la dirección de billetera BEP-20 proporcionada por la
               Plataforma. Errores en la dirección o la red de transferencia son de exclusiva
               responsabilidad del Usuario.
             </p>

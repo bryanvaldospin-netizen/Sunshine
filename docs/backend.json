@@ -47,7 +47,7 @@
         },
         "walletAddress": {
           "type": "string",
-          "description": "The user's unique USDT (TRC-20) wallet address, used to prevent multi-accounting."
+          "description": "The user's unique USDT (BEP-20) wallet address, used to prevent multi-accounting."
         },
         "planActivo": {
           "type": "number",

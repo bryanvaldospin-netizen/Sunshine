@@ -90,11 +90,11 @@ const InvestmentPlansSection = () => {
                 <DialogHeader>
                     <DialogTitle>Realizar Depósito para Plan {selectedPlan?.name}</DialogTitle>
                     <DialogDescription>
-                        Transfiere el monto a la billetera USDT (TRC-20) y luego haz clic para completar tu solicitud.
+                        Transfiere el monto a la billetera USDT (BEP-20) y luego haz clic para completar tu solicitud.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
-                    <Label htmlFor="wallet-address">Billetera de Depósito (USDT - TRC20)</Label>
+                    <Label htmlFor="wallet-address">Billetera de Depósito (USDT - BEP20)</Label>
                     <div className="flex items-center gap-2">
                         <Input id="wallet-address" readOnly value={walletAddress} className="bg-gray-700 border-gray-600 truncate text-sm"/>
                         <Button variant="outline" size="icon" onClick={handleCopy} className="border-golden text-golden hover:bg-golden/10 hover:text-golden flex-shrink-0">

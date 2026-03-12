@@ -88,7 +88,7 @@ export default function ProfilePage() {
                   <li><strong className="text-gray-400 font-medium w-40 inline-block">Nombre:</strong> {user.name}</li>
                   <li><strong className="text-gray-400 font-medium w-40 inline-block">Correo:</strong> {user.email}</li>
                   <li className="flex items-center">
-                      <strong className="text-gray-400 font-medium w-40 inline-block flex-shrink-0">Billetera de Retiro (TRC-20):</strong>
+                      <strong className="text-gray-400 font-medium w-40 inline-block flex-shrink-0">Billetera de Retiro (BEP-20):</strong>
                       {user.walletAddress ? (
                           <div className="flex items-center min-w-0 flex-1">
                               <span className="font-mono text-white truncate" title={user.walletAddress}>{user.walletAddress}</span>

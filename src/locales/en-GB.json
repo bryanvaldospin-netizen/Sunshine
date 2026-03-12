@@ -26,7 +26,7 @@
   "dashboard": {
     "balance": "Current Balance",
     "depositTitle": "Investment Deposit",
-    "usdtAddress": "Your USDT Wallet Address (TRC-20)",
+    "usdtAddress": "Your USDT Wallet Address (BEP-20)",
     "copy": "Copy",
     "amount": "USDT Amount",
     "proof": "Upload Transfer Proof",
