@@ -655,7 +655,8 @@ export default function TestPage() {
   const [statsLoading, setStatsLoading] = useState(true);
   const [chartData, setChartData] = useState<any[]>([]);
   const [totalEarnings, setTotalEarnings] = useState(0);
-  const [isClaiming, setIsClaiming] = useState(false);
+  const [isAutoClaiming, setIsAutoClaiming] = useState(false);
+  const [countdown, setCountdown] = useState('');
   
   // Network state moved to parent
   const [directReferrals, setDirectReferrals] = useState<UserProfile[]>([]);
@@ -825,36 +826,6 @@ export default function TestPage() {
     }
   };
 
-  const handleClaimCycle = async () => {
-    if (!profile) return;
-    setIsClaiming(true);
-    try {
-        const result = await claimAndFinalizeCycle(profile.uid);
-
-        if (result && result.success) {
-            toast({
-                title: '¡Ciclo Reclamado!',
-                description: result.message,
-            });
-        } else {
-            toast({
-                variant: 'destructive',
-                title: 'Error al Reclamar',
-                description: result?.error || 'Ocurrió un error inesperado al reclamar el ciclo.',
-            });
-        }
-    } catch(e) {
-        console.error("Error in handleClaimCycle:", e);
-        toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: 'No se pudo conectar con el servidor. Inténtalo de nuevo.'
-        });
-    } finally {
-        setIsClaiming(false);
-    }
-  };
-
   const balance = profile?.saldoUSDT ?? 0;
   const userName = profile?.name || t('dashboard.investor');
   const planActivo = profile?.planActivo ?? 0;
@@ -862,6 +833,71 @@ export default function TestPage() {
   const formattedBalance = formatCurrency(balance);
   
   const progress = planActivo > 0 ? (totalEarnings / (planActivo * 3)) * 100 : 0;
+
+  // Effect for Countdown
+  useEffect(() => {
+    if (profile?.estadoPlan !== 'vencido' || !profile.fechaVencimiento) {
+      setCountdown('');
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      const expiration = new Date(profile.fechaVencimiento!).getTime();
+      const distance = expiration - now;
+
+      if (distance < 0) {
+        setCountdown('Tu período de gracia ha expirado.');
+        clearInterval(interval);
+        return;
+      }
+
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+      setCountdown(`${days}d ${hours}h ${minutes}m ${seconds}s`);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [profile]);
+  
+  // Effect for Automatic Cycle Claim
+  useEffect(() => {
+    if (progress >= 100 && profile && profile.estadoPlan !== 'vencido' && !isAutoClaiming) {
+      const autoClaim = async () => {
+        setIsAutoClaiming(true); // Prevent multiple calls
+        toast({
+          title: '¡Ciclo Completado!',
+          description: 'Procesando tu reclamo final automáticamente...',
+        });
+        try {
+          const result = await claimAndFinalizeCycle(profile.uid);
+          if (result?.success) {
+            toast({
+              title: '¡Ciclo Reclamado y Finalizado!',
+              description: result.message,
+            });
+          } else {
+            toast({
+              variant: 'destructive',
+              title: 'Error en Reclamo Automático',
+              description: result?.error || 'No se pudo procesar el reclamo.',
+            });
+          }
+        } catch (e) {
+          console.error("Error in autoClaim:", e);
+          toast({
+            variant: 'destructive',
+            title: 'Error de Conexión',
+            description: 'No se pudo conectar con el servidor para el reclamo automático.',
+          });
+        }
+      };
+      autoClaim();
+    }
+  }, [progress, profile, isAutoClaiming, toast]);
 
   const chartConfig = {
     balance: {
@@ -965,10 +1001,15 @@ export default function TestPage() {
                                <Skeleton className="h-20 w-full bg-gray-700" />
                             ) : profile?.estadoPlan === 'vencido' ? (
                                 <div className="p-4 text-center bg-red-900/50 border border-red-700 rounded-lg">
-                                    <p className="font-bold text-amber-400">Tu plan ha vencido.</p>
-                                    <p className="text-sm text-gray-300">
-                                        Tienes hasta el {profile.fechaVencimiento ? new Date(profile.fechaVencimiento).toLocaleDateString('es-ES') : 'pronto'} para activar un nuevo plan y seguir generando ganancias.
+                                    <p className="font-bold text-lg text-amber-400">¡CICLO COMPLETADO!</p>
+                                    <p className="text-sm text-gray-300 mt-2">
+                                        Tienes 3 días para incrementar tu plan o tu cuenta se cerrará.
                                     </p>
+                                    {profile.fechaVencimiento ? (
+                                        <p className="text-2xl font-mono font-bold text-white mt-3">{countdown}</p>
+                                    ) : (
+                                        <p className="text-sm text-gray-400 mt-2">Calculando tiempo restante...</p>
+                                    )}
                                 </div>
                             ) : planActivo > 0 ? (
                                 <div className="space-y-2">
@@ -990,16 +1031,6 @@ export default function TestPage() {
                                     </div>
                                     <Progress value={progress} className="h-2 [&>div]:bg-golden" />
                                 </div>
-
-                                {progress >= 100 && (
-                                    <Button
-                                        onClick={handleClaimCycle}
-                                        disabled={isClaiming}
-                                        className="w-full bg-gradient-to-r from-teal-500 to-cyan-600 text-white text-lg py-6 disabled:opacity-50"
-                                    >
-                                        {isClaiming ? 'Procesando...' : 'Ciclo Completado: Reclamar y Finalizar'}
-                                    </Button>
-                                )}
                             </CardFooter>
                         )}
                     </Card>
