@@ -45,7 +45,7 @@ export default function ProfilePage() {
     currency: 'USD',
   }).format(value);
 
-  const supportEmail = 'bryan_valdospin@hotmail.com';
+  const supportEmail = 'sunshinenteprise@gmail.com';
   const supportSubject = 'Soporte Sunshine - Ayuda con mi cuenta';
 
   if (authLoading) {
