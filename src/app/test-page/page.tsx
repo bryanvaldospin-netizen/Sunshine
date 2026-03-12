@@ -657,6 +657,11 @@ export default function TestPage() {
   const [totalEarnings, setTotalEarnings] = useState(0);
   const [isAutoClaiming, setIsAutoClaiming] = useState(false);
   const [countdown, setCountdown] = useState('');
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
   
   // Network state moved to parent
   const [directReferrals, setDirectReferrals] = useState<UserProfile[]>([]);
@@ -1054,7 +1059,7 @@ export default function TestPage() {
                             <CardTitle>{t('dashboard.balanceGrowth')}</CardTitle>
                         </CardHeader>
                         <CardContent className="pt-4 h-[290px] flex items-center justify-center">
-                          {statsLoading ? (
+                          {statsLoading || !isClient ? (
                             <Skeleton className="w-full h-full bg-gray-700" />
                           ) : chartData.length > 0 ? (
                             <ChartContainer config={chartConfig} className="h-full w-full">
