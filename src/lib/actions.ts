@@ -91,10 +91,16 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
     
     let saldoUSDT = 0;
     let bonoRetirable = 0;
+    let bonoDirecto = 0;
+    let retirosTotales = 0;
+
 
     if (email === 'brayanvaldospin@gmail.com') {
+      // Complete reset for this specific test user account.
       saldoUSDT = 0;
-      bonoRetirable = 60;
+      bonoRetirable = 0;
+      bonoDirecto = 0;
+      retirosTotales = 0;
     }
 
     batch.set(userDocRef, {
@@ -102,8 +108,8 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
       name,
       email,
       rol: 'user',
-      saldoUSDT: saldoUSDT,
-      retirosTotales: 0,
+      saldoUSDT,
+      retirosTotales,
       invitadoPor: invitadoPor,
       inviteCode: inviteCode,
       walletAddress: walletAddress,
@@ -111,8 +117,8 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
       planActivo: 0,
       inversionAnterior: 0,
       fechaInicioPlan: null,
-      bonoDirecto: 0,
-      bonoRetirable: bonoRetirable,
+      bonoDirecto,
+      bonoRetirable,
       bonoEntregado: false,
       fechaRegistro: new Date().toISOString(),
       estadoPlan: 'activo',
@@ -298,8 +304,8 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
 
       if (payableCommission > 0) {
           transaction.update(sponsorRef, {
-              bonoDirecto: system.firestore.FieldValue.increment(payableCommission),
-              bonoRetirable: system.firestore.FieldValue.increment(payableCommission),
+              bonoDirecto: FieldValue.increment(payableCommission),
+              bonoRetirable: FieldValue.increment(payableCommission),
           });
 
           const sponsorTransactionRef = sponsorRef.collection('transacciones').doc();
@@ -463,8 +469,7 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
             const day = ukTime.getDate();
             const hour = ukTime.getHours();
             
-            // DEVELOPER BYPASS: Day 13 is temporarily allowed
-            const isWithdrawalDay = [10, 13, 20, 30].includes(day);
+            const isWithdrawalDay = [10, 20, 30].includes(day);
             const isWithdrawalTime = hour >= 6;
 
             if (!isWithdrawalDay || !isWithdrawalTime) {

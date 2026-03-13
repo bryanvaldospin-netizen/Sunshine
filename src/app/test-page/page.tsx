@@ -48,7 +48,7 @@ const InvestmentPlansSection = () => {
     const { toast } = useToast();
     const [open, setOpen] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<{name: string, investment: string, dailyRate: string} | null>(null);
-    const walletAddress = '0x471d4424e1016a256a8d13283522302cb020a4d2';
+    const walletAddress = '0x471d4424e1016a256a2d13283522302cb020a4d2';
 
     const handleCopy = () => {
         navigator.clipboard.writeText(walletAddress);
@@ -188,6 +188,11 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [level2Data, setLevel2Data] = useState<Record<string, { referrals: UserProfile[]; loading: boolean }>>({});
 
+  const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(value);
+
   const handleToggleRow = async (referralId: string) => {
     const isCurrentlyExpanded = !!expandedRows[referralId];
     setExpandedRows(prev => ({ ...prev, [referralId]: !isCurrentlyExpanded }));
@@ -287,21 +292,27 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
     return <div className="p-4 md:p-8"><Skeleton className="h-96 w-full bg-gray-800" /></div>
   }
 
-  const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(value);
-
   return (
     <div className="p-4 md:p-8 space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="bg-gray-800 border-gray-700 text-white">
           <CardHeader>
-            <CardTitle className="text-lg">Bono Directo Acumulado</CardTitle>
-            <CardDescription>10% de las inversiones de tus referidos directos.</CardDescription>
+            <CardTitle className="text-lg">Estado de Bonos de Red</CardTitle>
+            <CardDescription>Ganancias totales y saldo disponible para retiro.</CardDescription>
           </CardHeader>
-          <CardContent>
-            {networkLoading ? <Skeleton className="h-10 w-24 bg-gray-700" /> : <p className="text-4xl font-bold text-green-400">{formatCurrency(user?.bonoDirecto || 0)}</p>}
+          <CardContent className="space-y-2 pt-2">
+            {networkLoading ? <Skeleton className="h-16 w-full bg-gray-700" /> : 
+            <>
+                <div className="flex justify-between items-baseline">
+                    <span className="text-sm text-muted-foreground">Ganado (Histórico):</span>
+                    <p className="text-xl font-bold text-white">{formatCurrency(user?.bonoDirecto || 0)}</p>
+                </div>
+                <div className="flex justify-between items-baseline">
+                    <span className="text-sm text-muted-foreground">Disponible (Retirable):</span>
+                    <p className="text-xl font-bold text-green-400">{formatCurrency(user?.bonoRetirable || 0)}</p>
+                </div>
+            </>
+            }
           </CardContent>
         </Card>
         <Card className="bg-gray-800 border-gray-700 text-white">
@@ -700,8 +711,7 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
             const day = nowInLondon.getDate();
             const hour = nowInLondon.getHours();
             
-            // DEVELOPER BYPASS: Day 13 is temporarily allowed
-            const isOpen = [10, 13, 20, 30].includes(day) && hour >= 6;
+            const isOpen = [10, 20, 30].includes(day) && hour >= 6;
             setIsWindowOpen(isOpen);
         } catch (e) {
             console.error("Could not determine London time.", e);
