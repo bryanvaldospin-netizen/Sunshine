@@ -454,7 +454,6 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
             
             transaction.update(userRef, {
                 bonoRetirable: FieldValue.increment(-amount),
-                saldoUSDT: FieldValue.increment(-amount),
                 retirosTotales: FieldValue.increment(amount),
             });
 
@@ -473,17 +472,21 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
             }
             
             const earnedAmount = await calculateProgressiveEarnings(systemDb, dbUser, now);
+            
+            transaction.update(userRef, {
+                saldoUSDT: FieldValue.increment(earnedAmount),
+                lastConsolidation: now.toISOString(),
+            });
+            
             const consolidatedSaldoUSDT = (dbUser.saldoUSDT ?? 0) + earnedAmount;
             
-            const mainBalance = consolidatedSaldoUSDT;
-            if (amount > mainBalance) {
-                throw new Error(`Saldo actual insuficiente. Disponible: ${mainBalance.toFixed(2)} USDT.`);
+            if (amount > consolidatedSaldoUSDT) {
+                throw new Error(`Saldo actual insuficiente. Disponible: ${consolidatedSaldoUSDT.toFixed(2)} USDT.`);
             }
 
             transaction.update(userRef, {
-                saldoUSDT: FieldValue.increment(earnedAmount - amount),
+                saldoUSDT: FieldValue.increment(-amount),
                 retirosTotales: FieldValue.increment(amount),
-                lastConsolidation: now.toISOString(),
             });
         }
         
@@ -599,5 +602,44 @@ export async function getSecondLevelReferrals(directReferralId: string): Promise
   } catch (error: any) {
     console.error('Error al buscar referidos de segundo nivel:', error);
     return { success: false, error: 'Error del servidor al procesar la solicitud.', data: [] };
+  }
+}
+
+export async function cleanseUserBalances(): Promise<{success: true, message: string} | {error: string}> {
+  try {
+    const usersCollectionRef = systemDb.collection('users');
+    const usersSnapshot = await usersCollectionRef.get();
+
+    if (usersSnapshot.empty) {
+      return { success: true, message: 'No se encontraron usuarios para limpiar.' };
+    }
+
+    const batch = systemDb.batch();
+    let cleansedUsersCount = 0;
+
+    for (const userDoc of usersSnapshot.docs) {
+      const userData = userDoc.data() as UserProfile;
+      
+      const saldo = userData.saldoUSDT ?? 0;
+      const bono = userData.bonoRetirable ?? -1; // Use a non-matching default
+      const plan = userData.planActivo ?? 0;
+
+      // The condition: saldo is positive, equals the bonus, and there's no active investment plan.
+      if (saldo > 0 && saldo === bono && plan === 0) {
+        batch.update(userDoc.ref, { saldoUSDT: 0 });
+        cleansedUsersCount++;
+      }
+    }
+
+    if (cleansedUsersCount > 0) {
+        await batch.commit();
+        return { success: true, message: `Limpieza completada. Se corrigieron los saldos de ${cleansedUsersCount} usuarios.` };
+    } else {
+        return { success: true, message: 'No se encontraron usuarios que requieran limpieza. Todos los saldos son correctos.' };
+    }
+    
+  } catch (error: any) {
+    console.error('Error limpiando los saldos de usuario:', error);
+    return { error: 'Falló la limpieza de saldos: ' + error.message };
   }
 }

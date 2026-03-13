@@ -11,7 +11,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { syncInviteCodes } from '@/lib/actions';
+import { syncInviteCodes, cleanseUserBalances } from '@/lib/actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 
@@ -40,6 +40,16 @@ export default function ProfilePage() {
     }
   };
   
+  const handleCleanse = async () => {
+    toast({ title: "Limpiando Saldos...", description: "Corrigiendo balances de usuarios existentes. Esto puede tardar un momento." });
+    const result = await cleanseUserBalances();
+    if (result.error) {
+        toast({ variant: 'destructive', title: "Error en la Limpieza", description: result.error });
+    } else if (result.success) {
+        toast({ title: "Limpieza Completada", description: result.message });
+    }
+  };
+
   const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -154,13 +164,25 @@ export default function ProfilePage() {
             </Select>
           </div>
 
-           <div className="border-t border-gray-700 mt-4 pt-4">
-              <Button onClick={handleSync} variant="outline" className="w-full border-amber-600 text-amber-600 hover:bg-amber-600/10 hover:text-amber-500">
-                  Sincronizar Códigos Antiguos
-              </Button>
-              <p className="text-xs text-muted-foreground mt-2 text-center">
-                  Usa este botón una sola vez para migrar los códigos de invitación de usuarios existentes al nuevo sistema.
-              </p>
+           <div className="border-t border-gray-700 mt-4 pt-4 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <Button onClick={handleSync} variant="outline" className="w-full border-amber-600 text-amber-600 hover:bg-amber-600/10 hover:text-amber-500">
+                        Sincronizar Códigos Antiguos
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-2 text-center">
+                        Migra códigos de invitación de usuarios existentes al nuevo sistema. Usar solo una vez.
+                    </p>
+                </div>
+                 <div>
+                    <Button onClick={handleCleanse} variant="outline" className="w-full border-red-600 text-red-600 hover:bg-red-600/10 hover:text-red-500">
+                        Limpiar Saldos Duplicados
+                    </Button>
+                    <p className="text-xs text-muted-foreground mt-2 text-center">
+                        Corrige balances de usuarios existentes donde el bono se duplicó con el saldo.
+                    </p>
+                </div>
+              </div>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
