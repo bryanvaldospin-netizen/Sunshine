@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -15,9 +15,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon, User as UserIcon, Wallet, Info } from 'lucide-react';
+import { Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon, User as UserIcon, Wallet, Info, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { collection, query, where, onSnapshot, doc, updateDoc, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -183,6 +183,34 @@ const DailyBonusCard = ({ user }: { user: UserProfile }) => {
 const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserProfile | null, directReferrals: UserProfile[], networkLoading: boolean }) => {
   const { toast } = useToast();
   const [claiming, setClaiming] = useState<Record<string, boolean>>({});
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+  const [level2Data, setLevel2Data] = useState<Record<string, { referrals: UserProfile[]; loading: boolean }>>({});
+
+  const handleToggleRow = async (referralId: string) => {
+    const isCurrentlyExpanded = !!expandedRows[referralId];
+    setExpandedRows(prev => ({ ...prev, [referralId]: !isCurrentlyExpanded }));
+
+    if (!isCurrentlyExpanded && !level2Data[referralId]) {
+      setLevel2Data(prev => ({ ...prev, [referralId]: { referrals: [], loading: true } }));
+      try {
+        const l2Query = query(collection(db, 'users'), where('invitadoPor', '==', referralId));
+        const snapshot = await getDocs(l2Query);
+        const l2ReferralsData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
+        setLevel2Data(prev => ({
+          ...prev,
+          [referralId]: { referrals: l2ReferralsData, loading: false }
+        }));
+      } catch (error) {
+        console.error("Error fetching L2 referrals:", error);
+        toast({ variant: 'destructive', title: "Error de Red", description: "No se pudo cargar la red de segundo nivel." });
+        setLevel2Data(prev => ({
+          ...prev,
+          [referralId]: { referrals: [], loading: false }
+        }));
+      }
+    }
+  };
+
 
   const handleClaimBonus = async (referralId: string) => {
     if (!user) return;
@@ -302,7 +330,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserPro
       <Card className="bg-gray-800 border-gray-700 text-white">
         <CardHeader>
             <CardTitle>Mis Invitados Directos</CardTitle>
-            <CardDescription>Lista de usuarios que se han registrado con tu código. Reclama tu bono cuando activen un plan.</CardDescription>
+            <CardDescription>Lista de usuarios que se han registrado con tu código. Haz clic en un nombre para ver su red.</CardDescription>
         </CardHeader>
         <CardContent>
             <Table>
@@ -323,15 +351,21 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserPro
                         ))
                     ) : directReferrals.length > 0 ? (
                         directReferrals.map((ref) => (
-                            <TableRow key={ref.uid} className="border-gray-700 hover:bg-gray-700/50">
-                                <TableCell className="font-medium">{ref.name}</TableCell>
-                                <TableCell className="text-muted-foreground">{ref.email}</TableCell>
-                                <TableCell>
-                                    <Badge className={(ref.planActivo ?? 0) > 0 ? 'bg-green-600 text-white' : 'bg-gray-600 text-white'}>
-                                        {(ref.planActivo ?? 0) > 0 ? formatCurrency(ref.planActivo ?? 0) : 'Inactivo'}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell className="text-right">
+                            <Fragment key={ref.uid}>
+                                <TableRow data-state={expandedRows[ref.uid] ? 'open' : 'closed'} className="border-b border-gray-700 hover:bg-gray-700/50">
+                                    <TableCell className="font-medium">
+                                        <button onClick={() => handleToggleRow(ref.uid)} className="flex items-center gap-2 text-left w-full">
+                                            <ChevronRight className={`h-4 w-4 transition-transform ${expandedRows[ref.uid] ? 'rotate-90' : ''}`} />
+                                            {ref.name}
+                                        </button>
+                                    </TableCell>
+                                    <TableCell className="text-muted-foreground">{ref.email}</TableCell>
+                                    <TableCell>
+                                        <Badge className={(ref.planActivo ?? 0) > 0 ? 'bg-green-600 text-white' : 'bg-gray-600 text-white'}>
+                                            {(ref.planActivo ?? 0) > 0 ? formatCurrency(ref.planActivo ?? 0) : 'Inactivo'}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right">
                                     {(() => {
                                         if (ref.bonoEntregado === 'reclamado') {
                                             return <span className="text-green-400 font-semibold text-sm">Cobrado ✅</span>;
@@ -377,7 +411,45 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserPro
                                         return <span className="text-xs text-gray-500">Sin plan</span>;
                                     })()}
                                 </TableCell>
-                            </TableRow>
+                                </TableRow>
+                                {expandedRows[ref.uid] && (
+                                    <TableRow className="bg-black/20">
+                                        <TableCell colSpan={4} className="p-0">
+                                            <div className="p-4 mx-4 my-2 bg-gray-900/50 rounded-lg">
+                                                <h4 className="text-sm font-semibold mb-2 text-gray-300">Red de {ref.name} (Nivel 2)</h4>
+                                                {level2Data[ref.uid]?.loading ? (
+                                                    <Skeleton className="h-10 w-full bg-gray-700/50" />
+                                                ) : level2Data[ref.uid]?.referrals.length > 0 ? (
+                                                    <Table>
+                                                        <TableHeader>
+                                                            <TableRow className="border-gray-700 hover:bg-gray-800/50">
+                                                                <TableHead className="text-white/70">Nombre</TableHead>
+                                                                <TableHead className="text-white/70">Email</TableHead>
+                                                                <TableHead className="text-right text-white/70">Plan Activo</TableHead>
+                                                            </TableRow>
+                                                        </TableHeader>
+                                                        <TableBody>
+                                                            {level2Data[ref.uid].referrals.map(l2ref => (
+                                                                <TableRow key={l2ref.uid} className="border-gray-800 hover:bg-gray-800/50">
+                                                                    <TableCell className="font-medium text-sm">{l2ref.name}</TableCell>
+                                                                    <TableCell className="text-muted-foreground text-sm">{l2ref.email}</TableCell>
+                                                                    <TableCell className="text-right">
+                                                                        <Badge variant="outline" className={(l2ref.planActivo ?? 0) > 0 ? 'border-green-600 text-green-400' : 'border-gray-600 text-gray-400'}>
+                                                                            {(l2ref.planActivo ?? 0) > 0 ? formatCurrency(l2ref.planActivo ?? 0) : 'Inactivo'}
+                                                                        </Badge>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            ))}
+                                                        </TableBody>
+                                                    </Table>
+                                                ) : (
+                                                    <p className="text-sm text-muted-foreground text-center py-4">Este usuario aún no tiene invitados.</p>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </Fragment>
                         ))
                     ) : (
                         <TableRow>
