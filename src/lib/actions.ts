@@ -176,7 +176,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
 }
 
 export async function getWalletAddress() {
-  return process.env.USDT_WALLET_ADDRESS || '0x471d4424e1016a256a8d13283522302cb020a4d2';
+  return process.env.USDT_WALLET_ADDRESS || '0x471d4424e1016a256a2d13283522302cb020a4d2';
 }
 
 export async function syncInviteCodes() {
@@ -397,7 +397,7 @@ async function calculateProgressiveEarnings(db: system.firestore.Firestore, user
         const calculationStartDate = startDate > lastConsolidationDate ? startDate : lastConsolidationDate;
         const diffTime = consolidationTime.getTime() - calculationStartDate.getTime();
         if (diffTime > 0) {
-            const diffDays = diffTime / (1000 * 60 * 60 * 24);
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
             const dailyRate = getDailyRate(planActivo);
             const earnedROI = planActivo * dailyRate * diffDays;
             totalEarned += earnedROI;
@@ -416,7 +416,7 @@ async function calculateProgressiveEarnings(db: system.firestore.Firestore, user
                     const calculationStartDate = refStartDate > lastConsolidationDate ? refStartDate : lastConsolidationDate;
                     const diffTime = consolidationTime.getTime() - calculationStartDate.getTime();
                     if (diffTime > 0) {
-                        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                         const dailyBonus = (refData.planActivo ?? 0) * 0.01;
                         residualBonus += dailyBonus * diffDays;
                     }
