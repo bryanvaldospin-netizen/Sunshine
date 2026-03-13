@@ -448,17 +448,19 @@ export async function claimAndFinalizeCycle(userId: string): Promise<{success: t
         throw new Error('Aún no has alcanzado el 300% de retorno para reclamar el ciclo.');
       }
 
-      const amountToClaim = finalEarnings - (userData.bonoDirecto || 0);
+      // This is the amount of earnings from the plan itself to be claimed
+      const amountToClaimFromPlan = finalEarnings - (userData.bonoDirecto || 0);
       
-      // Aseguramos que el balance final no exceda el 300%
+      // Calculate the final balance, ensuring it doesn't exceed the 300% cap
       const currentBalance = userData.saldoUSDT || 0;
-      const newBalance = currentBalance + amountToClaim;
+      const finalBalance = Math.min(currentBalance + amountToClaimFromPlan, maxEarnings);
+      const actualAmountAdded = finalBalance - currentBalance;
 
       const expirationDate = new Date();
       expirationDate.setDate(expirationDate.getDate() + 3);
 
       transaction.update(userRef, {
-        saldoUSDT: newBalance,
+        saldoUSDT: finalBalance,
         planActivo: 0,
         bonoDirecto: 0,
         inversionAnterior: 0,
@@ -471,8 +473,8 @@ export async function claimAndFinalizeCycle(userId: string): Promise<{success: t
       transaction.set(transactionRef, {
         fecha: new Date().toISOString(),
         tipo: 'Reclamo de Ciclo',
-        descripcion: `Ciclo de ${planActivo} USDT completado. Reclamo final de ${amountToClaim.toFixed(2)} USDT.`,
-        monto: amountToClaim,
+        descripcion: `Ciclo de ${planActivo} USDT completado. Reclamo final de ${actualAmountAdded.toFixed(2)} USDT.`,
+        monto: actualAmountAdded,
       });
 
       return '¡Ciclo completado con éxito!';
@@ -500,25 +502,14 @@ export async function getSecondLevelReferrals(directReferralId: string): Promise
 
     const l2Referrals = l2QuerySnapshot.docs.map(doc => {
       const data = doc.data();
+      // Create a plain object with only the required, serializable fields.
+      // This prevents complex Firestore objects from being sent to the client.
       return {
         uid: doc.id,
-        name: data.name,
-        email: data.email,
+        name: data.name || '',
+        email: data.email || '',
         planActivo: data.planActivo ?? 0,
-        rol: data.rol,
-        saldoUSDT: data.saldoUSDT,
-        invitadoPor: data.invitadoPor,
-        inviteCode: data.inviteCode,
-        ultimoCheckIn: data.ultimoCheckIn,
-        walletAddress: data.walletAddress,
-        inversionAnterior: data.inversionAnterior,
-        fechaInicioPlan: data.fechaInicioPlan,
-        bonoDirecto: data.bonoDirecto,
-        bonoEntregado: data.bonoEntregado,
-        fechaRegistro: data.fechaRegistro,
-        estadoPlan: data.estadoPlan,
-        fechaVencimiento: data.fechaVencimiento,
-      } as UserProfile;
+      } as UserProfile; // Cast to satisfy the function signature. The client only needs these fields.
     });
 
     return { success: true, data: l2Referrals };
