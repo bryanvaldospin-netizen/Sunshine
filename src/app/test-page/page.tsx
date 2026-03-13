@@ -468,7 +468,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
             </Table>
         </CardContent>
     </Card>
-
+      
       <Card className="bg-gray-800 border-gray-700 text-white">
         <CardHeader>
             <CardTitle>Bono Residual Primario</CardTitle>
@@ -483,7 +483,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
                         <span className="text-4xl font-bold text-cyan-400">{formatCurrency(primaryResidualBonus)}</span>
                         <Badge className="bg-green-600 text-white">ACTIVO</Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground">Este es el total acumulado del 1% de la inversión de tus directos con plan activo (>= $20).</p>
+                    <p className="text-xs text-muted-foreground">Este es el total acumulado del 1% de la inversión de tus directos con plan activo (>= $20) y contrato vigente.</p>
                 </div>
             ) : (
                 <div className="text-center p-4 rounded-lg bg-gray-900/50">
@@ -492,6 +492,56 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
             )}
         </CardContent>
       </Card>
+      
+      <Card className="bg-gray-800 border-gray-700 text-white" data-ai-hint="residualStatusMonitor">
+        <CardHeader>
+          <CardTitle>Desglose de Bono Residual Primario</CardTitle>
+          <CardDescription>Monitorea el estado de la contribución de cada referido directo.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow className="border-gray-700 hover:bg-gray-800">
+                <TableHead className="text-white">Referido</TableHead>
+                <TableHead className="text-white">Bono Aportado</TableHead>
+                <TableHead className="text-right text-white">Estado del Contrato</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {networkLoading ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                  <TableRow key={i} className="border-gray-700">
+                    <TableCell colSpan={3}><Skeleton className="h-8 w-full bg-gray-700"/></TableCell>
+                  </TableRow>
+                ))
+              ) : directReferrals.length > 0 ? (
+                directReferrals.map((ref) => {
+                  const isContractActive = ref.estadoPlan !== 'vencido';
+                  const bonusContribution = isContractActive && (ref.planActivo ?? 0) >= 20 ? (ref.planActivo ?? 0) * 0.01 : 0;
+                  return (
+                    <TableRow key={ref.uid} className="border-gray-700 hover:bg-gray-700/50">
+                      <TableCell className="font-medium text-sm">{ref.email}</TableCell>
+                      <TableCell className="font-mono text-cyan-400">{formatCurrency(bonusContribution)}</TableCell>
+                      <TableCell className="text-right">
+                        <Badge className={isContractActive ? 'bg-green-600 text-white' : 'bg-red-800 text-white'}>
+                          {isContractActive ? 'Activo' : 'Límite Alcanzado'}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
+                    No tienes referidos directos que califiquen para este bono.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
 
       <Card className="bg-gray-800 border-gray-700 text-white">
         <CardHeader>
@@ -885,9 +935,9 @@ export default function TestPage() {
     if (!profile || (profile.planActivo ?? 0) < 101 || networkLoading) {
         return 0;
     }
-    // Earn 1% from direct referrals with plan >= $20
+    // Earn 1% from direct referrals with plan >= $20 AND an active contract
     return directReferrals.reduce((total, ref) => {
-        if ((ref.planActivo ?? 0) >= 20) {
+        if ((ref.planActivo ?? 0) >= 20 && ref.estadoPlan !== 'vencido') {
             return total + (ref.planActivo! * 0.01);
         }
         return total;
@@ -928,7 +978,7 @@ export default function TestPage() {
 
     setTotalEarnings(finalEarnings);
 
-  }, [profile, primaryResidualBonus]);
+  }, [profile, primaryResidualBonus, directReferrals]);
   
 
   // Effect for Stats, based on real-time profile and total earnings
@@ -1013,9 +1063,9 @@ export default function TestPage() {
     }
   };
 
-  const personalEarningsComponent = Math.max(0, totalEarnings - (profile?.bonoDirecto ?? 0));
+  const personalEarningsComponent = Math.max(0, totalEarnings - ((profile?.bonoDirecto ?? 0) + primaryResidualBonus));
   const referralBonus = profile?.bonoRetirable ?? 0;
-  const mainBalance = ((profile?.saldoUSDT ?? 0) + personalEarningsComponent + primaryResidualBonus) - referralBonus;
+  const mainBalance = (profile?.saldoUSDT ?? 0);
   
   const userName = profile?.name || t('dashboard.investor');
   const planActivo = profile?.planActivo ?? 0;
