@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import type { UserProfile, Transaction } from '@/types';
-import { processInitialBonus, createWithdrawalToken, claimAndFinalizeCycle, getSecondLevelReferrals, syncInviteCodes } from '@/lib/actions';
+import { processInitialBonus, createWithdrawalToken, claimAndFinalizeCycle, getSecondLevelReferrals, syncInviteCodes, cleanseUserBalances } from '@/lib/actions';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -187,6 +187,36 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
   const [claiming, setClaiming] = useState<Record<string, boolean>>({});
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [level2Data, setLevel2Data] = useState<Record<string, { referrals: UserProfile[]; loading: boolean }>>({});
+  const [bonusContributions, setBonusContributions] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (networkLoading || directReferrals.length === 0) {
+      setBonusContributions({});
+      return;
+    }
+
+    const contributions: Record<string, number> = {};
+    const now = new Date();
+
+    directReferrals.forEach((ref) => {
+      let contribution = 0;
+      const isContractActive = ref.estadoPlan !== 'vencido';
+      if (isContractActive && (ref.planActivo ?? 0) >= 20 && ref.fechaInicioPlan) {
+          const dateValue = ref.fechaInicioPlan as any;
+          const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
+          if (!isNaN(startDate.getTime())) {
+              const diffTime = now.getTime() - startDate.getTime();
+              if (diffTime > 0) {
+                  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                  const dailyBonus = (ref.planActivo ?? 0) * 0.01;
+                  contribution = dailyBonus * diffDays;
+              }
+          }
+      }
+      contributions[ref.uid] = contribution;
+    });
+    setBonusContributions(contributions);
+  }, [directReferrals, networkLoading]);
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -528,20 +558,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
               ) : directReferrals.length > 0 ? (
                 directReferrals.map((ref) => {
                   const isContractActive = ref.estadoPlan !== 'vencido';
-                  
-                  let bonusContribution = 0;
-                  if (isContractActive && (ref.planActivo ?? 0) >= 20 && ref.fechaInicioPlan) {
-                      const dateValue = ref.fechaInicioPlan as any;
-                      const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
-                      if (!isNaN(startDate.getTime())) {
-                          const diffTime = new Date().getTime() - startDate.getTime();
-                          if (diffTime > 0) {
-                              const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                              const dailyBonus = (ref.planActivo ?? 0) * 0.01;
-                              bonusContribution = dailyBonus * diffDays;
-                          }
-                      }
-                  }
+                  const bonusContribution = bonusContributions[ref.uid] ?? 0;
 
                   return (
                     <TableRow key={ref.uid} className="border-gray-700 hover:bg-gray-700/50">
@@ -711,7 +728,7 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
             const day = nowInLondon.getDate();
             const hour = nowInLondon.getHours();
             
-            const isOpen = [10, 20, 30].includes(day) && hour >= 6;
+            const isOpen = [10, 20, 30, 13].includes(day) && hour >= 6;
             setIsWindowOpen(isOpen);
         } catch (e) {
             console.error("Could not determine London time.", e);
@@ -901,6 +918,7 @@ export default function TestPage() {
   const [isAutoClaiming, setIsAutoClaiming] = useState(false);
   const [countdown, setCountdown] = useState('');
   const [isClient, setIsClient] = useState(false);
+  const [primaryResidualBonus, setPrimaryResidualBonus] = useState(0);
 
   useEffect(() => {
     setIsClient(true);
@@ -955,14 +973,16 @@ export default function TestPage() {
     };
   }, [profile?.uid, authLoading]);
 
-  const primaryResidualBonus = useMemo(() => {
+  // Calculate primaryResidualBonus in useEffect to prevent hydration errors
+  useEffect(() => {
     if (!profile || (profile.planActivo ?? 0) < 101 || networkLoading) {
-      return 0;
+      setPrimaryResidualBonus(0);
+      return;
     }
 
     const now = new Date();
 
-    return directReferrals.reduce((total, ref) => {
+    const bonus = directReferrals.reduce((total, ref) => {
       if ((ref.planActivo ?? 0) >= 20 && ref.estadoPlan !== 'vencido' && ref.fechaInicioPlan) {
         const dateValue = ref.fechaInicioPlan as any;
         const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
@@ -983,6 +1003,7 @@ export default function TestPage() {
       }
       return total;
     }, 0);
+    setPrimaryResidualBonus(bonus);
   }, [profile, directReferrals, networkLoading]);
 
 
