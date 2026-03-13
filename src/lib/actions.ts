@@ -2,23 +2,23 @@
 
 import { z } from 'zod';
 import type { UserProfile } from '@/types';
-import * as admin from 'firebase-admin';
+import * as system from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 
 
 // Initialize Firebase Admin SDK with explicit project ID
 // This gives the server-side actions privileged access to bypass security rules.
-if (!admin.apps.length) {
+if (!system.apps.length) {
     try {
-        admin.initializeApp({
+        system.initializeApp({
             projectId: "studio-2504766329-6c1a7",
         });
     } catch (error) {
-        console.error("Firebase Admin initialization error:", error);
+        console.error("Firebase system initialization error:", error);
     }
 }
-const adminDb = admin.firestore();
-const adminAuth = admin.auth();
+const systemDb = system.firestore();
+const systemAuth = system.auth();
 
 
 // USER ACTIONS
@@ -32,14 +32,14 @@ const registerSchema = z.object({
 
 export async function registerUser(values: z.infer<typeof registerSchema>): Promise<{success: true, token: string | null, message?: string} | {error: string}> {
   try {
-     if (!admin.apps.length || !adminDb) {
+     if (!system.apps.length || !systemDb) {
         throw new Error('La conexión con el servidor de autenticación falló.');
     }
 
     const validatedValues = registerSchema.parse(values);
     const { email, password, name, walletAddress, sponsorCode } = validatedValues;
     
-    const walletRef = adminDb.collection('wallet_addresses').doc(walletAddress);
+    const walletRef = systemDb.collection('wallet_addresses').doc(walletAddress);
     const walletSnap = await walletRef.get();
     if (walletSnap.exists) {
       return { error: 'Error: Esta billetera ya está vinculada a otra cuenta. Usa una dirección única.' };
@@ -47,7 +47,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
 
     let invitadoPor: string | null = null;
     if (sponsorCode) {
-      const sponsorCodeRef = adminDb.collection('invite_codes_map').doc(sponsorCode.trim());
+      const sponsorCodeRef = systemDb.collection('invite_codes_map').doc(sponsorCode.trim());
       const sponsorCodeSnap = await sponsorCodeRef.get();
 
       if (!sponsorCodeSnap.exists) {
@@ -67,7 +67,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
             for (let i = 0; i < 6; i++) {
                 code += chars.charAt(Math.floor(Math.random() * chars.length));
             }
-            const codeRef = adminDb.collection('invite_codes_map').doc(code);
+            const codeRef = systemDb.collection('invite_codes_map').doc(code);
             const codeSnap = await codeRef.get();
             if (!codeSnap.exists) {
                 isUnique = true;
@@ -78,16 +78,16 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
 
     const inviteCode = await generateUniqueInviteCode();
     
-    const userRecord = await adminAuth.createUser({
+    const userRecord = await systemAuth.createUser({
       email,
       password,
       displayName: name,
     });
     const user = userRecord;
 
-    const batch = adminDb.batch();
+    const batch = systemDb.batch();
     
-    const userDocRef = adminDb.collection('users').doc(user.uid);
+    const userDocRef = systemDb.collection('users').doc(user.uid);
     batch.set(userDocRef, {
       uid: user.uid,
       name,
@@ -107,13 +107,13 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
       estadoPlan: 'activo',
     });
 
-    const newWalletRef = adminDb.collection('wallet_addresses').doc(walletAddress);
+    const newWalletRef = systemDb.collection('wallet_addresses').doc(walletAddress);
     batch.set(newWalletRef, {
         userId: user.uid,
         createdAt: new Date().toISOString()
     });
     
-    const userInviteCodeRef = adminDb.collection('invite_codes_map').doc(inviteCode);
+    const userInviteCodeRef = systemDb.collection('invite_codes_map').doc(inviteCode);
     batch.set(userInviteCodeRef, {
         userId: user.uid
     });
@@ -138,7 +138,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
 
 
     try {
-        const customToken = await adminAuth.createCustomToken(user.uid);
+        const customToken = await systemAuth.createCustomToken(user.uid);
         return { success: true, token: customToken };
     } catch (tokenError) {
         console.error("Error creating custom token:", tokenError);
@@ -169,14 +169,14 @@ export async function getWalletAddress() {
 
 export async function syncInviteCodes() {
   try {
-    const usersCollectionRef = adminDb.collection('users');
+    const usersCollectionRef = systemDb.collection('users');
     const usersSnapshot = await usersCollectionRef.get();
 
     if (usersSnapshot.empty) {
       return { success: true, message: 'No se encontraron usuarios para sincronizar.' };
     }
 
-    const batch = adminDb.batch();
+    const batch = systemDb.batch();
     let syncedCodesCount = 0;
     let updatedUsersCount = 0;
     let bonoEntregadoCount = 0;
@@ -187,7 +187,7 @@ export async function syncInviteCodes() {
       
       if (userData.inviteCode && typeof userData.inviteCode === 'string') {
         const inviteCode = userData.inviteCode;
-        const inviteCodeMapRef = adminDb.collection('invite_codes_map').doc(inviteCode);
+        const inviteCodeMapRef = systemDb.collection('invite_codes_map').doc(inviteCode);
         const inviteCodeMapSnap = await inviteCodeMapRef.get();
         if (!inviteCodeMapSnap.exists) {
           batch.set(inviteCodeMapRef, { userId });
@@ -234,11 +234,11 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
     return { error: 'Faltan IDs de referido o patrocinador.' };
   }
 
-  const referralRef = adminDb.collection('users').doc(referralId);
-  const sponsorRef = adminDb.collection('users').doc(sponsorId.trim());
+  const referralRef = systemDb.collection('users').doc(referralId);
+  const sponsorRef = systemDb.collection('users').doc(sponsorId.trim());
 
   try {
-    const resultMessage = await adminDb.runTransaction(async (transaction) => {
+    const resultMessage = await systemDb.runTransaction(async (transaction) => {
       const referralSnap = await transaction.get(referralRef);
       if (!referralSnap.exists) throw new Error('El usuario referido no existe.');
       const referralData = referralSnap.data() as UserProfile;
@@ -286,8 +286,8 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
 
       if (payableCommission > 0) {
           transaction.update(sponsorRef, {
-              bonoDirecto: admin.firestore.FieldValue.increment(payableCommission),
-              saldoUSDT: admin.firestore.FieldValue.increment(payableCommission),
+              bonoDirecto: system.firestore.FieldValue.increment(payableCommission),
+              saldoUSDT: system.firestore.FieldValue.increment(payableCommission),
           });
 
           const sponsorTransactionRef = sponsorRef.collection('transacciones').doc();
@@ -336,7 +336,7 @@ export async function createInvestmentTransaction(userId: string, newPlanAmount:
   }
   
   try {
-    const userTransactionRef = adminDb.collection('users').doc(userId).collection('transacciones').doc();
+    const userTransactionRef = systemDb.collection('users').doc(userId).collection('transacciones').doc();
     
     await userTransactionRef.set({
       fecha: new Date().toISOString(),
@@ -374,7 +374,7 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
 
     const token = `COMPROBANTE-${Math.floor(1000000000 + Math.random() * 9000000000)}`;
 
-    await adminDb.collection('retiro_tokens').add({
+    await systemDb.collection('retiro_tokens').add({
       correo: user.email,
       token,
       monto: amount,
@@ -398,10 +398,10 @@ export async function claimAndFinalizeCycle(userId: string): Promise<{success: t
     return { success: false, error: 'ID de usuario no proporcionado.' };
   }
 
-  const userRef = adminDb.collection('users').doc(userId);
+  const userRef = systemDb.collection('users').doc(userId);
 
   try {
-    const resultMessage = await adminDb.runTransaction(async (transaction) => {
+    const resultMessage = await systemDb.runTransaction(async (transaction) => {
       const userSnap = await transaction.get(userRef);
       if (!userSnap.exists) {
         throw new Error('Usuario no encontrado.');
@@ -492,8 +492,7 @@ export async function getSecondLevelReferrals(directReferralId: string): Promise
   }
 
   try {
-    const serverDb = admin.firestore();
-    const l2QuerySnapshot = await serverDb.collection('users').where('invitadoPor', '==', directReferralId).get();
+    const l2QuerySnapshot = await systemDb.collection('users').where('invitadoPor', '==', directReferralId).get();
 
     if (l2QuerySnapshot.empty) {
       return { success: true, data: [] };

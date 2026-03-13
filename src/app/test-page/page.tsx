@@ -195,18 +195,18 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserPro
       try {
         const result = await getSecondLevelReferrals(referralId);
         
-        if (result.success) {
+        if (result && result.success) {
             setLevel2Data(prev => ({
               ...prev,
-              [referralId]: { referrals: result.data, loading: false }
+              [referralId]: { referrals: result.data || [], loading: false }
             }));
         } else {
-            throw new Error(result.error);
+            throw new Error(result?.error || "No se pudo cargar la red de segundo nivel.");
         }
         
       } catch (error: any) {
         console.error("Error fetching L2 referrals:", error);
-        toast({ variant: 'destructive', title: "Error de Red", description: error.message || "No se pudo cargar la red de segundo nivel." });
+        toast({ variant: 'destructive', title: "Error de Red", description: error.message });
         setLevel2Data(prev => ({
           ...prev,
           [referralId]: { referrals: [], loading: false }
