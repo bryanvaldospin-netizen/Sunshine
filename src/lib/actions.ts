@@ -168,7 +168,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
 }
 
 export async function getWalletAddress() {
-  return process.env.USDT_WALLET_ADDRESS || '0x471d4424e1016a256a2d13283522302cb020a4d2';
+  return process.env.USDT_WALLET_ADDRESS || '0x471d4424e1016a256a8d13283522302cb020a4d2';
 }
 
 export async function syncInviteCodes() {

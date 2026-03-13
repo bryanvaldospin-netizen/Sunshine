@@ -48,7 +48,7 @@ const InvestmentPlansSection = () => {
     const { toast } = useToast();
     const [open, setOpen] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<{name: string, investment: string, dailyRate: string} | null>(null);
-    const walletAddress = '0x471d4424e1016a256a2d13283522302cb020a4d2';
+    const walletAddress = '0x471d4424e1016a256a8d13283522302cb020a4d2';
 
     const handleCopy = () => {
         navigator.clipboard.writeText(walletAddress);
@@ -910,8 +910,10 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
 
 const ExpirationCountdown = ({ fechaVencimiento }: { fechaVencimiento: string }) => {
   const [countdown, setCountdown] = useState('');
-
+  
   useEffect(() => {
+    if (!fechaVencimiento) return;
+
     const expiration = new Date(fechaVencimiento).getTime();
     if (isNaN(expiration)) {
       setCountdown('Fecha de vencimiento inválida.');
@@ -951,8 +953,7 @@ export default function TestPage() {
 
   const [chartData, setChartData] = useState<any[]>([]);
   const [isAutoClaiming, setIsAutoClaiming] = useState(false);
-  const [isClient, setIsClient] = useState(false);
-
+  
   const [directReferrals, setDirectReferrals] = useState<UserProfile[]>([]);
   const [networkLoading, setNetworkLoading] = useState(true);
 
@@ -1002,9 +1003,9 @@ export default function TestPage() {
   }, [profile?.uid, authLoading]);
   
   // SINGLE SOURCE OF TRUTH FOR EARNINGS
-  const { globalDisplayEarnings, totalLifetimeEarnings } = useMemo(() => {
+  const { globalEarnings, totalLifetimeEarnings } = useMemo(() => {
     if (!profile || authLoading || networkLoading) {
-      return { globalDisplayEarnings: 0, totalLifetimeEarnings: 0 };
+      return { globalEarnings: 0, totalLifetimeEarnings: 0 };
     }
 
     // --- 1. Calculate Total ROI from scratch ---
@@ -1052,14 +1053,14 @@ export default function TestPage() {
     // --- 3. Combine earnings ---
     // This is the total value of investment-related earnings (ROI + Residual)
     const investmentEarnings = (profile.saldoUSDT || 0) + totalROI + totalResidual;
-    const globalDisplayEarnings = parseFloat(investmentEarnings.toFixed(2));
+    const globalEarnings = parseFloat(investmentEarnings.toFixed(2));
 
     // This is for the 300% progress bar, it includes ALL earnings.
-    const combined = globalDisplayEarnings + (profile.bonoDirecto || 0);
+    const combined = globalEarnings + (profile.bonoDirecto || 0);
     const maxEarnings = planActivo > 0 ? planActivo * 3 : Infinity;
     const totalLifetimeEarnings = parseFloat(Math.min(combined, maxEarnings).toFixed(2));
 
-    return { globalDisplayEarnings, totalLifetimeEarnings };
+    return { globalEarnings, totalLifetimeEarnings };
   }, [profile, directReferrals, authLoading, networkLoading]);
 
 
@@ -1073,10 +1074,10 @@ export default function TestPage() {
     }
     return [
       { title: t('dashboard.totalInvestment'), value: profile.planActivo ?? 0, icon: PiggyBank },
-      { title: t('dashboard.generatedEarnings'), value: globalDisplayEarnings, icon: TrendingUp },
+      { title: t('dashboard.generatedEarnings'), value: totalLifetimeEarnings, icon: TrendingUp },
       { title: t('dashboard.totalWithdrawals'), value: profile.retirosTotales ?? 0, icon: CircleDollarSign },
     ];
-  }, [t, profile, globalDisplayEarnings]);
+  }, [t, profile, totalLifetimeEarnings]);
 
 
   const statsLoading = authLoading;
@@ -1094,7 +1095,7 @@ export default function TestPage() {
     for (let i = 0; i < points; i++) {
         const date = new Date();
         date.setDate(date.getDate() - (points - 1 - i));
-        const balance = (globalDisplayEarnings / points) * (i + 1);
+        const balance = (globalEarnings / points) * (i + 1);
         data.push({
             date: date.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }),
             balance: parseFloat(balance.toFixed(2)),
@@ -1103,18 +1104,15 @@ export default function TestPage() {
     
     // Ensure the last point is exactly the global earnings value and labeled 'Ahora'.
     if (data.length > 0) {
-        data[data.length - 1].balance = globalDisplayEarnings;
+        data[data.length - 1].balance = globalEarnings;
         data[data.length - 1].date = 'Ahora';
-    } else if (globalDisplayEarnings > 0) {
-        data.push({ date: 'Ahora', balance: globalDisplayEarnings });
+    } else if (globalEarnings > 0) {
+        data.push({ date: 'Ahora', balance: globalEarnings });
     }
 
     setChartData(data);
-  }, [globalDisplayEarnings, authLoading, profile]);
+  }, [globalEarnings, authLoading, profile]);
   
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   const handleLogout = async () => {
     try {
@@ -1129,7 +1127,7 @@ export default function TestPage() {
   const userName = profile?.name || t('dashboard.investor');
   const planActivo = profile?.planActivo ?? 0;
 
-  const formattedMainBalance = formatCurrency(globalDisplayEarnings);
+  const formattedMainBalance = formatCurrency(globalEarnings);
   const formattedReferralBonus = formatCurrency(referralBonus);
   
   const progress = planActivo > 0 ? (totalLifetimeEarnings / (planActivo * 3)) * 100 : 0;
@@ -1292,10 +1290,8 @@ export default function TestPage() {
                                     <p className="text-sm text-gray-300 mt-2">
                                         Tienes 3 días para incrementar tu plan o tu cuenta se cerrará.
                                     </p>
-                                    {isClient && profile.fechaVencimiento && (
-                                       <p className="text-2xl font-mono font-bold text-white mt-3">
-                                            Función de cuenta regresiva deshabilitada para estabilidad.
-                                       </p>
+                                    {profile.fechaVencimiento && (
+                                       <ExpirationCountdown fechaVencimiento={profile.fechaVencimiento} />
                                     )}
                                 </div>
                             ) : planActivo > 0 ? (
@@ -1325,7 +1321,7 @@ export default function TestPage() {
 
                 {profile && !authLoading && (
                   <div className="w-full max-w-5xl">
-                    <WithdrawalSection user={profile} mainBalance={globalDisplayEarnings} referralBalance={referralBonus} />
+                    <WithdrawalSection user={profile} mainBalance={globalEarnings} referralBalance={referralBonus} />
                   </div>
                 )}
                 
@@ -1341,7 +1337,7 @@ export default function TestPage() {
                             <CardTitle>{t('dashboard.balanceGrowth')}</CardTitle>
                         </CardHeader>
                         <CardContent className="pt-4 h-[290px] flex items-center justify-center">
-                          {statsLoading || !isClient ? (
+                          {statsLoading ? (
                             <Skeleton className="w-full h-full bg-gray-700" />
                           ) : chartData.length > 0 ? (
                             <ChartContainer config={chartConfig} className="h-full w-full">
@@ -1422,7 +1418,7 @@ export default function TestPage() {
            <InvestmentPlansSection />
         </TabsContent>
         <TabsContent value="mi-red">
-          <MyNetworkTab user={profile} directReferrals={directReferrals} networkLoading={networkLoading} primaryResidualBonus={globalDisplayEarnings - (profile?.saldoUSDT || 0) - (profile?.bonoDirecto || 0) } />
+          <MyNetworkTab user={profile} directReferrals={directReferrals} networkLoading={networkLoading} primaryResidualBonus={globalEarnings - (profile?.saldoUSDT || 0) - (profile?.bonoDirecto || 0) } />
         </TabsContent>
       </Tabs>
       <InstallPWA />
