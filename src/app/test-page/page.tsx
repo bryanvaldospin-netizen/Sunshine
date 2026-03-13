@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import type { UserProfile, Transaction } from '@/types';
-import { processInitialBonus, createWithdrawalToken, claimAndFinalizeCycle, getSecondLevelReferrals, syncInviteCodes, cleanseUserBalances } from '@/lib/actions';
+import { processInitialBonus, createWithdrawalToken, claimAndFinalizeCycle, getSecondLevelReferrals, syncInviteCodes } from '@/lib/actions';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -1126,7 +1126,7 @@ export default function TestPage() {
     }
   };
 
-  const personalEarningsComponent = Math.max(0, totalEarnings - ((profile?.bonoDirecto ?? 0) + primaryResidualBonus));
+  const personalEarningsComponent = Math.max(0, totalEarnings - (profile?.bonoDirecto ?? 0));
   const referralBonus = profile?.bonoRetirable ?? 0;
   
   const mainBalance = (profile?.saldoUSDT ?? 0) + personalEarningsComponent;
@@ -1141,31 +1141,33 @@ export default function TestPage() {
 
   // Effect for Countdown
   useEffect(() => {
-    if (profile?.estadoPlan !== 'vencido' || !profile.fechaVencimiento) {
-      setCountdown('');
-      return;
+    let interval: NodeJS.Timeout;
+    if (profile?.estadoPlan === 'vencido' && profile.fechaVencimiento) {
+      interval = setInterval(() => {
+        const now = new Date().getTime();
+        const expiration = new Date(profile.fechaVencimiento!).getTime();
+        const distance = expiration - now;
+
+        if (distance < 0) {
+          setCountdown('Tu período de gracia ha expirado.');
+          clearInterval(interval);
+          return;
+        }
+
+        const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+        setCountdown(`${days}d ${hours}h ${minutes}m ${seconds}s`);
+      }, 1000);
+    } else {
+        setCountdown('');
     }
 
-    const interval = setInterval(() => {
-      const now = new Date().getTime();
-      const expiration = new Date(profile.fechaVencimiento!).getTime();
-      const distance = expiration - now;
-
-      if (distance < 0) {
-        setCountdown('Tu período de gracia ha expirado.');
-        clearInterval(interval);
-        return;
-      }
-
-      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
-      setCountdown(`${days}d ${hours}h ${minutes}m ${seconds}s`);
-    }, 1000);
-
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [profile]);
   
   // Effect for Automatic Cycle Claim
@@ -1326,7 +1328,7 @@ export default function TestPage() {
                                     <p className="text-sm text-gray-300 mt-2">
                                         Tienes 3 días para incrementar tu plan o tu cuenta se cerrará.
                                     </p>
-                                    {profile.fechaVencimiento ? (
+                                    {countdown ? (
                                         <p className="text-2xl font-mono font-bold text-white mt-3">{countdown}</p>
                                     ) : (
                                         <p className="text-sm text-gray-400 mt-2">Calculando tiempo restante...</p>
