@@ -181,11 +181,14 @@ export async function syncInviteCodes() {
     }
 
     const batch = systemDb.batch();
+    let updatedUsers = 0;
 
     for (const userDoc of usersSnapshot.docs) {
       const userData = userDoc.data();
       const userId = userDoc.id;
       
+      let userUpdate: {[key: string]: any} = {};
+
       if (userData.inviteCode && typeof userData.inviteCode === 'string') {
         const inviteCodeMapRef = systemDb.collection('invite_codes_map').doc(userData.inviteCode);
         const inviteCodeMapSnap = await inviteCodeMapRef.get();
@@ -194,14 +197,19 @@ export async function syncInviteCodes() {
         }
       }
 
-      let userUpdate: {[key: string]: any} = {};
-
       if (!Object.prototype.hasOwnProperty.call(userData, 'bonoDirecto')) {
         userUpdate.bonoDirecto = 0;
       }
       if (!Object.prototype.hasOwnProperty.call(userData, 'bonoEntregado')) {
         userUpdate.bonoEntregado = false;
       }
+      if (!Object.prototype.hasOwnProperty.call(userData, 'bonoRetirable')) {
+        userUpdate.bonoRetirable = 0;
+      }
+       if (!Object.prototype.hasOwnProperty.call(userData, 'retirosTotales')) {
+        userUpdate.retirosTotales = 0;
+      }
+
 
       // Universal balance cleanup logic
       if (userData.saldoUSDT != null && userData.saldoUSDT > 0 && userData.saldoUSDT < 1) {
@@ -210,6 +218,7 @@ export async function syncInviteCodes() {
 
       if (Object.keys(userUpdate).length > 0) {
         batch.update(userDoc.ref, userUpdate);
+        updatedUsers++;
       }
     }
 
@@ -217,7 +226,7 @@ export async function syncInviteCodes() {
       await batch.commit();
     }
 
-    return { success: true, message: 'Sincronización y limpieza de datos completada.' };
+    return { success: true, message: `Sincronización y limpieza completada. ${updatedUsers} perfiles actualizados.` };
   } catch (error: any) {
     console.error('Error sincronizando datos:', error);
     return { error: 'Falló la sincronización de datos: ' + error.message };
@@ -275,7 +284,7 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
       }
 
       const availableRoom = sponsorMaxBonus - sponsorBonos;
-      const payableCommission = Math.min(potentialCommission, availableRoom);
+      const payableCommission = Math.round(Math.min(potentialCommission, availableRoom) * 100) / 100;
 
       let message: string;
 
@@ -408,7 +417,7 @@ async function calculateProgressiveEarnings(db: system.firestore.Firestore, user
             totalEarned += residualBonus;
         }
     }
-    return totalEarned;
+    return Math.round(totalEarned * 100) / 100;
 }
 
 export async function createWithdrawalToken(values: z.infer<typeof withdrawalSchema>): Promise<{ success: true, token: string } | { error: string }> {

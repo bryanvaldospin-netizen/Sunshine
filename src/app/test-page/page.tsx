@@ -119,13 +119,18 @@ const InvestmentPlansSection = () => {
 const DailyBonusCard = ({ user }: { user: UserProfile }) => {
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
+    const [isClaimable, setIsClaimable] = useState(false);
 
-    const canClaim = () => {
-        if (!user.ultimoCheckIn) return true;
-        const lastCheckInDate = new Date(user.ultimoCheckIn);
-        const today = new Date();
-        return lastCheckInDate.toDateString() !== today.toDateString();
-    };
+    useEffect(() => {
+        const canClaim = () => {
+            if (!user.ultimoCheckIn) return true;
+            const lastCheckInDate = new Date(user.ultimoCheckIn);
+            const today = new Date();
+            // Compare dates, ignoring time
+            return lastCheckInDate.toDateString() !== today.toDateString();
+        };
+        setIsClaimable(canClaim());
+    }, [user.ultimoCheckIn]);
 
     const handleClaim = async () => {
         if (!user) return;
@@ -145,6 +150,7 @@ const DailyBonusCard = ({ user }: { user: UserProfile }) => {
                 title: '¡Felicidades!',
                 description: `Has recibido tu bono de ${bonus.toFixed(2)} USDT de hoy.`
             });
+            setIsClaimable(false); // Update state after successful claim
 
         } catch (error) {
             console.error("Error claiming daily bonus: ", error);
@@ -158,8 +164,6 @@ const DailyBonusCard = ({ user }: { user: UserProfile }) => {
         }
     };
     
-    const isClaimable = canClaim();
-
     return (
         <Card className="bg-gray-800 border-gray-700 text-white w-full">
             <CardHeader>
@@ -213,7 +217,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
               }
           }
       }
-      contributions[ref.uid] = contribution;
+      contributions[ref.uid] = Math.round(contribution * 100) / 100;
     });
     setBonusContributions(contributions);
   }, [directReferrals, networkLoading]);
@@ -911,10 +915,7 @@ export default function TestPage() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [stats, setStats] = useState({ totalInvested: 0, earnings: 0, withdrawals: 0 });
-  const [statsLoading, setStatsLoading] = useState(true);
   const [chartData, setChartData] = useState<any[]>([]);
-  const [totalEarnings, setTotalEarnings] = useState(0);
   const [isAutoClaiming, setIsAutoClaiming] = useState(false);
   const [countdown, setCountdown] = useState('');
   const [isClient, setIsClient] = useState(false);
@@ -924,7 +925,6 @@ export default function TestPage() {
     setIsClient(true);
   }, []);
   
-  // Network state moved to parent
   const [directReferrals, setDirectReferrals] = useState<UserProfile[]>([]);
   const [networkLoading, setNetworkLoading] = useState(true);
 
@@ -1003,61 +1003,52 @@ export default function TestPage() {
       }
       return total;
     }, 0);
-    setPrimaryResidualBonus(bonus);
+    setPrimaryResidualBonus(Math.round(bonus * 100) / 100);
   }, [profile, directReferrals, networkLoading]);
 
-
-  // Effect for Total Earnings (Personal Plan + Network Bonuses)
-  useEffect(() => {
-    if (!profile) {
-      setTotalEarnings(0);
-      return;
-    }
-
-    let personalEarnings = 0;
+  const personalEarnings = useMemo(() => {
+    if (!profile) return 0;
+    let earnings = 0;
     const planActivo = profile.planActivo ?? 0;
     const fechaInicioPlan = profile.fechaInicioPlan;
 
     if (planActivo > 0 && fechaInicioPlan) {
       const dateValue = fechaInicioPlan as any;
       const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
-      
       if (!isNaN(startDate.getTime())) {
         const now = new Date();
         const diffTime = now.getTime() - startDate.getTime();
-
         if (diffTime > 0) {
           const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
           const dailyRate = getDailyRate(planActivo);
-          personalEarnings = planActivo * dailyRate * diffDays;
+          earnings = planActivo * dailyRate * diffDays;
         }
       }
     }
-    
+    return Math.round(earnings * 100) / 100;
+  }, [profile]);
+
+  const totalEarnings = useMemo(() => {
+    if (!profile) return 0;
+    const planActivo = profile.planActivo ?? 0;
     const combinedEarnings = personalEarnings + (profile.bonoDirecto || 0) + primaryResidualBonus;
-    
     const maxEarnings = planActivo > 0 ? planActivo * 3 : Infinity;
     const finalEarnings = isNaN(combinedEarnings) ? 0 : Math.min(combinedEarnings, maxEarnings);
+    return Math.round(finalEarnings * 100) / 100;
+  }, [profile, personalEarnings, primaryResidualBonus]);
 
-    setTotalEarnings(finalEarnings);
-
-  }, [profile, primaryResidualBonus]);
-  
-
-  // Effect for Stats, based on real-time profile and total earnings
-  useEffect(() => {
+  const stats = useMemo(() => {
     if (profile) {
-      setStats({
+      return {
         totalInvested: profile.planActivo ?? 0,
         earnings: totalEarnings,
         withdrawals: profile.retirosTotales ?? 0,
-      });
-      setStatsLoading(false);
-    } else if (!authLoading) {
-      setStats({ totalInvested: 0, earnings: 0, withdrawals: 0 });
-      setStatsLoading(false);
+      };
     }
-  }, [profile, authLoading, totalEarnings]);
+    return { totalInvested: 0, earnings: 0, withdrawals: 0 };
+  }, [profile, totalEarnings]);
+
+  const statsLoading = authLoading;
 
   // Effect for Chart Data, based on real-time profile.saldoUSDT
   useEffect(() => {
@@ -1125,11 +1116,14 @@ export default function TestPage() {
       console.error('Error signing out: ', error);
     }
   };
-
-  const personalEarningsComponent = Math.max(0, totalEarnings - (profile?.bonoDirecto ?? 0));
-  const referralBonus = profile?.bonoRetirable ?? 0;
   
-  const mainBalance = (profile?.saldoUSDT ?? 0) + personalEarningsComponent;
+  const referralBonus = profile?.bonoRetirable ?? 0;
+
+  const mainBalance = useMemo(() => {
+    if (!profile) return 0;
+    const balance = (profile.saldoUSDT ?? 0) + personalEarnings + primaryResidualBonus;
+    return Math.round(balance * 100) / 100;
+  }, [profile, personalEarnings, primaryResidualBonus]);
   
   const userName = profile?.name || t('dashboard.investor');
   const planActivo = profile?.planActivo ?? 0;
@@ -1141,16 +1135,16 @@ export default function TestPage() {
 
   // Effect for Countdown
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: NodeJS.Timeout | undefined;
     if (profile?.estadoPlan === 'vencido' && profile.fechaVencimiento) {
-      interval = setInterval(() => {
+      const updateCountdown = () => {
         const now = new Date().getTime();
         const expiration = new Date(profile.fechaVencimiento!).getTime();
         const distance = expiration - now;
 
         if (distance < 0) {
           setCountdown('Tu período de gracia ha expirado.');
-          clearInterval(interval);
+          if (interval) clearInterval(interval);
           return;
         }
 
@@ -1160,7 +1154,10 @@ export default function TestPage() {
         const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
         setCountdown(`${days}d ${hours}h ${minutes}m ${seconds}s`);
-      }, 1000);
+      };
+      
+      updateCountdown(); // Initial call
+      interval = setInterval(updateCountdown, 1000);
     } else {
         setCountdown('');
     }
@@ -1328,7 +1325,7 @@ export default function TestPage() {
                                     <p className="text-sm text-gray-300 mt-2">
                                         Tienes 3 días para incrementar tu plan o tu cuenta se cerrará.
                                     </p>
-                                    {countdown ? (
+                                    {isClient && countdown ? (
                                         <p className="text-2xl font-mono font-bold text-white mt-3">{countdown}</p>
                                     ) : (
                                         <p className="text-sm text-gray-400 mt-2">Calculando tiempo restante...</p>
