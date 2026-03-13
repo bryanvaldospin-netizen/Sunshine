@@ -374,79 +374,76 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
     const validatedValues = withdrawalSchema.parse(values);
     const { amount, user, withdrawalType } = validatedValues;
     const userRef = systemDb.collection('users').doc(user.uid);
-
-    const userSnap = await userRef.get();
-    if (!userSnap.exists) {
-        return { error: 'El usuario no existe.' };
-    }
-    const dbUser = userSnap.data() as UserProfile;
-    const saldoUSDT = dbUser.saldoUSDT ?? 0;
-    const bonoRetirable = dbUser.bonoRetirable ?? 0;
-
     const token = `COMPROBANTE-${Math.floor(1000000000 + Math.random() * 9000000000)}`;
-    const nowForUk = new Date();
-    const batch = systemDb.batch();
-    
-    let tipoRetiroForDb: 'bono_referido' | 'saldo_actual';
 
-    if (withdrawalType === 'referral') {
-        tipoRetiroForDb = 'bono_referido';
-        if (amount > bonoRetirable) {
-            return { error: `Saldo de bono insuficiente. Disponible: ${bonoRetirable.toFixed(2)} USDT.` };
+    await systemDb.runTransaction(async (transaction) => {
+        const userSnap = await transaction.get(userRef);
+        if (!userSnap.exists) {
+            throw new Error('El usuario no existe.');
+        }
+        const dbUser = userSnap.data() as UserProfile;
+        const saldoUSDT = dbUser.saldoUSDT ?? 0;
+        const bonoRetirable = dbUser.bonoRetirable ?? 0;
+        
+        let tipoRetiroForDb: 'bono_referido' | 'saldo_actual';
+        const nowForUk = new Date();
+
+        if (withdrawalType === 'referral') {
+            tipoRetiroForDb = 'bono_referido';
+            if (amount > bonoRetirable) {
+                throw new Error(`Saldo de bono insuficiente. Disponible: ${bonoRetirable.toFixed(2)} USDT.`);
+            }
+            
+            transaction.update(userRef, {
+                bonoRetirable: FieldValue.increment(-amount),
+                saldoUSDT: FieldValue.increment(-amount),
+                retirosTotales: FieldValue.increment(amount),
+            });
+
+        } else { // withdrawalType === 'main'
+            tipoRetiroForDb = 'saldo_actual';
+            const ukTime = new Date(nowForUk.toLocaleString('en-US', { timeZone: 'Europe/London' }));
+            const day = ukTime.getDate();
+            const hour = ukTime.getHours();
+            const isWithdrawalDay = [10, 20, 30].includes(day);
+            const isWithdrawalTime = hour >= 6;
+
+            if (!isWithdrawalDay || !isWithdrawalTime) {
+                throw new Error('Retiros de Saldo Actual disponibles solo los días 10, 20 y 30, a partir de las 6:00 AM (Hora de Londres).');
+            }
+            
+            const mainBalance = saldoUSDT - bonoRetirable;
+            if (amount > mainBalance) {
+                throw new Error(`Saldo actual insuficiente. Disponible: ${mainBalance.toFixed(2)} USDT.`);
+            }
+
+            transaction.update(userRef, {
+                saldoUSDT: FieldValue.increment(-amount),
+                retirosTotales: FieldValue.increment(amount),
+            });
         }
         
-        batch.update(userRef, {
-            bonoRetirable: FieldValue.increment(-amount),
-            saldoUSDT: FieldValue.increment(-amount),
-            retirosTotales: FieldValue.increment(amount),
+        const tokenRef = systemDb.collection('retiro_tokens').doc();
+        transaction.set(tokenRef, {
+          correo: user.email,
+          token,
+          monto: amount,
+          estado: 'pendiente',
+          fecha: FieldValue.serverTimestamp(),
+          uid: user.uid,
+          tipoRetiro: tipoRetiroForDb,
+          fechaUK: nowForUk.toLocaleString('en-GB', { timeZone: 'Europe/London' }),
         });
-
-    } else { // withdrawalType === 'main'
-        tipoRetiroForDb = 'saldo_actual';
-        const ukTime = new Date(nowForUk.toLocaleString('en-US', { timeZone: 'Europe/London' }));
-        const day = ukTime.getDate();
-        const hour = ukTime.getHours();
-
-        const isWithdrawalDay = [10, 20, 30].includes(day);
-        const isWithdrawalTime = hour >= 6;
-
-        if (!isWithdrawalDay || !isWithdrawalTime) {
-            return { error: 'Retiros de Saldo Actual disponibles solo los días 10, 20 y 30, a partir de las 6:00 AM (Hora de Londres).' };
-        }
-        
-        const mainBalance = saldoUSDT - bonoRetirable;
-        if (amount > mainBalance) {
-            return { error: `Saldo actual insuficiente. Disponible: ${mainBalance.toFixed(2)} USDT.` };
-        }
-
-        batch.update(userRef, {
-            saldoUSDT: FieldValue.increment(-amount),
-            retirosTotales: FieldValue.increment(amount),
-        });
-    }
-
-    const tokenRef = systemDb.collection('retiro_tokens').doc();
-    batch.set(tokenRef, {
-      correo: user.email,
-      token,
-      monto: amount,
-      estado: 'pendiente',
-      fecha: FieldValue.serverTimestamp(),
-      uid: user.uid,
-      tipoRetiro: tipoRetiroForDb,
-      fechaUK: nowForUk.toLocaleString('en-GB', { timeZone: 'Europe/London' }),
     });
-    
-    await batch.commit();
 
     return { success: true, token };
 
-  } catch (error) {
+  } catch (error: any) {
     if (error instanceof z.ZodError) {
       return { error: error.errors.map(e => e.message).join(', ') };
     }
     console.error('Error creating withdrawal token:', error);
-    return { error: 'Ocurrió un error inesperado al generar el token.' };
+    return { error: error.message || 'Ocurrió un error inesperado al generar el token.' };
   }
 }
 

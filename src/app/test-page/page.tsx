@@ -655,7 +655,7 @@ const WithdrawalSection = ({ user }: { user: UserProfile }) => {
         email: user.email,
         saldoUSDT: user.saldoUSDT,
         bonoRetirable: user.bonoRetirable,
-        retirosTotales: user.retirosTotales,
+        retirosTotales: user.retirosTotales ?? 0,
       },
       withdrawalType: withdrawalType,
     });
