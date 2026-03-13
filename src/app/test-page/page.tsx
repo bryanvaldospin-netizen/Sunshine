@@ -952,7 +952,6 @@ export default function TestPage() {
   const [chartData, setChartData] = useState<any[]>([]);
   const [isAutoClaiming, setIsAutoClaiming] = useState(false);
   const [isClient, setIsClient] = useState(false);
-  const [primaryResidualBonus, setPrimaryResidualBonus] = useState(0);
 
   useEffect(() => {
     setIsClient(true);
@@ -1006,43 +1005,12 @@ export default function TestPage() {
     };
   }, [profile?.uid, authLoading]);
 
-  // Calculate primaryResidualBonus in useEffect to prevent hydration errors
-  useEffect(() => {
-    if (!profile || (profile.planActivo ?? 0) < 101 || networkLoading) {
-      setPrimaryResidualBonus(0);
-      return;
+  const { personalEarnings, primaryResidualBonus } = useMemo(() => {
+    if (!profile || authLoading) {
+      return { personalEarnings: 0, primaryResidualBonus: 0 };
     }
-
-    const now = new Date();
-
-    const bonus = directReferrals.reduce((total, ref) => {
-      if ((ref.planActivo ?? 0) >= 20 && ref.estadoPlan !== 'vencido' && ref.fechaInicioPlan) {
-        const dateValue = ref.fechaInicioPlan as any;
-        const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
-        
-        if (isNaN(startDate.getTime())) {
-          return total; 
-        }
-
-        const diffTime = now.getTime() - startDate.getTime();
-
-        if (diffTime > 0) {
-          const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-          if (diffDays > 0) {
-            const dailyBonus = (ref.planActivo ?? 0) * 0.01;
-            const referralTotalBonus = dailyBonus * diffDays;
-            return total + referralTotalBonus;
-          }
-        }
-      }
-      return total;
-    }, 0);
-    setPrimaryResidualBonus(parseFloat(bonus.toFixed(2)));
-  }, [profile, directReferrals, networkLoading]);
-
-  const personalEarnings = useMemo(() => {
-    if (!profile) return 0;
-    let earnings = 0;
+    
+    let roi = 0;
     const planActivo = profile.planActivo ?? 0;
     const fechaInicioPlan = profile.fechaInicioPlan;
 
@@ -1055,12 +1023,39 @@ export default function TestPage() {
         if (diffTime > 0) {
           const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
           const dailyRate = getDailyRate(planActivo);
-          earnings = planActivo * dailyRate * diffDays;
+          roi = planActivo * dailyRate * diffDays;
         }
       }
     }
-    return parseFloat(earnings.toFixed(2));
-  }, [profile]);
+
+    let residual = 0;
+    if ((profile.planActivo ?? 0) >= 101 && !networkLoading) {
+        const now = new Date();
+        residual = directReferrals.reduce((total, ref) => {
+            if ((ref.planActivo ?? 0) >= 20 && ref.estadoPlan !== 'vencido' && ref.fechaInicioPlan) {
+                const dateValue = ref.fechaInicioPlan as any;
+                const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
+                if (isNaN(startDate.getTime())) {
+                    return total;
+                }
+                const diffTime = now.getTime() - startDate.getTime();
+                if (diffTime > 0) {
+                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                    if (diffDays > 0) {
+                        const dailyBonus = (ref.planActivo ?? 0) * 0.01;
+                        return total + (dailyBonus * diffDays);
+                    }
+                }
+            }
+            return total;
+        }, 0);
+    }
+
+    return {
+      personalEarnings: parseFloat(roi.toFixed(2)),
+      primaryResidualBonus: parseFloat(residual.toFixed(2)),
+    };
+  }, [profile, directReferrals, authLoading, networkLoading]);
 
   const totalEarnings = useMemo(() => {
     if (!profile) return 0;
