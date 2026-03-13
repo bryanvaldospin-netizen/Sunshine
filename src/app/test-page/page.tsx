@@ -622,7 +622,7 @@ const TransactionHistory = ({ userId }: { userId: string }) => {
   );
 };
 
-const WithdrawalSection = ({ user }: { user: UserProfile }) => {
+const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserProfile, mainBalance: number, referralBalance: number }) => {
   const { toast } = useToast();
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -636,6 +636,7 @@ const WithdrawalSection = ({ user }: { user: UserProfile }) => {
             const day = nowInLondon.getDate();
             const hour = nowInLondon.getHours();
             
+            // DEVELOPER BYPASS: Day 13 is temporarily allowed
             const isOpen = [10, 13, 20, 30].includes(day) && hour >= 6;
             setIsWindowOpen(isOpen);
         } catch (e) {
@@ -660,9 +661,10 @@ const WithdrawalSection = ({ user }: { user: UserProfile }) => {
   });
 
   const amount = form.watch('amount');
-  const referralBalance = user.bonoRetirable ?? 0;
-  const mainBalance = (user.saldoUSDT ?? 0) - referralBalance;
-  const maxAmount = withdrawalType === 'referral' ? referralBalance : mainBalance;
+  const maxAmount = useMemo(() => {
+    return withdrawalType === 'referral' ? referralBalance : mainBalance;
+  }, [withdrawalType, referralBalance, mainBalance]);
+
 
   const isAmountInvalid = amount <= 0 || amount > maxAmount;
   const isButtonDisabled = isSubmitting || isAmountInvalid || (withdrawalType === 'main' && !isWindowOpen);
@@ -1243,7 +1245,7 @@ export default function TestPage() {
 
                 {profile && !authLoading && (
                   <div className="w-full max-w-5xl">
-                    <WithdrawalSection user={profile} />
+                    <WithdrawalSection user={profile} mainBalance={mainBalance} referralBalance={referralBonus} />
                   </div>
                 )}
                 
