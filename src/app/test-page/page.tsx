@@ -953,10 +953,6 @@ export default function TestPage() {
   const [isAutoClaiming, setIsAutoClaiming] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-  
   const [directReferrals, setDirectReferrals] = useState<UserProfile[]>([]);
   const [networkLoading, setNetworkLoading] = useState(true);
 
@@ -1004,17 +1000,19 @@ export default function TestPage() {
       }
     };
   }, [profile?.uid, authLoading]);
-
-  const { personalEarnings, primaryResidualBonus } = useMemo(() => {
-    if (!profile || authLoading) {
-      return { personalEarnings: 0, primaryResidualBonus: 0 };
+  
+  // SINGLE SOURCE OF TRUTH FOR EARNINGS
+  const { globalDisplayEarnings, totalLifetimeEarnings } = useMemo(() => {
+    if (!profile || authLoading || networkLoading) {
+      return { globalDisplayEarnings: 0, totalLifetimeEarnings: 0 };
     }
-    
-    let roi = 0;
+
+    // --- 1. Calculate Total ROI from scratch ---
+    let totalROI = 0;
     const planActivo = profile.planActivo ?? 0;
     const fechaInicioPlan = profile.fechaInicioPlan;
 
-    if (planActivo > 0 && fechaInicioPlan) {
+    if (planActivo > 0 && fechaInicioPlan && profile.estadoPlan !== 'vencido') {
       const dateValue = fechaInicioPlan as any;
       const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
       if (!isNaN(startDate.getTime())) {
@@ -1023,21 +1021,21 @@ export default function TestPage() {
         if (diffTime > 0) {
           const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
           const dailyRate = getDailyRate(planActivo);
-          roi = planActivo * dailyRate * diffDays;
+          totalROI = planActivo * dailyRate * diffDays;
         }
       }
     }
 
-    let residual = 0;
-    if ((profile.planActivo ?? 0) >= 101 && !networkLoading) {
+    // --- 2. Calculate Total Residual Bonus from scratch ---
+    let totalResidual = 0;
+    if ((profile.planActivo ?? 0) >= 101) {
         const now = new Date();
-        residual = directReferrals.reduce((total, ref) => {
+        totalResidual = directReferrals.reduce((total, ref) => {
             if ((ref.planActivo ?? 0) >= 20 && ref.estadoPlan !== 'vencido' && ref.fechaInicioPlan) {
                 const dateValue = ref.fechaInicioPlan as any;
                 const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
-                if (isNaN(startDate.getTime())) {
-                    return total;
-                }
+                if (isNaN(startDate.getTime())) return total;
+
                 const diffTime = now.getTime() - startDate.getTime();
                 if (diffTime > 0) {
                     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
@@ -1051,91 +1049,72 @@ export default function TestPage() {
         }, 0);
     }
 
-    return {
-      personalEarnings: parseFloat(roi.toFixed(2)),
-      primaryResidualBonus: parseFloat(residual.toFixed(2)),
-    };
+    // --- 3. Combine earnings ---
+    // This is the total value of investment-related earnings (ROI + Residual)
+    const investmentEarnings = (profile.saldoUSDT || 0) + totalROI + totalResidual;
+    const globalDisplayEarnings = parseFloat(investmentEarnings.toFixed(2));
+
+    // This is for the 300% progress bar, it includes ALL earnings.
+    const combined = globalDisplayEarnings + (profile.bonoDirecto || 0);
+    const maxEarnings = planActivo > 0 ? planActivo * 3 : Infinity;
+    const totalLifetimeEarnings = parseFloat(Math.min(combined, maxEarnings).toFixed(2));
+
+    return { globalDisplayEarnings, totalLifetimeEarnings };
   }, [profile, directReferrals, authLoading, networkLoading]);
 
-  const totalEarnings = useMemo(() => {
-    if (!profile) return 0;
-    const planActivo = profile.planActivo ?? 0;
-    const combinedEarnings = personalEarnings + (profile.bonoDirecto || 0) + primaryResidualBonus;
-    const maxEarnings = planActivo > 0 ? planActivo * 3 : Infinity;
-    const finalEarnings = isNaN(combinedEarnings) ? 0 : Math.min(combinedEarnings, maxEarnings);
-    return parseFloat(finalEarnings.toFixed(2));
-  }, [profile, personalEarnings, primaryResidualBonus]);
 
-  const stats = useMemo(() => {
-    if (profile) {
-      return {
-        totalInvested: profile.planActivo ?? 0,
-        earnings: totalEarnings,
-        withdrawals: profile.retirosTotales ?? 0,
-      };
+  const statItems = useMemo(() => {
+    if (!profile) {
+      return [
+        { title: t('dashboard.totalInvestment'), value: 0, icon: PiggyBank },
+        { title: t('dashboard.generatedEarnings'), value: 0, icon: TrendingUp },
+        { title: t('dashboard.totalWithdrawals'), value: 0, icon: CircleDollarSign },
+      ];
     }
-    return { totalInvested: 0, earnings: 0, withdrawals: 0 };
-  }, [profile, totalEarnings]);
+    return [
+      { title: t('dashboard.totalInvestment'), value: profile.planActivo ?? 0, icon: PiggyBank },
+      { title: t('dashboard.generatedEarnings'), value: globalDisplayEarnings, icon: TrendingUp },
+      { title: t('dashboard.totalWithdrawals'), value: profile.retirosTotales ?? 0, icon: CircleDollarSign },
+    ];
+  }, [t, profile, globalDisplayEarnings]);
+
 
   const statsLoading = authLoading;
 
-  // Effect for Chart Data, based on real-time profile.saldoUSDT
+  // Static Chart Generation Effect
   useEffect(() => {
-    if (authLoading) return;
-
-    if (!profile) {
+    if (authLoading || !profile) {
       setChartData([]);
       return;
     }
 
-    const newBalance = profile.saldoUSDT;
-    const now = new Date();
-    const timeLabel = now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-
-    setChartData(prevData => {
-      if (prevData.length === 0 && newBalance > 0) {
-        const simulatedData = [];
-        const points = 7;
-        for (let i = 0; i < points - 1; i++) {
-          const pastTime = new Date(now.getTime() - (points - 1 - i) * 60000 * 30);
-          const randomFactor = 0.8 + Math.random() * 0.2;
-          simulatedData.push({
-            date: pastTime.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
-            balance: Math.max(0, (newBalance / points) * (i + 1) * randomFactor),
-          });
-        }
-        simulatedData.push({
-          date: timeLabel,
-          balance: newBalance,
+    const points = 7;
+    const data = [];
+    // Generate previous points as a simple linear representation of the current earnings.
+    for (let i = 0; i < points; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() - (points - 1 - i));
+        const balance = (globalDisplayEarnings / points) * (i + 1);
+        data.push({
+            date: date.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }),
+            balance: parseFloat(balance.toFixed(2)),
         });
-        return simulatedData;
-      }
+    }
+    
+    // Ensure the last point is exactly the global earnings value and labeled 'Ahora'.
+    if (data.length > 0) {
+        data[data.length - 1].balance = globalDisplayEarnings;
+        data[data.length - 1].date = 'Ahora';
+    } else if (globalDisplayEarnings > 0) {
+        data.push({ date: 'Ahora', balance: globalDisplayEarnings });
+    }
 
-      if (prevData.length === 0 && newBalance === 0) {
-        return [];
-      }
-
-      const lastBalance = prevData.length > 0 ? prevData[prevData.length - 1].balance : -1;
-      if (newBalance !== lastBalance) {
-        const lastTime = prevData.length > 0 ? prevData[prevData.length - 1].date : null;
-        if (lastTime === timeLabel) {
-          const updatedData = [...prevData];
-          updatedData[updatedData.length - 1] = { date: timeLabel, balance: newBalance };
-          return updatedData;
-        }
-        return [...prevData, { date: timeLabel, balance: newBalance }];
-      }
-
-      return prevData;
-    });
-  }, [profile, authLoading]);
-
-  const statItems = useMemo(() => [
-    { title: t('dashboard.totalInvestment'), value: stats.totalInvested, icon: PiggyBank },
-    { title: t('dashboard.generatedEarnings'), value: stats.earnings, icon: TrendingUp },
-    { title: t('dashboard.totalWithdrawals'), value: stats.withdrawals, icon: CircleDollarSign },
-  ], [t, stats]);
-
+    setChartData(data);
+  }, [globalDisplayEarnings, authLoading, profile]);
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -1147,20 +1126,13 @@ export default function TestPage() {
   };
   
   const referralBonus = profile?.bonoRetirable ?? 0;
-
-  const mainBalance = useMemo(() => {
-    if (!profile) return 0;
-    const balance = (profile.saldoUSDT ?? 0) + personalEarnings + primaryResidualBonus;
-    return parseFloat(balance.toFixed(2));
-  }, [profile, personalEarnings, primaryResidualBonus]);
-  
   const userName = profile?.name || t('dashboard.investor');
   const planActivo = profile?.planActivo ?? 0;
 
-  const formattedMainBalance = formatCurrency(mainBalance);
+  const formattedMainBalance = formatCurrency(globalDisplayEarnings);
   const formattedReferralBonus = formatCurrency(referralBonus);
   
-  const progress = planActivo > 0 ? (totalEarnings / (planActivo * 3)) * 100 : 0;
+  const progress = planActivo > 0 ? (totalLifetimeEarnings / (planActivo * 3)) * 100 : 0;
 
   // Effect for Automatic Cycle Claim
   useEffect(() => {
@@ -1320,17 +1292,17 @@ export default function TestPage() {
                                     <p className="text-sm text-gray-300 mt-2">
                                         Tienes 3 días para incrementar tu plan o tu cuenta se cerrará.
                                     </p>
-                                    {isClient && profile.fechaVencimiento ? (
-                                      <ExpirationCountdown fechaVencimiento={profile.fechaVencimiento} />
-                                    ) : (
-                                        <p className="text-sm text-gray-400 mt-2">Calculando tiempo restante...</p>
+                                    {isClient && profile.fechaVencimiento && (
+                                       <p className="text-2xl font-mono font-bold text-white mt-3">
+                                            Función de cuenta regresiva deshabilitada para estabilidad.
+                                       </p>
                                     )}
                                 </div>
                             ) : planActivo > 0 ? (
                                 <div className="space-y-2">
                                     <p className="text-lg">Tu plan de inversión: <span className="font-bold text-golden">{formatCurrency(planActivo)} USDT Activo</span></p>
                                     <p className="text-lg">Tasa de ganancia diaria: <span className="font-bold text-cyan-400">{(getDailyRate(planActivo) * 100).toFixed(1)}%</span></p>
-                                    <p className="text-lg">Ganancias Totales (Plan + Red): <span className="font-bold text-green-400">{formatCurrency(totalEarnings)}</span> / <span className="text-sm text-gray-400" title="Límite de Retorno (300%)">{formatCurrency(planActivo * 3)}</span></p>
+                                    <p className="text-lg">Ganancias Totales (Plan + Red): <span className="font-bold text-green-400">{formatCurrency(totalLifetimeEarnings)}</span> / <span className="text-sm text-gray-400" title="Límite de Retorno (300%)">{formatCurrency(planActivo * 3)}</span></p>
                                     {profile?.fechaInicioPlan && new Date(typeof (profile.fechaInicioPlan as any)?.toDate === 'function' ? (profile.fechaInicioPlan as any).toDate() : profile.fechaInicioPlan).toString() !== 'Invalid Date' && <p className="text-sm text-gray-400">Inversión iniciada el: {new Date(typeof (profile.fechaInicioPlan as any)?.toDate === 'function' ? (profile.fechaInicioPlan as any).toDate() : profile.fechaInicioPlan).toLocaleDateString('es-ES')}</p>}
                                 </div>
                             ) : (
@@ -1353,7 +1325,7 @@ export default function TestPage() {
 
                 {profile && !authLoading && (
                   <div className="w-full max-w-5xl">
-                    <WithdrawalSection user={profile} mainBalance={mainBalance} referralBalance={referralBonus} />
+                    <WithdrawalSection user={profile} mainBalance={globalDisplayEarnings} referralBalance={referralBonus} />
                   </div>
                 )}
                 
@@ -1450,7 +1422,7 @@ export default function TestPage() {
            <InvestmentPlansSection />
         </TabsContent>
         <TabsContent value="mi-red">
-          <MyNetworkTab user={profile} directReferrals={directReferrals} networkLoading={networkLoading} primaryResidualBonus={primaryResidualBonus} />
+          <MyNetworkTab user={profile} directReferrals={directReferrals} networkLoading={networkLoading} primaryResidualBonus={globalDisplayEarnings - (profile?.saldoUSDT || 0) - (profile?.bonoDirecto || 0) } />
         </TabsContent>
       </Tabs>
       <InstallPWA />
