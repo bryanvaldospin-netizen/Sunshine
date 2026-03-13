@@ -651,6 +651,7 @@ const WithdrawalSection = ({ user }: { user: UserProfile }) => {
         uid: user.uid,
         email: user.email,
         saldoUSDT: user.saldoUSDT,
+        bonoRetirable: user.bonoRetirable,
       },
     });
 
@@ -944,7 +945,8 @@ export default function TestPage() {
     }
   };
 
-  const balance = (profile?.saldoUSDT ?? 0) + primaryResidualBonus;
+  const personalEarningsComponent = Math.max(0, totalEarnings - (profile?.bonoDirecto ?? 0));
+  const balance = (profile?.saldoUSDT ?? 0) + personalEarningsComponent + primaryResidualBonus;
   const userName = profile?.name || t('dashboard.investor');
   const planActivo = profile?.planActivo ?? 0;
 
