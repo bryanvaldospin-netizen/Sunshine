@@ -517,7 +517,21 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
               ) : directReferrals.length > 0 ? (
                 directReferrals.map((ref) => {
                   const isContractActive = ref.estadoPlan !== 'vencido';
-                  const bonusContribution = isContractActive && (ref.planActivo ?? 0) >= 20 ? (ref.planActivo ?? 0) * 0.01 : 0;
+                  
+                  let bonusContribution = 0;
+                  if (isContractActive && (ref.planActivo ?? 0) >= 20 && ref.fechaInicioPlan) {
+                      const dateValue = ref.fechaInicioPlan as any;
+                      const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
+                      if (!isNaN(startDate.getTime())) {
+                          const diffTime = new Date().getTime() - startDate.getTime();
+                          if (diffTime > 0) {
+                              const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                              const dailyBonus = (ref.planActivo ?? 0) * 0.01;
+                              bonusContribution = dailyBonus * diffDays;
+                          }
+                      }
+                  }
+
                   return (
                     <TableRow key={ref.uid} className="border-gray-700 hover:bg-gray-700/50">
                       <TableCell className="font-medium text-sm">{ref.email}</TableCell>
@@ -687,7 +701,7 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
             const hour = nowInLondon.getHours();
             
             // DEVELOPER BYPASS: Day 13 is temporarily allowed
-            const isOpen = [10, 13, 20, 30].includes(day) && hour >= 6;
+            const isOpen = [10, 20, 30].includes(day) && hour >= 6;
             setIsWindowOpen(isOpen);
         } catch (e) {
             console.error("Could not determine London time.", e);
@@ -933,16 +947,38 @@ export default function TestPage() {
 
   const primaryResidualBonus = useMemo(() => {
     if (!profile || (profile.planActivo ?? 0) < 101 || networkLoading) {
-        return 0;
+      return 0;
     }
-    // Earn 1% from direct referrals with plan >= $20 AND an active contract
+
+    const now = new Date();
+
     return directReferrals.reduce((total, ref) => {
-        if ((ref.planActivo ?? 0) >= 20 && ref.estadoPlan !== 'vencido') {
-            return total + (ref.planActivo! * 0.01);
+      // Sponsor must have a plan of $101 or more.
+      // Referral must have a plan of $20 or more, their contract must be active, and they must have a start date.
+      if ((ref.planActivo ?? 0) >= 20 && ref.estadoPlan !== 'vencido' && ref.fechaInicioPlan) {
+        const dateValue = ref.fechaInicioPlan as any;
+        const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
+        
+        if (isNaN(startDate.getTime())) {
+          return total; // Skip if date is invalid
         }
-        return total;
+
+        const diffTime = now.getTime() - startDate.getTime();
+
+        if (diffTime > 0) {
+          // Calculate full days passed since the referral's plan started.
+          const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+          const dailyBonus = (ref.planActivo ?? 0) * 0.01;
+          
+          // Total accumulated bonus from this referral
+          const referralTotalBonus = dailyBonus * diffDays;
+          return total + referralTotalBonus;
+        }
+      }
+      return total;
     }, 0);
   }, [profile, directReferrals, networkLoading]);
+
 
   // Effect for Total Earnings (Personal Plan + Network Bonuses)
   useEffect(() => {
@@ -1065,7 +1101,8 @@ export default function TestPage() {
 
   const personalEarningsComponent = Math.max(0, totalEarnings - ((profile?.bonoDirecto ?? 0) + primaryResidualBonus));
   const referralBonus = profile?.bonoRetirable ?? 0;
-  const mainBalance = (profile?.saldoUSDT ?? 0);
+  
+  const mainBalance = (profile?.saldoUSDT ?? 0) - referralBonus + personalEarningsComponent + primaryResidualBonus;
   
   const userName = profile?.name || t('dashboard.investor');
   const planActivo = profile?.planActivo ?? 0;
