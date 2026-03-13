@@ -180,7 +180,7 @@ const DailyBonusCard = ({ user }: { user: UserProfile }) => {
     );
 };
 
-const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserProfile | null, directReferrals: UserProfile[], networkLoading: boolean }) => {
+const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBonus }: { user: UserProfile | null, directReferrals: UserProfile[], networkLoading: boolean, primaryResidualBonus: number }) => {
   const { toast } = useToast();
   const [claiming, setClaiming] = useState<Record<string, boolean>>({});
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
@@ -260,19 +260,6 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserPro
     const count = directReferrals.filter(ref => (ref.planActivo ?? 0) >= 101).length;
     return { plan2PlusCount: count };
   }, [directReferrals, networkLoading]);
-
-  const primaryResidualBonus = useMemo(() => {
-    if (!user || (user.planActivo ?? 0) < 101 || networkLoading) {
-        return 0;
-    }
-    // Earn 1% from direct referrals with plan >= $20
-    return directReferrals.reduce((total, ref) => {
-        if ((ref.planActivo ?? 0) >= 20) {
-            return total + (ref.planActivo! * 0.01);
-        }
-        return total;
-    }, 0);
-  }, [user, directReferrals, networkLoading]);
 
   const residualBonus = 0; // Placeholder
 
@@ -860,6 +847,19 @@ export default function TestPage() {
     setTotalEarnings(finalEarnings);
 
   }, [profile]);
+  
+  const primaryResidualBonus = useMemo(() => {
+    if (!profile || (profile.planActivo ?? 0) < 101 || networkLoading) {
+        return 0;
+    }
+    // Earn 1% from direct referrals with plan >= $20
+    return directReferrals.reduce((total, ref) => {
+        if ((ref.planActivo ?? 0) >= 20) {
+            return total + (ref.planActivo! * 0.01);
+        }
+        return total;
+    }, 0);
+  }, [profile, directReferrals, networkLoading]);
 
 
   // Effect for Stats, based on real-time profile and total earnings
@@ -944,7 +944,7 @@ export default function TestPage() {
     }
   };
 
-  const balance = profile?.saldoUSDT ?? 0;
+  const balance = (profile?.saldoUSDT ?? 0) + primaryResidualBonus;
   const userName = profile?.name || t('dashboard.investor');
   const planActivo = profile?.planActivo ?? 0;
 
@@ -1236,7 +1236,7 @@ export default function TestPage() {
            <InvestmentPlansSection />
         </TabsContent>
         <TabsContent value="mi-red">
-          <MyNetworkTab user={profile} directReferrals={directReferrals} networkLoading={networkLoading} />
+          <MyNetworkTab user={profile} directReferrals={directReferrals} networkLoading={networkLoading} primaryResidualBonus={primaryResidualBonus} />
         </TabsContent>
       </Tabs>
       <InstallPWA />
