@@ -4,6 +4,7 @@ export type UserProfile = {
   name: string;
   rol: 'user';
   saldoUSDT: number;
+  retirosTotales?: number;
   invitadoPor?: string | null;
   inviteCode?: string;
   ultimoCheckIn?: string;

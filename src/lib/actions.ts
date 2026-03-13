@@ -42,7 +42,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
     const walletRef = systemDb.collection('wallet_addresses').doc(walletAddress);
     const walletSnap = await walletRef.get();
     if (walletSnap.exists) {
-      return { error: 'Error: Esta billetera ya está vinculuada a otra cuenta. Usa una dirección única.' };
+      return { error: 'Error: Esta billetera ya está vinculada a otra cuenta. Usa una dirección única.' };
     }
 
     let invitadoPor: string | null = null;
@@ -94,6 +94,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
       email,
       rol: 'user',
       saldoUSDT: 0,
+      retirosTotales: 0,
       invitadoPor: invitadoPor,
       inviteCode: inviteCode,
       walletAddress: walletAddress,
@@ -363,40 +364,67 @@ const withdrawalSchema = z.object({
     email: z.string().email(),
     saldoUSDT: z.number(),
     bonoRetirable: z.number().optional(),
+    retirosTotales: z.number().optional(),
   }),
+  withdrawalType: z.enum(['referral', 'main']),
 });
 
 export async function createWithdrawalToken(values: z.infer<typeof withdrawalSchema>): Promise<{ success: true, token: string } | { error: string }> {
-  const userRef = systemDb.collection('users').doc(values.user.uid);
-
   try {
     const validatedValues = withdrawalSchema.parse(values);
-    const { amount, user } = validatedValues;
+    const { amount, user, withdrawalType } = validatedValues;
+    const userRef = systemDb.collection('users').doc(user.uid);
 
-    if (amount > user.saldoUSDT) {
-      return { error: 'Saldo insuficiente para esta operación.' };
+    const userSnap = await userRef.get();
+    if (!userSnap.exists) {
+        return { error: 'El usuario no existe.' };
     }
-
-    const today = new Date().getDate();
-    const isWithdrawalDay = [10, 20, 30].includes(today);
-
-    const bonoRetirable = user.bonoRetirable ?? 0;
-    const bonusPart = Math.min(amount, bonoRetirable);
-    const planPart = amount - bonusPart;
-
-    if (planPart > 0 && !isWithdrawalDay) {
-        return { error: 'El retiro de ganancias del plan solo está permitido los días 10, 20 y 30 del mes.' };
-    }
+    const dbUser = userSnap.data() as UserProfile;
+    const saldoUSDT = dbUser.saldoUSDT ?? 0;
+    const bonoRetirable = dbUser.bonoRetirable ?? 0;
 
     const token = `COMPROBANTE-${Math.floor(1000000000 + Math.random() * 9000000000)}`;
-
+    const nowForUk = new Date();
     const batch = systemDb.batch();
-
-    batch.update(userRef, {
-        saldoUSDT: FieldValue.increment(-amount),
-        bonoRetirable: FieldValue.increment(-bonusPart),
-    });
     
+    let tipoRetiroForDb: 'bono_referido' | 'saldo_actual';
+
+    if (withdrawalType === 'referral') {
+        tipoRetiroForDb = 'bono_referido';
+        if (amount > bonoRetirable) {
+            return { error: `Saldo de bono insuficiente. Disponible: ${bonoRetirable.toFixed(2)} USDT.` };
+        }
+        
+        batch.update(userRef, {
+            bonoRetirable: FieldValue.increment(-amount),
+            saldoUSDT: FieldValue.increment(-amount),
+            retirosTotales: FieldValue.increment(amount),
+        });
+
+    } else { // withdrawalType === 'main'
+        tipoRetiroForDb = 'saldo_actual';
+        const ukTime = new Date(nowForUk.toLocaleString('en-US', { timeZone: 'Europe/London' }));
+        const day = ukTime.getDate();
+        const hour = ukTime.getHours();
+
+        const isWithdrawalDay = [10, 20, 30].includes(day);
+        const isWithdrawalTime = hour >= 6;
+
+        if (!isWithdrawalDay || !isWithdrawalTime) {
+            return { error: 'Retiros de Saldo Actual disponibles solo los días 10, 20 y 30, a partir de las 6:00 AM (Hora de Londres).' };
+        }
+        
+        const mainBalance = saldoUSDT - bonoRetirable;
+        if (amount > mainBalance) {
+            return { error: `Saldo actual insuficiente. Disponible: ${mainBalance.toFixed(2)} USDT.` };
+        }
+
+        batch.update(userRef, {
+            saldoUSDT: FieldValue.increment(-amount),
+            retirosTotales: FieldValue.increment(amount),
+        });
+    }
+
     const tokenRef = systemDb.collection('retiro_tokens').doc();
     batch.set(tokenRef, {
       correo: user.email,
@@ -405,11 +433,14 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
       estado: 'pendiente',
       fecha: FieldValue.serverTimestamp(),
       uid: user.uid,
+      tipoRetiro: tipoRetiroForDb,
+      fechaUK: nowForUk.toLocaleString('en-GB', { timeZone: 'Europe/London' }),
     });
     
     await batch.commit();
 
     return { success: true, token };
+
   } catch (error) {
     if (error instanceof z.ZodError) {
       return { error: error.errors.map(e => e.message).join(', ') };
@@ -446,6 +477,7 @@ export async function claimAndFinalizeCycle(userId: string): Promise<{success: t
       const expirationDate = new Date();
       expirationDate.setDate(expirationDate.getDate() + 3);
 
+      // NO SUMS, just state change
       transaction.update(userRef, {
         planActivo: 0,
         inversionAnterior: 0,
@@ -458,10 +490,9 @@ export async function claimAndFinalizeCycle(userId: string): Promise<{success: t
        transaction.set(transactionRef, {
         fecha: new Date().toISOString(),
         tipo: 'Ciclo Finalizado',
-        descripcion: `Ciclo de ${planActivo} USDT completado.`,
+        descripcion: `Ciclo de ${planActivo} USDT completado. Cuenta congelada.`,
         monto: 0,
       });
-
 
       return '¡Ciclo completado con éxito! El plan ha sido finalizado.';
     });
@@ -494,10 +525,16 @@ export async function getSecondLevelReferrals(directReferralId: string): Promise
           name: data.name || '',
           email: data.email || '',
           planActivo: data.planActivo ?? 0,
-        };
+          // Ensure all fields from UserProfile are here if needed, or make a smaller type
+          rol: data.rol || 'user',
+          saldoUSDT: data.saldoUSDT ?? 0,
+          inversionAnterior: data.inversionAnterior ?? 0,
+          bonoDirecto: data.bonoDirecto ?? 0,
+          bonoEntregado: data.bonoEntregado ?? false,
+        } as UserProfile;
       });
 
-    return { success: true, data: l2Referrals as UserProfile[] };
+    return { success: true, data: l2Referrals };
 
   } catch (error: any) {
     console.error('Error al buscar referidos de segundo nivel:', error);

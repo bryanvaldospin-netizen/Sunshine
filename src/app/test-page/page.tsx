@@ -39,6 +39,8 @@ import { Copy } from 'lucide-react';
 import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { InstallPWA } from '@/components/install-pwa';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 const InvestmentPlansSection = () => {
@@ -624,6 +626,7 @@ const WithdrawalSection = ({ user }: { user: UserProfile }) => {
   const { toast } = useToast();
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [withdrawalType, setWithdrawalType] = useState<'referral' | 'main'>('referral');
 
   const formSchema = z.object({
     amount: z.coerce.number().positive({ message: 'Por favor, introduce un monto válido.' }),
@@ -652,7 +655,9 @@ const WithdrawalSection = ({ user }: { user: UserProfile }) => {
         email: user.email,
         saldoUSDT: user.saldoUSDT,
         bonoRetirable: user.bonoRetirable,
+        retirosTotales: user.retirosTotales,
       },
+      withdrawalType: withdrawalType,
     });
 
     if (result.success) {
@@ -686,6 +691,28 @@ const WithdrawalSection = ({ user }: { user: UserProfile }) => {
       <CardContent>
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 pt-4">
           <div className="lg:col-span-3 space-y-6">
+
+            <RadioGroup defaultValue="referral" onValueChange={(value) => setWithdrawalType(value as 'referral' | 'main')} className="flex gap-4">
+              <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="referral" id="r1" />
+                  <Label htmlFor="r1">Bono Referido (Retiro 24/7)</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="main" id="r2" />
+                  <Label htmlFor="r2">Saldo Actual</Label>
+              </div>
+            </RadioGroup>
+
+            {withdrawalType === 'main' && (
+              <Alert variant="default" className="bg-amber-900/30 border-amber-700/50 text-amber-200 [&>svg]:text-amber-400">
+                <Info className="h-4 w-4" />
+                <AlertTitle>Aviso de Retiro</AlertTitle>
+                <AlertDescription>
+                  Retiros disponibles los días 10, 20 y 30 a partir de las 06:00 AM (Hora de Londres).
+                </AlertDescription>
+              </Alert>
+            )}
+            
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleGenerateToken)} className="space-y-4">
                 <FormField
@@ -869,7 +896,7 @@ export default function TestPage() {
       setStats({
         totalInvested: profile.planActivo ?? 0,
         earnings: totalEarnings,
-        withdrawals: profile.saldoUSDT ?? 0,
+        withdrawals: profile.retirosTotales ?? 0,
       });
       setStatsLoading(false);
     } else if (!authLoading) {
@@ -932,8 +959,8 @@ export default function TestPage() {
   const statItems = useMemo(() => [
     { title: t('dashboard.totalInvestment'), value: stats.totalInvested, icon: PiggyBank },
     { title: t('dashboard.generatedEarnings'), value: stats.earnings, icon: TrendingUp },
-    { title: t('dashboard.totalWithdrawals'), value: profile?.saldoUSDT ?? 0, icon: CircleDollarSign },
-  ], [t, stats, profile]);
+    { title: t('dashboard.totalWithdrawals'), value: stats.withdrawals, icon: CircleDollarSign },
+  ], [t, stats]);
 
 
   const handleLogout = async () => {
@@ -947,7 +974,7 @@ export default function TestPage() {
 
   const personalEarningsComponent = Math.max(0, totalEarnings - (profile?.bonoDirecto ?? 0));
   const referralBonus = profile?.bonoRetirable ?? 0;
-  const mainBalance = (profile?.saldoUSDT ?? 0) - referralBonus + personalEarningsComponent + primaryResidualBonus;
+  const mainBalance = (profile?.saldoUSDT ?? 0) - referralBonus;
   
   const userName = profile?.name || t('dashboard.investor');
   const planActivo = profile?.planActivo ?? 0;
