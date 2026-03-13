@@ -908,6 +908,40 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
   );
 };
 
+const ExpirationCountdown = ({ fechaVencimiento }: { fechaVencimiento: string }) => {
+  const [countdown, setCountdown] = useState('');
+
+  useEffect(() => {
+    const expiration = new Date(fechaVencimiento).getTime();
+    if (isNaN(expiration)) {
+      setCountdown('Fecha de vencimiento inválida.');
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      const distance = expiration - now;
+
+      if (distance < 0) {
+        setCountdown('Tu período de gracia ha expirado.');
+        clearInterval(interval);
+        return;
+      }
+
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+      setCountdown(`${days}d ${hours}h ${minutes}m ${seconds}s`);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [fechaVencimiento]);
+
+  return <p className="text-2xl font-mono font-bold text-white mt-3">{countdown || 'Calculando tiempo restante...'}</p>;
+};
+
 
 export default function TestPage() {
   const { user: profile, loading: authLoading } = useAuth();
@@ -917,7 +951,6 @@ export default function TestPage() {
 
   const [chartData, setChartData] = useState<any[]>([]);
   const [isAutoClaiming, setIsAutoClaiming] = useState(false);
-  const [countdown, setCountdown] = useState('');
   const [isClient, setIsClient] = useState(false);
   const [primaryResidualBonus, setPrimaryResidualBonus] = useState(0);
 
@@ -1134,40 +1167,6 @@ export default function TestPage() {
   
   const progress = planActivo > 0 ? (totalEarnings / (planActivo * 3)) * 100 : 0;
 
-  // Effect for Countdown
-  useEffect(() => {
-    let interval: NodeJS.Timeout | undefined;
-    if (profile?.estadoPlan === 'vencido' && profile.fechaVencimiento) {
-      const updateCountdown = () => {
-        const now = new Date().getTime();
-        const expiration = new Date(profile.fechaVencimiento!).getTime();
-        const distance = expiration - now;
-
-        if (distance < 0) {
-          setCountdown('Tu período de gracia ha expirado.');
-          if (interval) clearInterval(interval);
-          return;
-        }
-
-        const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
-        setCountdown(`${days}d ${hours}h ${minutes}m ${seconds}s`);
-      };
-      
-      updateCountdown(); // Initial call
-      interval = setInterval(updateCountdown, 1000);
-    } else {
-        setCountdown('');
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [profile]);
-  
   // Effect for Automatic Cycle Claim
   useEffect(() => {
     if (progress >= 100 && profile && profile.estadoPlan !== 'vencido' && !isAutoClaiming) {
@@ -1326,8 +1325,8 @@ export default function TestPage() {
                                     <p className="text-sm text-gray-300 mt-2">
                                         Tienes 3 días para incrementar tu plan o tu cuenta se cerrará.
                                     </p>
-                                    {isClient && countdown ? (
-                                        <p className="text-2xl font-mono font-bold text-white mt-3">{countdown}</p>
+                                    {isClient && profile.fechaVencimiento ? (
+                                      <ExpirationCountdown fechaVencimiento={profile.fechaVencimiento} />
                                     ) : (
                                         <p className="text-sm text-gray-400 mt-2">Calculando tiempo restante...</p>
                                     )}
