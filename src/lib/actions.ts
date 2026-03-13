@@ -448,33 +448,36 @@ export async function claimAndFinalizeCycle(userId: string): Promise<{success: t
         throw new Error('Aún no has alcanzado el 300% de retorno para reclamar el ciclo.');
       }
 
-      // This is the amount of earnings from the plan itself to be claimed
-      const amountToClaimFromPlan = finalEarnings - (userData.bonoDirecto || 0);
+      // Simplified logic to prevent double payments.
+      // We calculate the earnings from the plan that have not yet been paid.
+      // `bonoDirecto` has already been added to `saldoUSDT` progressively.
+      const earningsFromPlan = finalEarnings - (userData.bonoDirecto || 0);
+      const amountToAdd = Math.max(0, earningsFromPlan);
       
-      // Calculate the final balance, ensuring it doesn't exceed the 300% cap
-      const currentBalance = userData.saldoUSDT || 0;
-      const finalBalance = Math.min(currentBalance + amountToClaimFromPlan, maxEarnings);
-      const actualAmountAdded = finalBalance - currentBalance;
+      // The new balance is the existing balance plus the final plan earnings.
+      const newBalance = (userData.saldoUSDT || 0) + amountToAdd;
 
       const expirationDate = new Date();
       expirationDate.setDate(expirationDate.getDate() + 3);
 
+      // Update the user document. The balance is now correctly consolidated.
       transaction.update(userRef, {
-        saldoUSDT: finalBalance,
+        saldoUSDT: newBalance, // Set the new consolidated balance.
         planActivo: 0,
-        bonoDirecto: 0,
-        inversionAnterior: 0,
+        bonoDirecto: 0, // Reset for the next cycle.
+        inversionAnterior: 0, // Reset for the next cycle.
         fechaInicioPlan: null,
         estadoPlan: 'vencido',
         fechaVencimiento: expirationDate.toISOString(),
       });
 
+      // Log the final transaction accurately.
       const transactionRef = userRef.collection('transacciones').doc();
       transaction.set(transactionRef, {
         fecha: new Date().toISOString(),
         tipo: 'Reclamo de Ciclo',
-        descripcion: `Ciclo de ${planActivo} USDT completado. Reclamo final de ${actualAmountAdded.toFixed(2)} USDT.`,
-        monto: actualAmountAdded,
+        descripcion: `Ciclo de ${planActivo} USDT completado. Ganancia de plan acreditada.`,
+        monto: amountToAdd,
       });
 
       return '¡Ciclo completado con éxito!';
@@ -501,18 +504,23 @@ export async function getSecondLevelReferrals(directReferralId: string): Promise
     }
 
     const l2Referrals = l2QuerySnapshot.docs.map(doc => {
-      const data = doc.data();
-      // Create a plain object with only the required, serializable fields.
-      // This prevents complex Firestore objects from being sent to the client.
-      return {
-        uid: doc.id,
-        name: data.name || '',
-        email: data.email || '',
-        planActivo: data.planActivo ?? 0,
-      } as UserProfile; // Cast to satisfy the function signature. The client only needs these fields.
-    });
+        const data = doc.data();
+        // Manually map to a plain object to ensure serialization.
+        return {
+          uid: doc.id,
+          name: data.name || '',
+          email: data.email || '',
+          planActivo: data.planActivo ?? 0,
+          // Ensure all fields from the UserProfile type that are used in the component are present.
+          rol: data.rol || 'user',
+          saldoUSDT: data.saldoUSDT || 0,
+          inversionAnterior: data.inversionAnterior || 0,
+          bonoDirecto: data.bonoDirecto || 0,
+          bonoEntregado: data.bonoEntregado || false,
+        };
+      });
 
-    return { success: true, data: l2Referrals };
+    return { success: true, data: l2Referrals as UserProfile[] };
 
   } catch (error: any) {
     console.error('Error al buscar referidos de segundo nivel:', error);
