@@ -946,11 +946,14 @@ export default function TestPage() {
   };
 
   const personalEarningsComponent = Math.max(0, totalEarnings - (profile?.bonoDirecto ?? 0));
-  const balance = (profile?.saldoUSDT ?? 0) + personalEarningsComponent + primaryResidualBonus;
+  const referralBonus = profile?.bonoRetirable ?? 0;
+  const mainBalance = (profile?.saldoUSDT ?? 0) - referralBonus + personalEarningsComponent + primaryResidualBonus;
+  
   const userName = profile?.name || t('dashboard.investor');
   const planActivo = profile?.planActivo ?? 0;
 
-  const formattedBalance = formatCurrency(balance);
+  const formattedMainBalance = formatCurrency(mainBalance);
+  const formattedReferralBonus = formatCurrency(referralBonus);
   
   const progress = planActivo > 0 ? (totalEarnings / (planActivo * 3)) * 100 : 0;
 
@@ -1070,21 +1073,37 @@ export default function TestPage() {
                   </p>
                 </div>
                 
-                <div className="w-full max-w-5xl">
-                  <Card className="bg-gray-800 border-golden text-white text-center">
-                    <CardHeader>
-                      <CardTitle className="text-xl font-medium text-gray-300">
-                        {t('dashboard.balance')}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="py-6">
-                      {authLoading ? (
-                         <Skeleton className="h-16 w-1/2 mx-auto bg-gray-700" />
-                      ) : (
-                        <p className="text-6xl font-bold text-golden">{formattedBalance}</p>
-                      )}
-                    </CardContent>
-                  </Card>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-5xl">
+                    <Card className="bg-gray-800 border-golden text-white text-center">
+                        <CardHeader>
+                        <CardTitle className="text-xl font-medium text-gray-300">
+                            Saldo Actual
+                        </CardTitle>
+                        <CardDescription className="text-xs text-gray-400">Retiros: Días 10, 20 y 30</CardDescription>
+                        </CardHeader>
+                        <CardContent className="py-2">
+                        {authLoading ? (
+                            <Skeleton className="h-12 w-1/2 mx-auto bg-gray-700" />
+                        ) : (
+                            <p className="text-5xl font-bold text-golden">{formattedMainBalance}</p>
+                        )}
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-gray-800 border-cyan-400 text-white text-center">
+                        <CardHeader>
+                        <CardTitle className="text-xl font-medium text-gray-300">
+                            Bono Referido
+                        </CardTitle>
+                        <CardDescription className="text-xs text-gray-400">Retiros: 24/7</CardDescription>
+                        </CardHeader>
+                        <CardContent className="py-2">
+                        {authLoading ? (
+                            <Skeleton className="h-12 w-1/2 mx-auto bg-gray-700" />
+                        ) : (
+                            <p className="text-5xl font-bold text-cyan-400">{formattedReferralBonus}</p>
+                        )}
+                        </CardContent>
+                    </Card>
                 </div>
                 
                 <div className="w-full max-w-5xl">
