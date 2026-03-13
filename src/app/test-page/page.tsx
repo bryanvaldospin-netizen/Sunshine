@@ -261,6 +261,19 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserPro
     return { plan2PlusCount: count };
   }, [directReferrals, networkLoading]);
 
+  const primaryResidualBonus = useMemo(() => {
+    if (!user || (user.planActivo ?? 0) < 101 || networkLoading) {
+        return 0;
+    }
+    // Earn 1% from direct referrals with plan >= $20
+    return directReferrals.reduce((total, ref) => {
+        if ((ref.planActivo ?? 0) >= 20) {
+            return total + (ref.planActivo! * 0.01);
+        }
+        return total;
+    }, 0);
+  }, [user, directReferrals, networkLoading]);
+
   const residualBonus = 0; // Placeholder
 
   const levels = [
@@ -466,6 +479,30 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserPro
             </Table>
         </CardContent>
     </Card>
+
+      <Card className="bg-gray-800 border-gray-700 text-white">
+        <CardHeader>
+            <CardTitle>Bono Residual Primario</CardTitle>
+            <CardDescription>Comisión del 1% sobre el capital de tus invitados directos.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            {networkLoading ? (
+                <Skeleton className="h-16 w-full bg-gray-700" />
+            ) : user && (user.planActivo ?? 0) >= 101 ? (
+                <div>
+                    <div className="flex justify-between items-center mb-2">
+                        <span className="text-4xl font-bold text-cyan-400">{formatCurrency(primaryResidualBonus)}</span>
+                        <Badge className="bg-green-600 text-white">ACTIVO</Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Este es el total acumulado del 1% de la inversión de tus directos con plan activo (>= $20).</p>
+                </div>
+            ) : (
+                <div className="text-center p-4 rounded-lg bg-gray-900/50">
+                     <p className="text-muted-foreground">Invierte $101 o más para activar tu Bono Residual Primario.</p>
+                </div>
+            )}
+        </CardContent>
+      </Card>
 
       <Card className="bg-gray-800 border-gray-700 text-white">
         <CardHeader>
