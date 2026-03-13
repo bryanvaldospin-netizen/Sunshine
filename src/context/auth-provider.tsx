@@ -5,7 +5,7 @@ import { onAuthStateChanged, User as FirebaseUser, setPersistence, browserLocalP
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile } from '@/types';
-import { createInvestmentTransaction } from '@/lib/actions';
+import { createInvestmentTransaction, reconcileAccount } from '@/lib/actions';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -45,6 +45,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
 
       if (currentFirebaseUser) {
+        // Run reconciliation silently in the background. No need to await.
+        reconcileAccount(currentFirebaseUser.uid).then(result => {
+          if (result && 'success' in result && !result.message.includes('ya estaba sincronizada')) {
+            console.log(`Reconciliation for ${currentFirebaseUser.uid}: ${result.message}`);
+          } else if (result && 'error' in result) {
+            console.error(`Reconciliation failed for ${currentFirebaseUser.uid}: ${result.error}`);
+          }
+        });
+
         setFirebaseUser(currentFirebaseUser);
         
         const userDocRef = doc(db, 'users', currentFirebaseUser.uid);

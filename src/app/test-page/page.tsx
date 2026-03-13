@@ -217,7 +217,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
               }
           }
       }
-      contributions[ref.uid] = Math.round(contribution * 100) / 100;
+      contributions[ref.uid] = parseFloat(contribution.toFixed(2));
     });
     setBonusContributions(contributions);
   }, [directReferrals, networkLoading]);
@@ -995,15 +995,16 @@ export default function TestPage() {
 
         if (diffTime > 0) {
           const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-          const dailyBonus = (ref.planActivo ?? 0) * 0.01;
-          
-          const referralTotalBonus = dailyBonus * diffDays;
-          return total + referralTotalBonus;
+          if (diffDays > 0) {
+            const dailyBonus = (ref.planActivo ?? 0) * 0.01;
+            const referralTotalBonus = dailyBonus * diffDays;
+            return total + referralTotalBonus;
+          }
         }
       }
       return total;
     }, 0);
-    setPrimaryResidualBonus(Math.round(bonus * 100) / 100);
+    setPrimaryResidualBonus(parseFloat(bonus.toFixed(2)));
   }, [profile, directReferrals, networkLoading]);
 
   const personalEarnings = useMemo(() => {
@@ -1025,7 +1026,7 @@ export default function TestPage() {
         }
       }
     }
-    return Math.round(earnings * 100) / 100;
+    return parseFloat(earnings.toFixed(2));
   }, [profile]);
 
   const totalEarnings = useMemo(() => {
@@ -1034,7 +1035,7 @@ export default function TestPage() {
     const combinedEarnings = personalEarnings + (profile.bonoDirecto || 0) + primaryResidualBonus;
     const maxEarnings = planActivo > 0 ? planActivo * 3 : Infinity;
     const finalEarnings = isNaN(combinedEarnings) ? 0 : Math.min(combinedEarnings, maxEarnings);
-    return Math.round(finalEarnings * 100) / 100;
+    return parseFloat(finalEarnings.toFixed(2));
   }, [profile, personalEarnings, primaryResidualBonus]);
 
   const stats = useMemo(() => {
@@ -1122,7 +1123,7 @@ export default function TestPage() {
   const mainBalance = useMemo(() => {
     if (!profile) return 0;
     const balance = (profile.saldoUSDT ?? 0) + personalEarnings + primaryResidualBonus;
-    return Math.round(balance * 100) / 100;
+    return parseFloat(balance.toFixed(2));
   }, [profile, personalEarnings, primaryResidualBonus]);
   
   const userName = profile?.name || t('dashboard.investor');

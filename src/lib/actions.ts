@@ -108,7 +108,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
       bonoEntregado: false,
       fechaRegistro: new Date().toISOString(),
       estadoPlan: 'activo',
-      lastConsolidation: new Date().toISOString(),
+      lastConsolidation: null,
     });
 
     const newWalletRef = systemDb.collection('wallet_addresses').doc(walletAddress);
@@ -390,9 +390,11 @@ async function calculateProgressiveEarnings(db: system.firestore.Firestore, user
         const diffTime = consolidationTime.getTime() - calculationStartDate.getTime();
         if (diffTime > 0) {
             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-            const dailyRate = getDailyRate(planActivo);
-            const earnedROI = planActivo * dailyRate * diffDays;
-            totalEarned += earnedROI;
+            if (diffDays > 0) {
+                const dailyRate = getDailyRate(planActivo);
+                const earnedROI = planActivo * dailyRate * diffDays;
+                totalEarned += earnedROI;
+            }
         }
     }
 
@@ -409,15 +411,17 @@ async function calculateProgressiveEarnings(db: system.firestore.Firestore, user
                     const diffTime = consolidationTime.getTime() - calculationStartDate.getTime();
                     if (diffTime > 0) {
                         const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                        const dailyBonus = (refData.planActivo ?? 0) * 0.01;
-                        residualBonus += dailyBonus * diffDays;
+                        if (diffDays > 0) {
+                            const dailyBonus = (refData.planActivo ?? 0) * 0.01;
+                            residualBonus += dailyBonus * diffDays;
+                        }
                     }
                 }
             });
             totalEarned += residualBonus;
         }
     }
-    return Math.round(totalEarned * 100) / 100;
+    return totalEarned;
 }
 
 export async function createWithdrawalToken(values: z.infer<typeof withdrawalSchema>): Promise<{ success: true, token: string } | { error: string }> {
@@ -594,4 +598,43 @@ export async function getSecondLevelReferrals(directReferralId: string): Promise
     console.error('Error al buscar referidos de segundo nivel:', error);
     return { success: false, error: 'Error del servidor al procesar la solicitud.', data: [] };
   }
+}
+
+export async function reconcileAccount(userId: string): Promise<{success: true, message: string} | {error: string}> {
+    if (!userId) {
+      return { error: 'User ID is missing.' };
+    }
+  
+    const userRef = systemDb.collection('users').doc(userId);
+    const now = new Date();
+  
+    try {
+      const resultMessage = await systemDb.runTransaction(async (transaction) => {
+        const userSnap = await transaction.get(userRef);
+        if (!userSnap.exists) {
+          throw new Error('Usuario no encontrado.');
+        }
+        const userData = userSnap.data() as UserProfile;
+
+        // For users already on the new system, just credit missed earnings.
+        const progressiveEarnings = await calculateProgressiveEarnings(systemDb, userData, now);
+        const earningsToCredit = parseFloat(progressiveEarnings.toFixed(2));
+
+        if (earningsToCredit > 0) {
+          transaction.update(userRef, {
+            saldoUSDT: FieldValue.increment(earningsToCredit),
+            lastConsolidation: now.toISOString(),
+          });
+          return `Cuenta sincronizada. ${earningsToCredit.toFixed(2)} USDT acreditados.`;
+        }
+
+        return 'La cuenta ya estaba sincronizada.';
+      });
+  
+      return { success: true, message: resultMessage };
+  
+    } catch (error: any) {
+      console.error(`Error en reconcileAccount para el usuario ${userId}:`, error.message);
+      return { error: `Error del Servidor durante la conciliación: ${error.message}` };
+    }
 }
