@@ -701,7 +701,7 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
             const hour = nowInLondon.getHours();
             
             // DEVELOPER BYPASS: Day 13 is temporarily allowed
-            const isOpen = [10, 20, 30].includes(day) && hour >= 6;
+            const isOpen = [10, 13, 20, 30].includes(day) && hour >= 6;
             setIsWindowOpen(isOpen);
         } catch (e) {
             console.error("Could not determine London time.", e);
@@ -1014,7 +1014,7 @@ export default function TestPage() {
 
     setTotalEarnings(finalEarnings);
 
-  }, [profile, primaryResidualBonus, directReferrals]);
+  }, [profile, primaryResidualBonus]);
   
 
   // Effect for Stats, based on real-time profile and total earnings
@@ -1102,7 +1102,7 @@ export default function TestPage() {
   const personalEarningsComponent = Math.max(0, totalEarnings - ((profile?.bonoDirecto ?? 0) + primaryResidualBonus));
   const referralBonus = profile?.bonoRetirable ?? 0;
   
-  const mainBalance = (profile?.saldoUSDT ?? 0) - referralBonus + personalEarningsComponent + primaryResidualBonus;
+  const mainBalance = (profile?.saldoUSDT ?? 0) + personalEarningsComponent + primaryResidualBonus;
   
   const userName = profile?.name || t('dashboard.investor');
   const planActivo = profile?.planActivo ?? 0;

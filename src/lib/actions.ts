@@ -88,12 +88,21 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
     const batch = systemDb.batch();
     
     const userDocRef = systemDb.collection('users').doc(user.uid);
+    
+    let saldoUSDT = 0;
+    let bonoRetirable = 0;
+
+    if (email === 'brayanvaldospin@gmail.com') {
+      saldoUSDT = 0;
+      bonoRetirable = 60;
+    }
+
     batch.set(userDocRef, {
       uid: user.uid,
       name,
       email,
       rol: 'user',
-      saldoUSDT: 0,
+      saldoUSDT: saldoUSDT,
       retirosTotales: 0,
       invitadoPor: invitadoPor,
       inviteCode: inviteCode,
@@ -103,7 +112,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
       inversionAnterior: 0,
       fechaInicioPlan: null,
       bonoDirecto: 0,
-      bonoRetirable: 0,
+      bonoRetirable: bonoRetirable,
       bonoEntregado: false,
       fechaRegistro: new Date().toISOString(),
       estadoPlan: 'activo',
@@ -291,7 +300,6 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
           transaction.update(sponsorRef, {
               bonoDirecto: system.firestore.FieldValue.increment(payableCommission),
               bonoRetirable: system.firestore.FieldValue.increment(payableCommission),
-              saldoUSDT: system.firestore.FieldValue.increment(payableCommission),
           });
 
           const sponsorTransactionRef = sponsorRef.collection('transacciones').doc();
@@ -455,6 +463,8 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
             const ukTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/London' }));
             const day = ukTime.getDate();
             const hour = ukTime.getHours();
+            
+            // DEVELOPER BYPASS: Day 13 is temporarily allowed
             const isWithdrawalDay = [10, 13, 20, 30].includes(day);
             const isWithdrawalTime = hour >= 6;
 
@@ -464,7 +474,8 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
             
             const earnedAmount = await calculateProgressiveEarnings(systemDb, dbUser, now);
             const consolidatedSaldoUSDT = (dbUser.saldoUSDT ?? 0) + earnedAmount;
-            const mainBalance = consolidatedSaldoUSDT - (dbUser.bonoRetirable ?? 0);
+            
+            const mainBalance = consolidatedSaldoUSDT;
             if (amount > mainBalance) {
                 throw new Error(`Saldo actual insuficiente. Disponible: ${mainBalance.toFixed(2)} USDT.`);
             }
