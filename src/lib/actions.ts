@@ -89,27 +89,13 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
     
     const userDocRef = systemDb.collection('users').doc(user.uid);
     
-    let saldoUSDT = 0;
-    let bonoRetirable = 0;
-    let bonoDirecto = 0;
-    let retirosTotales = 0;
-
-
-    if (email === 'brayanvaldospin@gmail.com') {
-      // Complete reset for this specific test user account.
-      saldoUSDT = 0;
-      bonoRetirable = 0;
-      bonoDirecto = 0;
-      retirosTotales = 0;
-    }
-
     batch.set(userDocRef, {
       uid: user.uid,
       name,
       email,
       rol: 'user',
-      saldoUSDT,
-      retirosTotales,
+      saldoUSDT: 0,
+      retirosTotales: 0,
       invitadoPor: invitadoPor,
       inviteCode: inviteCode,
       walletAddress: walletAddress,
@@ -117,8 +103,8 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
       planActivo: 0,
       inversionAnterior: 0,
       fechaInicioPlan: null,
-      bonoDirecto,
-      bonoRetirable,
+      bonoDirecto: 0,
+      bonoRetirable: 0,
       bonoEntregado: false,
       fechaRegistro: new Date().toISOString(),
       estadoPlan: 'activo',
@@ -195,32 +181,31 @@ export async function syncInviteCodes() {
     }
 
     const batch = systemDb.batch();
-    let syncedCodesCount = 0;
-    let updatedUsersCount = 0;
-    let bonoEntregadoCount = 0;
 
     for (const userDoc of usersSnapshot.docs) {
       const userData = userDoc.data();
       const userId = userDoc.id;
       
       if (userData.inviteCode && typeof userData.inviteCode === 'string') {
-        const inviteCode = userData.inviteCode;
-        const inviteCodeMapRef = systemDb.collection('invite_codes_map').doc(inviteCode);
+        const inviteCodeMapRef = systemDb.collection('invite_codes_map').doc(userData.inviteCode);
         const inviteCodeMapSnap = await inviteCodeMapRef.get();
         if (!inviteCodeMapSnap.exists) {
           batch.set(inviteCodeMapRef, { userId });
-          syncedCodesCount++;
         }
       }
 
       let userUpdate: {[key: string]: any} = {};
+
       if (!Object.prototype.hasOwnProperty.call(userData, 'bonoDirecto')) {
         userUpdate.bonoDirecto = 0;
-        updatedUsersCount++;
       }
       if (!Object.prototype.hasOwnProperty.call(userData, 'bonoEntregado')) {
         userUpdate.bonoEntregado = false;
-        bonoEntregadoCount++;
+      }
+
+      // Universal balance cleanup logic
+      if (userData.saldoUSDT != null && userData.saldoUSDT > 0 && userData.saldoUSDT < 1) {
+        userUpdate.saldoUSDT = 0;
       }
 
       if (Object.keys(userUpdate).length > 0) {
@@ -228,19 +213,11 @@ export async function syncInviteCodes() {
       }
     }
 
-    if (syncedCodesCount > 0 || updatedUsersCount > 0 || bonoEntregadoCount > 0) {
-        await batch.commit();
+    if (!batch.isEmpty) {
+      await batch.commit();
     }
 
-
-    const messages = [];
-    if (syncedCodesCount > 0) messages.push(`Se sincronizaron ${syncedCodesCount} nuevos códigos de invitación.`);
-    if (updatedUsersCount > 0) messages.push(`Se actualizaron ${updatedUsersCount} perfiles con 'bonoDirecto'.`);
-    if (bonoEntregadoCount > 0) messages.push(`Se inicializaron ${bonoEntregadoCount} perfiles con 'bonoEntregado'.`);
-
-    const message = messages.length > 0 ? messages.join(' ') : 'Todos los usuarios ya están actualizados.';
-    
-    return { success: true, message };
+    return { success: true, message: 'Sincronización y limpieza de datos completada.' };
   } catch (error: any) {
     console.error('Error sincronizando datos:', error);
     return { error: 'Falló la sincronización de datos: ' + error.message };
