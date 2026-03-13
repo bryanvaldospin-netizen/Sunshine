@@ -42,7 +42,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
     const walletRef = systemDb.collection('wallet_addresses').doc(walletAddress);
     const walletSnap = await walletRef.get();
     if (walletSnap.exists) {
-      return { error: 'Error: Esta billetera ya está vinculada a otra cuenta. Usa una dirección única.' };
+      return { error: 'Error: Esta billetera ya está vinculuada a otra cuenta. Usa una dirección única.' };
     }
 
     let invitadoPor: string | null = null;
@@ -102,6 +102,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
       inversionAnterior: 0,
       fechaInicioPlan: null,
       bonoDirecto: 0,
+      bonoRetirable: 0,
       bonoEntregado: false,
       fechaRegistro: new Date().toISOString(),
       estadoPlan: 'activo',
@@ -287,6 +288,7 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
       if (payableCommission > 0) {
           transaction.update(sponsorRef, {
               bonoDirecto: system.firestore.FieldValue.increment(payableCommission),
+              bonoRetirable: system.firestore.FieldValue.increment(payableCommission),
               saldoUSDT: system.firestore.FieldValue.increment(payableCommission),
           });
 
@@ -355,15 +357,18 @@ export async function createInvestmentTransaction(userId: string, newPlanAmount:
 }
 
 const withdrawalSchema = z.object({
-  amount: z.number().positive('El monto debe ser un número positivo.'),
+  amount: z.coerce.number().positive('El monto debe ser un número positivo.'),
   user: z.object({
     uid: z.string(),
     email: z.string().email(),
     saldoUSDT: z.number(),
+    bonoRetirable: z.number().optional(),
   }),
 });
 
 export async function createWithdrawalToken(values: z.infer<typeof withdrawalSchema>): Promise<{ success: true, token: string } | { error: string }> {
+  const userRef = systemDb.collection('users').doc(values.user.uid);
+
   try {
     const validatedValues = withdrawalSchema.parse(values);
     const { amount, user } = validatedValues;
@@ -372,9 +377,28 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
       return { error: 'Saldo insuficiente para esta operación.' };
     }
 
+    const today = new Date().getDate();
+    const isWithdrawalDay = [10, 20, 30].includes(today);
+
+    const bonoRetirable = user.bonoRetirable ?? 0;
+    const bonusPart = Math.min(amount, bonoRetirable);
+    const planPart = amount - bonusPart;
+
+    if (planPart > 0 && !isWithdrawalDay) {
+        return { error: 'El retiro de ganancias del plan solo está permitido los días 10, 20 y 30 del mes.' };
+    }
+
     const token = `COMPROBANTE-${Math.floor(1000000000 + Math.random() * 9000000000)}`;
 
-    await systemDb.collection('retiro_tokens').add({
+    const batch = systemDb.batch();
+
+    batch.update(userRef, {
+        saldoUSDT: FieldValue.increment(-amount),
+        bonoRetirable: FieldValue.increment(-bonusPart),
+    });
+    
+    const tokenRef = systemDb.collection('retiro_tokens').doc();
+    batch.set(tokenRef, {
       correo: user.email,
       token,
       monto: amount,
@@ -382,6 +406,8 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
       fecha: FieldValue.serverTimestamp(),
       uid: user.uid,
     });
+    
+    await batch.commit();
 
     return { success: true, token };
   } catch (error) {
@@ -417,70 +443,27 @@ export async function claimAndFinalizeCycle(userId: string): Promise<{success: t
         throw new Error('Este ciclo ya ha sido reclamado y está vencido.');
       }
 
-      let personalEarnings = 0;
-      const fechaInicioPlan = userData.fechaInicioPlan;
-      if (planActivo > 0 && fechaInicioPlan) {
-        const getDailyRate = (amount: number): number => {
-            if (amount >= 1001) return 0.025;
-            if (amount >= 501) return 0.020;
-            if (amount >= 101) return 0.018;
-            if (amount >= 20) return 0.015;
-            return 0;
-        };
-        
-        const dateValue = fechaInicioPlan as any;
-        const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
-
-        const now = new Date();
-        const diffTime = now.getTime() - startDate.getTime();
-        if (diffTime > 0) {
-          const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-          const dailyRate = getDailyRate(planActivo);
-          personalEarnings = planActivo * dailyRate * diffDays;
-        }
-      }
-      
-      const combinedEarnings = personalEarnings + (userData.bonoDirecto || 0);
-      const maxEarnings = planActivo * 3;
-      const finalEarnings = Math.min(combinedEarnings, maxEarnings);
-
-      if (finalEarnings < maxEarnings) {
-        throw new Error('Aún no has alcanzado el 300% de retorno para reclamar el ciclo.');
-      }
-
-      // Simplified logic to prevent double payments.
-      // We calculate the earnings from the plan that have not yet been paid.
-      // `bonoDirecto` has already been added to `saldoUSDT` progressively.
-      const earningsFromPlan = finalEarnings - (userData.bonoDirecto || 0);
-      const amountToAdd = Math.max(0, earningsFromPlan);
-      
-      // The new balance is the existing balance plus the final plan earnings.
-      const newBalance = (userData.saldoUSDT || 0) + amountToAdd;
-
       const expirationDate = new Date();
       expirationDate.setDate(expirationDate.getDate() + 3);
 
-      // Update the user document. The balance is now correctly consolidated.
       transaction.update(userRef, {
-        saldoUSDT: newBalance, // Set the new consolidated balance.
         planActivo: 0,
-        bonoDirecto: 0, // Reset for the next cycle.
-        inversionAnterior: 0, // Reset for the next cycle.
+        inversionAnterior: 0,
         fechaInicioPlan: null,
         estadoPlan: 'vencido',
         fechaVencimiento: expirationDate.toISOString(),
       });
-
-      // Log the final transaction accurately.
+      
       const transactionRef = userRef.collection('transacciones').doc();
-      transaction.set(transactionRef, {
+       transaction.set(transactionRef, {
         fecha: new Date().toISOString(),
-        tipo: 'Reclamo de Ciclo',
-        descripcion: `Ciclo de ${planActivo} USDT completado. Ganancia de plan acreditada.`,
-        monto: amountToAdd,
+        tipo: 'Ciclo Finalizado',
+        descripcion: `Ciclo de ${planActivo} USDT completado.`,
+        monto: 0,
       });
 
-      return '¡Ciclo completado con éxito!';
+
+      return '¡Ciclo completado con éxito! El plan ha sido finalizado.';
     });
 
     return { success: true, message: resultMessage };
@@ -491,9 +474,9 @@ export async function claimAndFinalizeCycle(userId: string): Promise<{success: t
   }
 }
 
-export async function getSecondLevelReferrals(directReferralId: string): Promise<{ success: true, data: UserProfile[] } | { success: false, error: string }> {
+export async function getSecondLevelReferrals(directReferralId: string): Promise<{ success: true, data: UserProfile[] } | { success: false, error: string, data: [] }> {
   if (!directReferralId) {
-    return { success: false, error: 'Se requiere el ID del referido directo.' };
+    return { success: false, error: 'Se requiere el ID del referido directo.', data: [] };
   }
 
   try {
@@ -511,12 +494,6 @@ export async function getSecondLevelReferrals(directReferralId: string): Promise
           name: data.name || '',
           email: data.email || '',
           planActivo: data.planActivo ?? 0,
-          // Ensure all fields from the UserProfile type that are used in the component are present.
-          rol: data.rol || 'user',
-          saldoUSDT: data.saldoUSDT || 0,
-          inversionAnterior: data.inversionAnterior || 0,
-          bonoDirecto: data.bonoDirecto || 0,
-          bonoEntregado: data.bonoEntregado || false,
         };
       });
 
@@ -524,6 +501,6 @@ export async function getSecondLevelReferrals(directReferralId: string): Promise
 
   } catch (error: any) {
     console.error('Error al buscar referidos de segundo nivel:', error);
-    return { success: false, error: 'Error del servidor al procesar la solicitud.' };
+    return { success: false, error: 'Error del servidor al procesar la solicitud.', data: [] };
   }
 }

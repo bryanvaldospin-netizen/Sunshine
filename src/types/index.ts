@@ -12,6 +12,7 @@ export type UserProfile = {
   inversionAnterior: number;
   fechaInicioPlan?: string | null;
   bonoDirecto: number;
+  bonoRetirable?: number;
   bonoEntregado: boolean | 'reclamado';
   fechaRegistro?: string;
   estadoPlan?: 'activo' | 'vencido';
