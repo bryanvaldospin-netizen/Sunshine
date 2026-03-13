@@ -881,6 +881,19 @@ export default function TestPage() {
     };
   }, [profile?.uid, authLoading]);
 
+  const primaryResidualBonus = useMemo(() => {
+    if (!profile || (profile.planActivo ?? 0) < 101 || networkLoading) {
+        return 0;
+    }
+    // Earn 1% from direct referrals with plan >= $20
+    return directReferrals.reduce((total, ref) => {
+        if ((ref.planActivo ?? 0) >= 20) {
+            return total + (ref.planActivo! * 0.01);
+        }
+        return total;
+    }, 0);
+  }, [profile, directReferrals, networkLoading]);
+
   // Effect for Total Earnings (Personal Plan + Network Bonuses)
   useEffect(() => {
     if (!profile) {
@@ -908,28 +921,15 @@ export default function TestPage() {
       }
     }
     
-    const combinedEarnings = personalEarnings + (profile.bonoDirecto || 0);
+    const combinedEarnings = personalEarnings + (profile.bonoDirecto || 0) + primaryResidualBonus;
     
     const maxEarnings = planActivo > 0 ? planActivo * 3 : Infinity;
     const finalEarnings = isNaN(combinedEarnings) ? 0 : Math.min(combinedEarnings, maxEarnings);
 
     setTotalEarnings(finalEarnings);
 
-  }, [profile]);
+  }, [profile, primaryResidualBonus]);
   
-  const primaryResidualBonus = useMemo(() => {
-    if (!profile || (profile.planActivo ?? 0) < 101 || networkLoading) {
-        return 0;
-    }
-    // Earn 1% from direct referrals with plan >= $20
-    return directReferrals.reduce((total, ref) => {
-        if ((ref.planActivo ?? 0) >= 20) {
-            return total + (ref.planActivo! * 0.01);
-        }
-        return total;
-    }, 0);
-  }, [profile, directReferrals, networkLoading]);
-
 
   // Effect for Stats, based on real-time profile and total earnings
   useEffect(() => {
