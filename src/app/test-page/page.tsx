@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import type { UserProfile, Transaction } from '@/types';
-import { processInitialBonus, createWithdrawalToken, claimAndFinalizeCycle, getSecondLevelReferrals } from '@/lib/actions';
+import { processInitialBonus, createWithdrawalToken, claimAndFinalizeCycle, getSecondLevelReferrals, syncInviteCodes } from '@/lib/actions';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon, User as UserIcon, Wallet, Info, ChevronRight } from 'lucide-react';
+import { Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon, User as UserIcon, Wallet, Info, ChevronRight, AlertTriangle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, onSnapshot, doc, updateDoc, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -963,24 +963,20 @@ export default function TestPage() {
     const now = new Date();
 
     return directReferrals.reduce((total, ref) => {
-      // Sponsor must have a plan of $101 or more.
-      // Referral must have a plan of $20 or more, their contract must be active, and they must have a start date.
       if ((ref.planActivo ?? 0) >= 20 && ref.estadoPlan !== 'vencido' && ref.fechaInicioPlan) {
         const dateValue = ref.fechaInicioPlan as any;
         const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
         
         if (isNaN(startDate.getTime())) {
-          return total; // Skip if date is invalid
+          return total; 
         }
 
         const diffTime = now.getTime() - startDate.getTime();
 
         if (diffTime > 0) {
-          // Calculate full days passed since the referral's plan started.
           const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
           const dailyBonus = (ref.planActivo ?? 0) * 0.01;
           
-          // Total accumulated bonus from this referral
           const referralTotalBonus = dailyBonus * diffDays;
           return total + referralTotalBonus;
         }
@@ -1112,7 +1108,7 @@ export default function TestPage() {
   const personalEarningsComponent = Math.max(0, totalEarnings - ((profile?.bonoDirecto ?? 0) + primaryResidualBonus));
   const referralBonus = profile?.bonoRetirable ?? 0;
   
-  const mainBalance = (profile?.saldoUSDT ?? 0) + personalEarningsComponent + primaryResidualBonus;
+  const mainBalance = (profile?.saldoUSDT ?? 0) + personalEarningsComponent;
   
   const userName = profile?.name || t('dashboard.investor');
   const planActivo = profile?.planActivo ?? 0;
@@ -1412,6 +1408,23 @@ export default function TestPage() {
                             </p>
                           )}
                         </CardContent>
+                    </Card>
+                </div>
+
+                <div className="w-full max-w-5xl">
+                    <Card className="bg-gray-800/80 border-gray-700 p-6 space-y-4">
+                        <div className="flex items-start gap-3">
+                            <span className="text-lg mt-0.5">⚠️</span>
+                            <p className="text-sm text-gray-300">
+                                <strong className="font-semibold text-white">Aviso de Seguridad:</strong> Las cuentas nuevas que no registren ninguna inversión durante sus primeros 10 días serán eliminadas automáticamente del sistema para optimizar recursos.
+                            </p>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <span className="text-lg mt-0.5">🛠️</span>
+                            <p className="text-sm text-gray-300">
+                                <strong className="font-semibold text-white">Soporte Técnico:</strong> Si detecta alguna falla, bug o anomalía en su saldo, por favor contacte a soporte técnico de inmediato para su corrección.
+                            </p>
+                        </div>
                     </Card>
                 </div>
 
