@@ -13,7 +13,7 @@ import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon, User as UserIcon, Wallet, Info, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -627,6 +627,26 @@ const WithdrawalSection = ({ user }: { user: UserProfile }) => {
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [withdrawalType, setWithdrawalType] = useState<'referral' | 'main'>('referral');
+  const [isWindowOpen, setIsWindowOpen] = useState(false);
+
+  useEffect(() => {
+    const checkWindow = () => {
+        try {
+            const nowInLondon = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/London' }));
+            const day = nowInLondon.getDate();
+            const hour = nowInLondon.getHours();
+            
+            const isOpen = [10, 20, 30].includes(day) && hour >= 6;
+            setIsWindowOpen(isOpen);
+        } catch (e) {
+            console.error("Could not determine London time.", e);
+            setIsWindowOpen(false);
+        }
+    };
+    checkWindow();
+    const interval = setInterval(checkWindow, 60000); // Re-check every minute
+    return () => clearInterval(interval);
+  }, []);
 
   const formSchema = z.object({
     amount: z.coerce.number().positive({ message: 'Por favor, introduce un monto válido.' }),
@@ -638,6 +658,22 @@ const WithdrawalSection = ({ user }: { user: UserProfile }) => {
       amount: 0,
     },
   });
+
+  const amount = form.watch('amount');
+  const referralBalance = user.bonoRetirable ?? 0;
+  const mainBalance = (user.saldoUSDT ?? 0) - referralBalance;
+  const maxAmount = withdrawalType === 'referral' ? referralBalance : mainBalance;
+
+  const isAmountInvalid = amount <= 0 || amount > maxAmount;
+  const isButtonDisabled = isSubmitting || isAmountInvalid || (withdrawalType === 'main' && !isWindowOpen);
+
+  const getButtonText = () => {
+    if (isSubmitting) return 'Generando...';
+    if (withdrawalType === 'main' && !isWindowOpen) {
+        return 'Fuera de horario de retiro';
+    }
+    return 'Generar Token';
+  };
 
   const handleGenerateToken = async (values: z.infer<typeof formSchema>) => {
     if (!user) {
@@ -724,12 +760,15 @@ const WithdrawalSection = ({ user }: { user: UserProfile }) => {
                       <FormControl>
                         <Input type="number" placeholder="Ej: 100" {...field} className="bg-gray-700 border-gray-600" />
                       </FormControl>
+                       <FormDescription className="text-xs">
+                         Disponible: {maxAmount.toFixed(2)} USDT
+                       </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <Button type="submit" className="w-full bg-gradient-to-r from-golden to-red-800 text-white" disabled={isSubmitting}>
-                  {isSubmitting ? 'Generando...' : 'Generar Token'}
+                <Button type="submit" className="w-full bg-gradient-to-r from-golden to-red-800 text-white disabled:bg-gray-600 disabled:opacity-50" disabled={isButtonDisabled}>
+                  {getButtonText()}
                 </Button>
               </form>
             </Form>
@@ -974,7 +1013,7 @@ export default function TestPage() {
 
   const personalEarningsComponent = Math.max(0, totalEarnings - (profile?.bonoDirecto ?? 0));
   const referralBonus = profile?.bonoRetirable ?? 0;
-  const mainBalance = (profile?.saldoUSDT ?? 0) - referralBonus;
+  const mainBalance = ((profile?.saldoUSDT ?? 0) + personalEarningsComponent + primaryResidualBonus) - referralBonus;
   
   const userName = profile?.name || t('dashboard.investor');
   const planActivo = profile?.planActivo ?? 0;
