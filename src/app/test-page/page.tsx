@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import type { UserProfile, Transaction } from '@/types';
-import { processInitialBonus, createWithdrawalToken, claimAndFinalizeCycle } from '@/lib/actions';
+import { processInitialBonus, createWithdrawalToken, claimAndFinalizeCycle, getSecondLevelReferrals } from '@/lib/actions';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -193,16 +193,20 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading }: { user: UserPro
     if (!isCurrentlyExpanded && !level2Data[referralId]) {
       setLevel2Data(prev => ({ ...prev, [referralId]: { referrals: [], loading: true } }));
       try {
-        const l2Query = query(collection(db, 'users'), where('invitadoPor', '==', referralId));
-        const snapshot = await getDocs(l2Query);
-        const l2ReferralsData = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
-        setLevel2Data(prev => ({
-          ...prev,
-          [referralId]: { referrals: l2ReferralsData, loading: false }
-        }));
-      } catch (error) {
+        const result = await getSecondLevelReferrals(referralId);
+        
+        if (result.success) {
+            setLevel2Data(prev => ({
+              ...prev,
+              [referralId]: { referrals: result.data, loading: false }
+            }));
+        } else {
+            throw new Error(result.error);
+        }
+        
+      } catch (error: any) {
         console.error("Error fetching L2 referrals:", error);
-        toast({ variant: 'destructive', title: "Error de Red", description: "No se pudo cargar la red de segundo nivel." });
+        toast({ variant: 'destructive', title: "Error de Red", description: error.message || "No se pudo cargar la red de segundo nivel." });
         setLevel2Data(prev => ({
           ...prev,
           [referralId]: { referrals: [], loading: false }

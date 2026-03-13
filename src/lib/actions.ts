@@ -401,7 +401,7 @@ export async function claimAndFinalizeCycle(userId: string): Promise<{success: t
   const userRef = adminDb.collection('users').doc(userId);
 
   try {
-    await adminDb.runTransaction(async (transaction) => {
+    const resultMessage = await adminDb.runTransaction(async (transaction) => {
       const userSnap = await transaction.get(userRef);
       if (!userSnap.exists) {
         throw new Error('Usuario no encontrado.');
@@ -417,7 +417,6 @@ export async function claimAndFinalizeCycle(userId: string): Promise<{success: t
         throw new Error('Este ciclo ya ha sido reclamado y está vencido.');
       }
 
-      // This server-side logic must be consistent with the frontend calculation
       let personalEarnings = 0;
       const fechaInicioPlan = userData.fechaInicioPlan;
       if (planActivo > 0 && fechaInicioPlan) {
@@ -449,14 +448,15 @@ export async function claimAndFinalizeCycle(userId: string): Promise<{success: t
         throw new Error('Aún no has alcanzado el 300% de retorno para reclamar el ciclo.');
       }
 
-      // Calculate the final amount to be claimed, subtracting bonuses already paid out from the total.
       const amountToClaim = finalEarnings - (userData.bonoDirecto || 0);
-      const newBalance = (userData.saldoUSDT || 0) + amountToClaim;
+      
+      // Aseguramos que el balance final no exceda el 300%
+      const currentBalance = userData.saldoUSDT || 0;
+      const newBalance = currentBalance + amountToClaim;
 
       const expirationDate = new Date();
       expirationDate.setDate(expirationDate.getDate() + 3);
 
-      // Perform updates
       transaction.update(userRef, {
         saldoUSDT: newBalance,
         planActivo: 0,
@@ -467,7 +467,6 @@ export async function claimAndFinalizeCycle(userId: string): Promise<{success: t
         fechaVencimiento: expirationDate.toISOString(),
       });
 
-      // Create transaction record
       const transactionRef = userRef.collection('transacciones').doc();
       transaction.set(transactionRef, {
         fecha: new Date().toISOString(),
@@ -475,12 +474,58 @@ export async function claimAndFinalizeCycle(userId: string): Promise<{success: t
         descripcion: `Ciclo de ${planActivo} USDT completado. Reclamo final de ${amountToClaim.toFixed(2)} USDT.`,
         monto: amountToClaim,
       });
+
+      return '¡Ciclo completado con éxito!';
     });
 
-    return { success: true, message: '¡Ciclo completado con éxito!' };
+    return { success: true, message: resultMessage };
 
   } catch (error: any) {
     console.error(`Error en claimAndFinalizeCycle para el usuario ${userId}:`, error.message);
     return { success: false, error: `Error del Servidor: ${error.message}` };
+  }
+}
+
+export async function getSecondLevelReferrals(directReferralId: string): Promise<{ success: true, data: UserProfile[] } | { success: false, error: string }> {
+  if (!directReferralId) {
+    return { success: false, error: 'Se requiere el ID del referido directo.' };
+  }
+
+  try {
+    const serverDb = admin.firestore();
+    const l2QuerySnapshot = await serverDb.collection('users').where('invitadoPor', '==', directReferralId).get();
+
+    if (l2QuerySnapshot.empty) {
+      return { success: true, data: [] };
+    }
+
+    const l2Referrals = l2QuerySnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        uid: doc.id,
+        name: data.name,
+        email: data.email,
+        planActivo: data.planActivo ?? 0,
+        rol: data.rol,
+        saldoUSDT: data.saldoUSDT,
+        invitadoPor: data.invitadoPor,
+        inviteCode: data.inviteCode,
+        ultimoCheckIn: data.ultimoCheckIn,
+        walletAddress: data.walletAddress,
+        inversionAnterior: data.inversionAnterior,
+        fechaInicioPlan: data.fechaInicioPlan,
+        bonoDirecto: data.bonoDirecto,
+        bonoEntregado: data.bonoEntregado,
+        fechaRegistro: data.fechaRegistro,
+        estadoPlan: data.estadoPlan,
+        fechaVencimiento: data.fechaVencimiento,
+      } as UserProfile;
+    });
+
+    return { success: true, data: l2Referrals };
+
+  } catch (error: any) {
+    console.error('Error al buscar referidos de segundo nivel:', error);
+    return { success: false, error: 'Error del servidor al procesar la solicitud.' };
   }
 }
