@@ -107,6 +107,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
       bonoEntregado: false,
       fechaRegistro: new Date().toISOString(),
       estadoPlan: 'activo',
+      lastConsolidation: new Date().toISOString(),
     });
 
     const newWalletRef = systemDb.collection('wallet_addresses').doc(walletAddress);
@@ -369,12 +370,63 @@ const withdrawalSchema = z.object({
   withdrawalType: z.enum(['referral', 'main']),
 });
 
+const getDailyRate = (planAmount: number): number => {
+    if (planAmount >= 1001) return 0.025;
+    if (planAmount >= 501) return 0.020;
+    if (planAmount >= 101) return 0.018;
+    if (planAmount >= 20) return 0.015;
+    return 0;
+};
+
+async function calculateProgressiveEarnings(db: system.firestore.Firestore, user: UserProfile, consolidationTime: Date): Promise<number> {
+    let totalEarned = 0;
+    const lastConsolidationDate = user.lastConsolidation ? new Date(user.lastConsolidation) : new Date(user.fechaRegistro || consolidationTime);
+
+    // 1. Consolidate ROI
+    const planActivo = user.planActivo ?? 0;
+    if (planActivo > 0 && user.fechaInicioPlan && user.estadoPlan === 'activo') {
+        const startDate = new Date(user.fechaInicioPlan);
+        const calculationStartDate = startDate > lastConsolidationDate ? startDate : lastConsolidationDate;
+        const diffTime = consolidationTime.getTime() - calculationStartDate.getTime();
+        if (diffTime > 0) {
+            const diffDays = diffTime / (1000 * 60 * 60 * 24);
+            const dailyRate = getDailyRate(planActivo);
+            const earnedROI = planActivo * dailyRate * diffDays;
+            totalEarned += earnedROI;
+        }
+    }
+
+    // 2. Consolidate Primary Residual Bonus
+    if ((user.planActivo ?? 0) >= 101) {
+        const referralsSnapshot = await db.collection('users').where('invitadoPor', '==', user.uid).get();
+        if (!referralsSnapshot.empty) {
+            let residualBonus = 0;
+            referralsSnapshot.forEach(refDoc => {
+                const refData = refDoc.data() as UserProfile;
+                if ((refData.planActivo ?? 0) >= 20 && refData.estadoPlan !== 'vencido' && refData.fechaInicioPlan) {
+                    const refStartDate = new Date(refData.fechaInicioPlan);
+                    const calculationStartDate = refStartDate > lastConsolidationDate ? refStartDate : lastConsolidationDate;
+                    const diffTime = consolidationTime.getTime() - calculationStartDate.getTime();
+                    if (diffTime > 0) {
+                        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                        const dailyBonus = (refData.planActivo ?? 0) * 0.01;
+                        residualBonus += dailyBonus * diffDays;
+                    }
+                }
+            });
+            totalEarned += residualBonus;
+        }
+    }
+    return totalEarned;
+}
+
 export async function createWithdrawalToken(values: z.infer<typeof withdrawalSchema>): Promise<{ success: true, token: string } | { error: string }> {
   try {
     const validatedValues = withdrawalSchema.parse(values);
     const { amount, user, withdrawalType } = validatedValues;
     const userRef = systemDb.collection('users').doc(user.uid);
     const token = `COMPROBANTE-${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+    const now = new Date();
 
     await systemDb.runTransaction(async (transaction) => {
         const userSnap = await transaction.get(userRef);
@@ -384,8 +436,7 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
         const dbUser = userSnap.data() as UserProfile;
         
         let tipoRetiroForDb: 'bono_referido' | 'saldo_actual';
-        const nowForUk = new Date();
-
+        
         if (withdrawalType === 'referral') {
             tipoRetiroForDb = 'bono_referido';
             const bonoRetirable = dbUser.bonoRetirable ?? 0;
@@ -401,7 +452,7 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
 
         } else { // withdrawalType === 'main'
             tipoRetiroForDb = 'saldo_actual';
-            const ukTime = new Date(nowForUk.toLocaleString('en-US', { timeZone: 'Europe/London' }));
+            const ukTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/London' }));
             const day = ukTime.getDate();
             const hour = ukTime.getHours();
             const isWithdrawalDay = [10, 13, 20, 30].includes(day);
@@ -411,16 +462,17 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
                 throw new Error('Retiros de Saldo Actual disponibles solo los días 10, 20 y 30, a partir de las 6:00 AM (Hora de Londres).');
             }
             
-            const saldoUSDT = dbUser.saldoUSDT ?? 0;
-            const bonoRetirable = dbUser.bonoRetirable ?? 0;
-            const mainBalance = saldoUSDT - bonoRetirable;
+            const earnedAmount = await calculateProgressiveEarnings(systemDb, dbUser, now);
+            const consolidatedSaldoUSDT = (dbUser.saldoUSDT ?? 0) + earnedAmount;
+            const mainBalance = consolidatedSaldoUSDT - (dbUser.bonoRetirable ?? 0);
             if (amount > mainBalance) {
                 throw new Error(`Saldo actual insuficiente. Disponible: ${mainBalance.toFixed(2)} USDT.`);
             }
 
             transaction.update(userRef, {
-                saldoUSDT: FieldValue.increment(-amount),
+                saldoUSDT: FieldValue.increment(earnedAmount - amount),
                 retirosTotales: FieldValue.increment(amount),
+                lastConsolidation: now.toISOString(),
             });
         }
         
@@ -433,7 +485,7 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
           fecha: FieldValue.serverTimestamp(),
           uid: user.uid,
           tipoRetiro: tipoRetiroForDb,
-          fechaUK: nowForUk.toLocaleString('en-GB', { timeZone: 'Europe/London' }),
+          fechaUK: now.toLocaleString('en-GB', { timeZone: 'Europe/London' }),
         });
     });
 
@@ -472,16 +524,21 @@ export async function claimAndFinalizeCycle(userId: string): Promise<{success: t
         throw new Error('Este ciclo ya ha sido reclamado y está vencido.');
       }
 
+      // --- Final Consolidation ---
+      const now = new Date();
+      const finalEarnings = await calculateProgressiveEarnings(systemDb, userData, now);
+
       const expirationDate = new Date();
       expirationDate.setDate(expirationDate.getDate() + 3);
 
-      // NO SUMS, just state change
       transaction.update(userRef, {
+        saldoUSDT: FieldValue.increment(finalEarnings),
         planActivo: 0,
         inversionAnterior: 0,
         fechaInicioPlan: null,
         estadoPlan: 'vencido',
         fechaVencimiento: expirationDate.toISOString(),
+        lastConsolidation: now.toISOString(),
       });
       
       const transactionRef = userRef.collection('transacciones').doc();

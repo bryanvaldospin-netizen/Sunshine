@@ -85,6 +85,11 @@
           "type": "string",
           "format": "date-time",
           "description": "Marca de tiempo de cuándo expira oficialmente el plan, dando al usuario un período de gracia para actualizar."
+        },
+        "lastConsolidation": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The ISO 8601 timestamp of the last time the user's progressive earnings (ROI, bonuses) were consolidated into their main balance."
         }
       },
       "required": [
@@ -273,6 +278,6 @@
         }
       }
     ],
-    "reasoning": "The proposed Firestore structure prioritizes secure, scalable, and debuggable authorization. Key collections like `wallet_addresses` and `invite_codes_map` are separated to allow for safe, unauthenticated checks during registration without exposing the primary `users` collection. A new `system_stats` collection is added for global, real-time status monitoring, with read-only client access."
+    "reasoning": "The proposed Firestore structure prioritizes secure, scalable, and debuggable authorization. Key collections like `wallet_addresses` and `invite_codes_map` are separated to allow for safe, unauthenticated checks during registration without exposing the primary `users` collection. This design prevents security rule complexity and avoids slow `get()` calls within rules."
   }
 }

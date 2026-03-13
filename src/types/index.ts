@@ -18,6 +18,7 @@ export type UserProfile = {
   fechaRegistro?: string;
   estadoPlan?: 'activo' | 'vencido';
   fechaVencimiento?: string | null;
+  lastConsolidation?: string;
 };
 
 export type DepositRequest = {
