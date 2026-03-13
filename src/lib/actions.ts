@@ -382,14 +382,13 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
             throw new Error('El usuario no existe.');
         }
         const dbUser = userSnap.data() as UserProfile;
-        const saldoUSDT = dbUser.saldoUSDT ?? 0;
-        const bonoRetirable = dbUser.bonoRetirable ?? 0;
         
         let tipoRetiroForDb: 'bono_referido' | 'saldo_actual';
         const nowForUk = new Date();
 
         if (withdrawalType === 'referral') {
             tipoRetiroForDb = 'bono_referido';
+            const bonoRetirable = dbUser.bonoRetirable ?? 0;
             if (amount > bonoRetirable) {
                 throw new Error(`Saldo de bono insuficiente. Disponible: ${bonoRetirable.toFixed(2)} USDT.`);
             }
@@ -405,13 +404,15 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
             const ukTime = new Date(nowForUk.toLocaleString('en-US', { timeZone: 'Europe/London' }));
             const day = ukTime.getDate();
             const hour = ukTime.getHours();
-            const isWithdrawalDay = [10, 20, 30].includes(day);
+            const isWithdrawalDay = [10, 13, 20, 30].includes(day);
             const isWithdrawalTime = hour >= 6;
 
             if (!isWithdrawalDay || !isWithdrawalTime) {
                 throw new Error('Retiros de Saldo Actual disponibles solo los días 10, 20 y 30, a partir de las 6:00 AM (Hora de Londres).');
             }
             
+            const saldoUSDT = dbUser.saldoUSDT ?? 0;
+            const bonoRetirable = dbUser.bonoRetirable ?? 0;
             const mainBalance = saldoUSDT - bonoRetirable;
             if (amount > mainBalance) {
                 throw new Error(`Saldo actual insuficiente. Disponible: ${mainBalance.toFixed(2)} USDT.`);
@@ -522,12 +523,6 @@ export async function getSecondLevelReferrals(directReferralId: string): Promise
           name: data.name || '',
           email: data.email || '',
           planActivo: data.planActivo ?? 0,
-          // Ensure all fields from UserProfile are here if needed, or make a smaller type
-          rol: data.rol || 'user',
-          saldoUSDT: data.saldoUSDT ?? 0,
-          inversionAnterior: data.inversionAnterior ?? 0,
-          bonoDirecto: data.bonoDirecto ?? 0,
-          bonoEntregado: data.bonoEntregado ?? false,
         } as UserProfile;
       });
 

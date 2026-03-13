@@ -636,7 +636,7 @@ const WithdrawalSection = ({ user }: { user: UserProfile }) => {
             const day = nowInLondon.getDate();
             const hour = nowInLondon.getHours();
             
-            const isOpen = [10, 20, 30].includes(day) && hour >= 6;
+            const isOpen = [10, 13, 20, 30].includes(day) && hour >= 6;
             setIsWindowOpen(isOpen);
         } catch (e) {
             console.error("Could not determine London time.", e);
