@@ -954,11 +954,10 @@ export default function TestPage() {
   const { t, setLocale } = useTranslation();
   const router = useRouter();
   const { toast } = useToast();
-
-  const [chartData, setChartData] = useState<any[]>([]);
   
   const [directReferrals, setDirectReferrals] = useState<UserProfile[]>([]);
   const [networkLoading, setNetworkLoading] = useState(true);
+  const [renderTime] = useState(new Date());
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -1000,15 +999,14 @@ export default function TestPage() {
     return () => unsubscribe();
   }, [profile?.uid]);
   
-  // REFACTORED LOGIC to separate wallet responsibilities
   const { mainBalance, referralBalance, totalLifetimeEarnings, primaryResidualBonus } = useMemo(() => {
     if (!profile || authLoading) {
       return { mainBalance: 0, referralBalance: 0, totalLifetimeEarnings: 0, primaryResidualBonus: 0 };
     }
 
-    const now = new Date();
+    const now = renderTime;
 
-    // --- 1. Calculate progressive ROI since plan start ---
+    // --- 1. Calculate progressive ROI since plan start (based on full days) ---
     let progressiveROI = 0;
     const planActivo = profile.planActivo ?? 0;
     if (planActivo > 0 && profile.fechaInicioPlan && profile.estadoPlan !== 'vencido') {
@@ -1016,14 +1014,14 @@ export default function TestPage() {
         const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
         if (!isNaN(startDate.getTime())) {
             const diffTime = now.getTime() - startDate.getTime();
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // Use full days
             if (diffDays > 0) {
                 progressiveROI = planActivo * getDailyRate(planActivo) * diffDays;
             }
         }
     }
 
-    // --- 2. Calculate progressive Residual Bonus ---
+    // --- 2. Calculate progressive Residual Bonus (based on full days) ---
     let progressiveResidual = 0;
     if ((profile.planActivo ?? 0) >= 101) {
         progressiveResidual = directReferrals.reduce((total, ref) => {
@@ -1032,7 +1030,7 @@ export default function TestPage() {
                 const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
                 if (!isNaN(startDate.getTime())) {
                     const diffTime = now.getTime() - startDate.getTime();
-                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // Use full days
                     if (diffDays > 0) {
                         return total + ((ref.planActivo ?? 0) * 0.01 * diffDays);
                     }
@@ -1042,10 +1040,10 @@ export default function TestPage() {
         }, 0);
     }
 
-    // --- 3. Define wallet values as per user request ---
+    // --- 3. Define wallet values ---
 
-    // A. "Saldo Actual" (Main Wallet for ROI and Residuals)
-    const finalMainBalance = parseFloat(((profile.saldoUSDT || 0) + progressiveROI + progressiveResidual).toFixed(2));
+    // A. "Saldo Actual": Base balance + progressive ROI ONLY. No residual bonus here.
+    const finalMainBalance = parseFloat(((profile.saldoUSDT || 0) + progressiveROI).toFixed(2));
     
     // B. "Bono Referido" (Separate wallet for 10% direct bonuses)
     const finalReferralBalance = parseFloat((profile.bonoRetirable || 0).toFixed(2));
@@ -1065,7 +1063,7 @@ export default function TestPage() {
         totalLifetimeEarnings: finalTotalLifetimeEarnings,
         primaryResidualBonus: finalPrimaryResidualBonus
     };
-  }, [profile, directReferrals, authLoading]);
+  }, [profile, directReferrals, authLoading, renderTime]);
 
 
   const statItems = useMemo(() => {
@@ -1083,7 +1081,7 @@ export default function TestPage() {
     ];
   }, [t, profile, totalLifetimeEarnings]);
 
-
+  const [chartData, setChartData] = useState<any[]>([]);
   const statsLoading = authLoading;
 
   // Static Chart Generation Effect
@@ -1099,7 +1097,7 @@ export default function TestPage() {
     for (let i = 0; i < points; i++) {
         const date = new Date();
         date.setDate(date.getDate() - (points - 1 - i));
-        const balance = (mainBalance / points) * (i + 1);
+        const balance = (totalLifetimeEarnings / points) * (i + 1);
         data.push({
             date: date.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }),
             balance: parseFloat(balance.toFixed(2)),
@@ -1108,14 +1106,14 @@ export default function TestPage() {
     
     // Ensure the last point is exactly the main balance value and labeled 'Ahora'.
     if (data.length > 0) {
-        data[data.length - 1].balance = mainBalance;
+        data[data.length - 1].balance = totalLifetimeEarnings;
         data[data.length - 1].date = 'Ahora';
-    } else if (mainBalance > 0) {
-        data.push({ date: 'Ahora', balance: mainBalance });
+    } else if (totalLifetimeEarnings > 0) {
+        data.push({ date: 'Ahora', balance: totalLifetimeEarnings });
     }
 
     setChartData(data);
-  }, [mainBalance, authLoading, profile]);
+  }, [totalLifetimeEarnings, authLoading, profile]);
   
 
   const handleLogout = async () => {
