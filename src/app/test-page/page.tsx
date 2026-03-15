@@ -1192,9 +1192,14 @@ export default function TestPage() {
                         </CardHeader>
                         <CardContent className="py-2">
                         {authLoading ? (
-                            <Skeleton className="h-12 w-1/2 mx-auto bg-gray-700" />
+                            <Skeleton className="h-16 w-3/4 mx-auto bg-gray-700" />
                         ) : (
-                            <p className="text-5xl font-bold text-golden">{formattedMainBalance}</p>
+                            <div>
+                                <p className="text-5xl font-bold text-golden">{formattedMainBalance}</p>
+                                <p className="text-sm text-gray-400 mt-1">
+                                    Bono Residual Primario: {formatCurrency(primaryResidualBonus)}
+                                </p>
+                            </div>
                         )}
                         </CardContent>
                     </Card>
