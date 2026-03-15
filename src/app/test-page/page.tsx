@@ -956,7 +956,6 @@ export default function TestPage() {
   const { toast } = useToast();
 
   const [chartData, setChartData] = useState<any[]>([]);
-  const [isAutoClaiming, setIsAutoClaiming] = useState(false);
   
   const [directReferrals, setDirectReferrals] = useState<UserProfile[]>([]);
   const [networkLoading, setNetworkLoading] = useState(true);
@@ -1002,46 +1001,40 @@ export default function TestPage() {
   }, [profile?.uid]);
   
   // SINGLE SOURCE OF TRUTH FOR EARNINGS
-  const { globalEarnings, totalLifetimeEarnings } = useMemo(() => {
+  const { globalEarnings, totalLifetimeEarnings, primaryResidualBonus } = useMemo(() => {
     if (!profile || authLoading || networkLoading) {
-      return { globalEarnings: 0, totalLifetimeEarnings: 0 };
+      return { globalEarnings: 0, totalLifetimeEarnings: 0, primaryResidualBonus: 0 };
     }
 
     const now = new Date();
 
-    // --- 1. Calculate Total ROI from scratch ---
-    let totalROI = 0;
+    // --- 1. Calculate progressive ROI since plan start ---
+    let progressiveROI = 0;
     const planActivo = profile.planActivo ?? 0;
-    const fechaInicioPlan = profile.fechaInicioPlan;
-
-    if (planActivo > 0 && fechaInicioPlan && profile.estadoPlan !== 'vencido') {
-      const dateValue = fechaInicioPlan as any;
-      const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
-      if (!isNaN(startDate.getTime())) {
-        const diffTime = now.getTime() - startDate.getTime();
-        if (diffTime > 0) {
-          const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-          const dailyRate = getDailyRate(planActivo);
-          totalROI = planActivo * dailyRate * diffDays;
+    if (planActivo > 0 && profile.fechaInicioPlan && profile.estadoPlan !== 'vencido') {
+        const dateValue = profile.fechaInicioPlan as any;
+        const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
+        if (!isNaN(startDate.getTime())) {
+            const diffTime = now.getTime() - startDate.getTime();
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            if (diffDays > 0) {
+                progressiveROI = planActivo * getDailyRate(planActivo) * diffDays;
+            }
         }
-      }
     }
 
-    // --- 2. Calculate Total Residual Bonus from scratch ---
-    let totalResidual = 0;
+    // --- 2. Calculate progressive Residual Bonus ---
+    let progressiveResidual = 0;
     if ((profile.planActivo ?? 0) >= 101) {
-        totalResidual = directReferrals.reduce((total, ref) => {
+        progressiveResidual = directReferrals.reduce((total, ref) => {
             if ((ref.planActivo ?? 0) >= 20 && ref.estadoPlan !== 'vencido' && ref.fechaInicioPlan) {
                 const dateValue = ref.fechaInicioPlan as any;
                 const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
-                if (isNaN(startDate.getTime())) return total;
-
-                const diffTime = now.getTime() - startDate.getTime();
-                if (diffTime > 0) {
+                if (!isNaN(startDate.getTime())) {
+                    const diffTime = now.getTime() - startDate.getTime();
                     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                     if (diffDays > 0) {
-                        const dailyBonus = (ref.planActivo ?? 0) * 0.01;
-                        return total + (dailyBonus * diffDays);
+                        return total + ((ref.planActivo ?? 0) * 0.01 * diffDays);
                     }
                 }
             }
@@ -1049,17 +1042,28 @@ export default function TestPage() {
         }, 0);
     }
 
-    // --- 3. Combine earnings ---
-    // This is the total value of investment-related earnings (ROI + Residual)
-    const investmentEarnings = (profile.saldoUSDT || 0) + totalROI + totalResidual;
-    const finalGlobalEarnings = parseFloat(investmentEarnings.toFixed(2));
+    // --- 3. Calculate available balances from DB purses + live progressive earnings ---
+    const availableMain = (profile.saldoUSDT || 0) + progressiveROI + progressiveResidual;
+    const availableReferral = profile.bonoRetirable || 0;
 
-    // This is for the 300% progress bar, it includes ALL earnings.
-    const combined = finalGlobalEarnings + (profile.bonoDirecto || 0);
+    // --- 4. Calculate display values ---
+    
+    // "Saldo Actual" is the sum of both available purses.
+    const finalGlobalEarnings = parseFloat((availableMain + availableReferral).toFixed(2));
+    
+    // "Ganancias Generadas" is total lifetime earnings (Direct + ROI + Residual), capped at 300%.
+    const totalLifetimeDirect = profile.bonoDirecto || 0;
+    const allTimeEarnings = progressiveROI + progressiveResidual + totalLifetimeDirect;
     const maxEarnings = planActivo > 0 ? planActivo * 3 : Infinity;
-    const finalTotalLifetimeEarnings = parseFloat(Math.min(combined, maxEarnings).toFixed(2));
+    const finalTotalLifetimeEarnings = parseFloat(Math.min(allTimeEarnings, maxEarnings).toFixed(2));
 
-    return { globalEarnings: finalGlobalEarnings, totalLifetimeEarnings: finalTotalLifetimeEarnings };
+    const finalPrimaryResidualBonus = parseFloat(Math.abs(progressiveResidual).toFixed(2));
+
+    return { 
+        globalEarnings: finalGlobalEarnings, // Saldo Actual
+        totalLifetimeEarnings: finalTotalLifetimeEarnings, // Ganancias Generadas
+        primaryResidualBonus: finalPrimaryResidualBonus
+    };
   }, [profile, directReferrals, authLoading, networkLoading]);
 
 
@@ -1133,9 +1137,8 @@ export default function TestPage() {
 
   // Effect for Automatic Cycle Claim
   useEffect(() => {
-    if (progress >= 100 && profile && profile.estadoPlan !== 'vencido' && !isAutoClaiming) {
+    if (progress >= 100 && profile && profile.estadoPlan !== 'vencido') {
       const autoClaim = async () => {
-        setIsAutoClaiming(true); // Prevent multiple calls
         toast({
           title: '¡Ciclo Completado!',
           description: 'Procesando tu reclamo final automáticamente...',
@@ -1165,7 +1168,7 @@ export default function TestPage() {
       };
       autoClaim();
     }
-  }, [progress, profile, isAutoClaiming, toast]);
+  }, [progress, profile, toast]);
 
   const chartConfig = {
     balance: {
@@ -1417,7 +1420,7 @@ export default function TestPage() {
            <InvestmentPlansSection />
         </TabsContent>
         <TabsContent value="mi-red">
-          <MyNetworkTab user={profile} directReferrals={directReferrals} networkLoading={networkLoading} primaryResidualBonus={globalEarnings - (profile?.saldoUSDT || 0) - (profile?.bonoDirecto || 0) } />
+          <MyNetworkTab user={profile} directReferrals={directReferrals} networkLoading={networkLoading} primaryResidualBonus={primaryResidualBonus} />
         </TabsContent>
       </Tabs>
       <InstallPWA />
