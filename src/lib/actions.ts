@@ -258,8 +258,8 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
       // CRITICAL: Sponsor must have an active plan to receive commissions.
       if (sponsorPlan <= 0) {
           transaction.update(referralRef, { 
-              bonoEntregado: false,
-              inversionAnterior: referralData.planActivo ?? 0
+              bonoEntregado: false, // Reset to allow admin to re-enable
+              inversionAnterior: referralData.inversionAnterior // Don't update inversionAnterior if no payment
           });
           return 'Bono no pagado: El patrocinador necesita un plan activo para recibir comisiones.';
       }
@@ -277,7 +277,7 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
 
       if (sponsorBonos >= sponsorMaxBonus) {
           transaction.update(referralRef, { 
-              bonoEntregado: false,
+              bonoEntregado: 'reclamado',
               inversionAnterior: referralData.planActivo ?? 0
           });
           return 'Límite de ganancias del patrocinador (300%) alcanzado. El bono no fue entregado.';
@@ -313,7 +313,7 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
 
       // Finalize update on the referral, marking the bonus as processed and ready for the next cycle.
       transaction.update(referralRef, { 
-          bonoEntregado: false,
+          bonoEntregado: 'reclamado',
           inversionAnterior: referralData.planActivo ?? 0
       });
 
