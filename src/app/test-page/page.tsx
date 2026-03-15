@@ -1003,15 +1003,17 @@ export default function TestPage() {
     
     // --- Define final wallet values ---
     
-    // "Saldo Actual": ONLY shows the ROI calculated by full days.
-    const finalMainBalance = parseFloat(progressiveROI.toFixed(2));
+    // "Saldo Actual": Sum of progressive ROI and progressive Residual Bonus.
+    const finalMainBalance = parseFloat((progressiveROI + progressiveResidual).toFixed(2));
     
     // "Bono Referido" (Separate wallet for 10% direct bonuses)
     const finalReferralBalance = parseFloat((profile.bonoRetirable || 0).toFixed(2));
 
     // "Ganancias Generadas" (Total lifetime earnings for progress bar and history)
+    // This is the total potential value generated, including all bonus types.
     const totalLifetimeDirect = profile.bonoDirecto || 0;
     const allTimeEarnings = progressiveROI + progressiveResidual + totalLifetimeDirect;
+
     const maxEarnings = planActivo > 0 ? planActivo * 3 : Infinity;
     const finalTotalLifetimeEarnings = parseFloat(Math.min(allTimeEarnings, maxEarnings).toFixed(2));
     
