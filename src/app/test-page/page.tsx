@@ -418,10 +418,11 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
                                     </TableCell>
                                     <TableCell className="text-right">
                                     {(() => {
+                                        const hasNewInvestment = (ref.planActivo ?? 0) > (ref.inversionAnterior ?? 0);
                                         if (ref.bonoEntregado === 'reclamado') {
                                             return <span className="text-green-400 font-semibold text-sm">Cobrado ✅</span>;
                                         }
-                                        if (ref.bonoEntregado === true && (ref.planActivo ?? 0) > ref.inversionAnterior) {
+                                        if (ref.bonoEntregado === true && hasNewInvestment) {
                                             if ((user?.planActivo ?? 0) > 0) {
                                                 return (
                                                     <Button
@@ -456,7 +457,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
                                                 );
                                             }
                                         }
-                                        if ((ref.planActivo ?? 0) > 0 && ref.bonoEntregado === false) {
+                                        if ((ref.planActivo ?? 0) > 0 && ref.bonoEntregado !== true) {
                                              return <Badge variant="outline" className="text-muted-foreground border-gray-600">Esperando Activación</Badge>;
                                         }
                                         return <span className="text-xs text-gray-500">Sin plan</span>;
@@ -916,7 +917,8 @@ export default function TestPage() {
   
   const [directReferrals, setDirectReferrals] = useState<UserProfile[]>([]);
   const [networkLoading, setNetworkLoading] = useState(true);
-  const [renderTime] = useState(new Date());
+  const renderTime = useMemo(() => new Date(), []); // Snapshot of time on component render
+
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -965,7 +967,7 @@ export default function TestPage() {
 
     const now = renderTime;
 
-    // --- 1. Calculate progressive ROI since plan start (based on full days) ---
+    // --- Progressive ROI based on full days ---
     let progressiveROI = 0;
     const planActivo = profile.planActivo ?? 0;
     if (planActivo > 0 && profile.fechaInicioPlan && profile.estadoPlan !== 'vencido') {
@@ -973,14 +975,14 @@ export default function TestPage() {
         const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
         if (!isNaN(startDate.getTime())) {
             const diffTime = now.getTime() - startDate.getTime();
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // Use full days
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
             if (diffDays > 0) {
                 progressiveROI = planActivo * getDailyRate(planActivo) * diffDays;
             }
         }
     }
 
-    // --- 2. Calculate progressive Residual Bonus (based on full days) ---
+    // --- Progressive Residual Bonus based on full days ---
     let progressiveResidual = 0;
     if ((profile.planActivo ?? 0) >= 101) {
         progressiveResidual = directReferrals.reduce((total, ref) => {
@@ -989,7 +991,7 @@ export default function TestPage() {
                 const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
                 if (!isNaN(startDate.getTime())) {
                     const diffTime = now.getTime() - startDate.getTime();
-                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); // Use full days
+                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                     if (diffDays > 0) {
                         return total + ((ref.planActivo ?? 0) * 0.01 * diffDays);
                     }
@@ -998,22 +1000,22 @@ export default function TestPage() {
             return total;
         }, 0);
     }
-
-    // --- 3. Define wallet values ---
-
-    // A. "Saldo Actual": Base balance + progressive ROI ONLY.
-    const finalMainBalance = parseFloat(((profile.saldoUSDT || 0) + progressiveROI).toFixed(2));
     
-    // B. "Bono Referido" (Separate wallet for 10% direct bonuses)
+    // --- Define final wallet values ---
+    
+    // "Saldo Actual": ONLY shows the ROI calculated by full days.
+    const finalMainBalance = parseFloat(progressiveROI.toFixed(2));
+    
+    // "Bono Referido" (Separate wallet for 10% direct bonuses)
     const finalReferralBalance = parseFloat((profile.bonoRetirable || 0).toFixed(2));
 
-    // C. "Ganancias Generadas" (Total lifetime earnings for progress bar and history)
+    // "Ganancias Generadas" (Total lifetime earnings for progress bar and history)
     const totalLifetimeDirect = profile.bonoDirecto || 0;
     const allTimeEarnings = progressiveROI + progressiveResidual + totalLifetimeDirect;
     const maxEarnings = planActivo > 0 ? planActivo * 3 : Infinity;
     const finalTotalLifetimeEarnings = parseFloat(Math.min(allTimeEarnings, maxEarnings).toFixed(2));
     
-    // D. "Bono Residual Primario" (Display card for total accumulated residual)
+    // "Bono Residual Primario" (Display card for total accumulated residual)
     const finalPrimaryResidualBonus = parseFloat(progressiveResidual.toFixed(2));
 
     return { 

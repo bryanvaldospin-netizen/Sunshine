@@ -248,29 +248,23 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
       const referralData = referralSnap.data() as UserProfile;
 
       if (referralData.invitadoPor !== sponsorId) throw new Error('No tienes permiso para reclamar este bono.');
-      if (referralData.bonoEntregado !== true) throw new Error('Este bono no está listo para ser reclamado o ya fue pagado.');
+      if (referralData.bonoEntregado !== true) throw new Error('Este bono no está listo para ser reclamado o ya fue procesado.');
       
       const sponsorSnap = await transaction.get(sponsorRef);
       if (!sponsorSnap.exists) throw new Error('El patrocinador no fue encontrado.');
       const sponsorData = sponsorSnap.data() as UserProfile;
       
       const sponsorPlan = sponsorData.planActivo ?? 0;
-      // CRITICAL: Sponsor must have an active plan to receive commissions.
       if (sponsorPlan <= 0) {
-          transaction.update(referralRef, { 
-              bonoEntregado: false, // Reset to allow admin to re-enable
-              inversionAnterior: referralData.inversionAnterior // Don't update inversionAnterior if no payment
-          });
           return 'Bono no pagado: El patrocinador necesita un plan activo para recibir comisiones.';
       }
       
       const investmentDifference = (referralData.planActivo ?? 0) - (referralData.inversionAnterior ?? 0);
       if (investmentDifference <= 0) {
-          transaction.update(referralRef, { bonoEntregado: false });
+          // This prevents re-claiming the same bonus if the admin mistakenly sets flag to true again.
           return 'No hay nueva inversión para comisionar.';
       }
 
-      // --- Sustainability Shield Logic ---
       const potentialCommission = investmentDifference * 0.10;
       const sponsorBonos = sponsorData.bonoDirecto ?? 0;
       const sponsorMaxBonus = sponsorPlan * 3;
@@ -311,7 +305,6 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
           message = 'El bono no pudo ser pagado porque el patrocinador no tenía margen de ganancia.';
       }
 
-      // Finalize update on the referral, marking the bonus as processed and ready for the next cycle.
       transaction.update(referralRef, { 
           bonoEntregado: 'reclamado',
           inversionAnterior: referralData.planActivo ?? 0
@@ -616,16 +609,28 @@ export async function reconcileAccount(userId: string): Promise<{success: true, 
         }
         const userData = userSnap.data() as UserProfile;
 
-        // For users already on the new system, just credit missed earnings.
-        const progressiveEarnings = await calculateProgressiveEarnings(systemDb, userData, now);
-        const earningsToCredit = parseFloat(progressiveEarnings.toFixed(2));
-
-        if (earningsToCredit > 0) {
+        // Full audit calculation from the beginning
+        const planActivo = userData.planActivo ?? 0;
+        let totalAuditedROI = 0;
+        
+        if (planActivo > 0 && userData.fechaInicioPlan && userData.estadoPlan !== 'vencido') {
+            const startDate = new Date(userData.fechaInicioPlan);
+            const diffTime = now.getTime() - startDate.getTime();
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            if (diffDays > 0) {
+                const dailyRate = getDailyRate(planActivo);
+                totalAuditedROI = planActivo * dailyRate * diffDays;
+            }
+        }
+        
+        const finalAuditedBalance = parseFloat(totalAuditedROI.toFixed(2));
+  
+        // Overwrite if different
+        if (userData.saldoUSDT !== finalAuditedBalance) {
           transaction.update(userRef, {
-            saldoUSDT: FieldValue.increment(earningsToCredit),
-            lastConsolidation: now.toISOString(),
+            saldoUSDT: finalAuditedBalance,
           });
-          return `Cuenta sincronizada. ${earningsToCredit.toFixed(2)} USDT acreditados.`;
+          return `Cuenta auditada. Saldo corregido a ${finalAuditedBalance.toFixed(2)} USDT.`;
         }
 
         return 'La cuenta ya estaba sincronizada.';
