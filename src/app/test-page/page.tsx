@@ -908,47 +908,6 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
   );
 };
 
-const ExpirationCountdown = ({ fechaVencimiento }: { fechaVencimiento: string }) => {
-  const [countdown, setCountdown] = useState('');
-
-  useEffect(() => {
-    if (!fechaVencimiento) return;
-
-    const expiration = new Date(fechaVencimiento).getTime();
-    if (isNaN(expiration)) {
-      setCountdown('Fecha de vencimiento inválida.');
-      return;
-    }
-
-    const interval = setInterval(() => {
-      const now = new Date().getTime();
-      const distance = expiration - now;
-
-      if (distance < 0) {
-        setCountdown('Tu período de gracia ha expirado.');
-        clearInterval(interval);
-        return;
-      }
-
-      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
-      setCountdown(`${days}d ${hours}h ${minutes}m ${seconds}s`);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [fechaVencimiento]);
-
-  if (!countdown) {
-    return <p className="text-2xl font-mono font-bold text-white mt-3">Calculando tiempo restante...</p>;
-  }
-
-  return <p className="text-2xl font-mono font-bold text-white mt-3">{countdown}</p>;
-};
-
-
 export default function TestPage() {
   const { user: profile, loading: authLoading } = useAuth();
   const { t, setLocale } = useTranslation();
@@ -1042,7 +1001,7 @@ export default function TestPage() {
 
     // --- 3. Define wallet values ---
 
-    // A. "Saldo Actual": Base balance + progressive ROI ONLY. No residual bonus here.
+    // A. "Saldo Actual": Base balance + progressive ROI ONLY.
     const finalMainBalance = parseFloat(((profile.saldoUSDT || 0) + progressiveROI).toFixed(2));
     
     // B. "Bono Referido" (Separate wallet for 10% direct bonuses)
@@ -1291,7 +1250,9 @@ export default function TestPage() {
                                         Tienes 3 días para incrementar tu plan o tu cuenta se cerrará.
                                     </p>
                                     {profile.fechaVencimiento && (
-                                       <ExpirationCountdown fechaVencimiento={profile.fechaVencimiento} />
+                                       <p className="text-sm text-gray-300 mt-2">
+                                            Tu cuenta se cerrará aproximadamente el: {new Date(profile.fechaVencimiento).toLocaleDateString('es-ES')}
+                                       </p>
                                     )}
                                 </div>
                             ) : planActivo > 0 ? (
