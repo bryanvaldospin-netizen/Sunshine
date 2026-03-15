@@ -421,7 +421,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
                                         if (ref.bonoEntregado === 'reclamado') {
                                             return <span className="text-green-400 font-semibold text-sm">Cobrado ✅</span>;
                                         }
-                                        if (ref.bonoEntregado === true) {
+                                        if (ref.bonoEntregado === true && (ref.planActivo ?? 0) > ref.inversionAnterior) {
                                             if ((user?.planActivo ?? 0) > 0) {
                                                 return (
                                                     <Button
@@ -910,7 +910,7 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
 
 const ExpirationCountdown = ({ fechaVencimiento }: { fechaVencimiento: string }) => {
   const [countdown, setCountdown] = useState('');
-  
+
   useEffect(() => {
     if (!fechaVencimiento) return;
 
@@ -941,7 +941,11 @@ const ExpirationCountdown = ({ fechaVencimiento }: { fechaVencimiento: string })
     return () => clearInterval(interval);
   }, [fechaVencimiento]);
 
-  return <p className="text-2xl font-mono font-bold text-white mt-3">{countdown || 'Calculando tiempo restante...'}</p>;
+  if (!countdown) {
+    return <p className="text-2xl font-mono font-bold text-white mt-3">Calculando tiempo restante...</p>;
+  }
+
+  return <p className="text-2xl font-mono font-bold text-white mt-3">{countdown}</p>;
 };
 
 
@@ -972,41 +976,38 @@ export default function TestPage() {
 
   // Fetch direct referrals
   useEffect(() => {
-    let unsubscribe: () => void = () => {};
-
-    if (profile?.uid) {
-      setNetworkLoading(true);
-      const referralsQuery = query(
-        collection(db, 'users'),
-        where('invitadoPor', '==', profile.uid)
-      );
-  
-      unsubscribe = onSnapshot(referralsQuery, (snapshot) => {
-        const refs = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
-        setDirectReferrals(refs);
-        setNetworkLoading(false);
-      }, (error) => {
-        console.error("Error fetching referrals:", error);
-        setDirectReferrals([]);
-        setNetworkLoading(false);
-      });
-    } else if (!authLoading) {
+    if (!profile?.uid) {
       setNetworkLoading(false);
       setDirectReferrals([]);
+      return;
     }
+    
+    setNetworkLoading(true);
+    const referralsQuery = query(
+      collection(db, 'users'),
+      where('invitadoPor', '==', profile.uid)
+    );
+  
+    const unsubscribe = onSnapshot(referralsQuery, (snapshot) => {
+      const refs = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
+      setDirectReferrals(refs);
+      setNetworkLoading(false);
+    }, (error) => {
+      console.error("Error fetching referrals:", error);
+      setDirectReferrals([]);
+      setNetworkLoading(false);
+    });
 
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, [profile?.uid, authLoading]);
+    return () => unsubscribe();
+  }, [profile?.uid]);
   
   // SINGLE SOURCE OF TRUTH FOR EARNINGS
   const { globalEarnings, totalLifetimeEarnings } = useMemo(() => {
     if (!profile || authLoading || networkLoading) {
       return { globalEarnings: 0, totalLifetimeEarnings: 0 };
     }
+
+    const now = new Date();
 
     // --- 1. Calculate Total ROI from scratch ---
     let totalROI = 0;
@@ -1017,7 +1018,6 @@ export default function TestPage() {
       const dateValue = fechaInicioPlan as any;
       const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
       if (!isNaN(startDate.getTime())) {
-        const now = new Date();
         const diffTime = now.getTime() - startDate.getTime();
         if (diffTime > 0) {
           const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
@@ -1030,7 +1030,6 @@ export default function TestPage() {
     // --- 2. Calculate Total Residual Bonus from scratch ---
     let totalResidual = 0;
     if ((profile.planActivo ?? 0) >= 101) {
-        const now = new Date();
         totalResidual = directReferrals.reduce((total, ref) => {
             if ((ref.planActivo ?? 0) >= 20 && ref.estadoPlan !== 'vencido' && ref.fechaInicioPlan) {
                 const dateValue = ref.fechaInicioPlan as any;
@@ -1053,14 +1052,14 @@ export default function TestPage() {
     // --- 3. Combine earnings ---
     // This is the total value of investment-related earnings (ROI + Residual)
     const investmentEarnings = (profile.saldoUSDT || 0) + totalROI + totalResidual;
-    const globalEarnings = parseFloat(investmentEarnings.toFixed(2));
+    const finalGlobalEarnings = parseFloat(investmentEarnings.toFixed(2));
 
     // This is for the 300% progress bar, it includes ALL earnings.
-    const combined = globalEarnings + (profile.bonoDirecto || 0);
+    const combined = finalGlobalEarnings + (profile.bonoDirecto || 0);
     const maxEarnings = planActivo > 0 ? planActivo * 3 : Infinity;
-    const totalLifetimeEarnings = parseFloat(Math.min(combined, maxEarnings).toFixed(2));
+    const finalTotalLifetimeEarnings = parseFloat(Math.min(combined, maxEarnings).toFixed(2));
 
-    return { globalEarnings, totalLifetimeEarnings };
+    return { globalEarnings: finalGlobalEarnings, totalLifetimeEarnings: finalTotalLifetimeEarnings };
   }, [profile, directReferrals, authLoading, networkLoading]);
 
 

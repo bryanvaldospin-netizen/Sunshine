@@ -168,7 +168,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
 }
 
 export async function getWalletAddress() {
-  return process.env.USDT_WALLET_ADDRESS || '0x471d4424e1016a256a8d13283522302cb020a4d2';
+  return "0x471d4424e1016a256a8d13283522302cb020a4d2";
 }
 
 export async function syncInviteCodes() {
@@ -258,7 +258,7 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
       // CRITICAL: Sponsor must have an active plan to receive commissions.
       if (sponsorPlan <= 0) {
           transaction.update(referralRef, { 
-              bonoEntregado: 'reclamado',
+              bonoEntregado: false,
               inversionAnterior: referralData.planActivo ?? 0
           });
           return 'Bono no pagado: El patrocinador necesita un plan activo para recibir comisiones.';
@@ -266,7 +266,7 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
       
       const investmentDifference = (referralData.planActivo ?? 0) - (referralData.inversionAnterior ?? 0);
       if (investmentDifference <= 0) {
-          transaction.update(referralRef, { bonoEntregado: 'reclamado' });
+          transaction.update(referralRef, { bonoEntregado: false });
           return 'No hay nueva inversión para comisionar.';
       }
 
@@ -277,7 +277,7 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
 
       if (sponsorBonos >= sponsorMaxBonus) {
           transaction.update(referralRef, { 
-              bonoEntregado: 'reclamado',
+              bonoEntregado: false,
               inversionAnterior: referralData.planActivo ?? 0
           });
           return 'Límite de ganancias del patrocinador (300%) alcanzado. El bono no fue entregado.';
@@ -311,9 +311,9 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
           message = 'El bono no pudo ser pagado porque el patrocinador no tenía margen de ganancia.';
       }
 
-      // Finalize update on the referral, marking the bonus as processed.
+      // Finalize update on the referral, marking the bonus as processed and ready for the next cycle.
       transaction.update(referralRef, { 
-          bonoEntregado: 'reclamado',
+          bonoEntregado: false,
           inversionAnterior: referralData.planActivo ?? 0
       });
 
