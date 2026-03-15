@@ -1000,10 +1000,10 @@ export default function TestPage() {
     return () => unsubscribe();
   }, [profile?.uid]);
   
-  // SINGLE SOURCE OF TRUTH FOR EARNINGS
-  const { globalEarnings, totalLifetimeEarnings, primaryResidualBonus } = useMemo(() => {
-    if (!profile || authLoading || networkLoading) {
-      return { globalEarnings: 0, totalLifetimeEarnings: 0, primaryResidualBonus: 0 };
+  // REFACTORED LOGIC to separate wallet responsibilities
+  const { mainBalance, referralBalance, totalLifetimeEarnings, primaryResidualBonus } = useMemo(() => {
+    if (!profile || authLoading) {
+      return { mainBalance: 0, referralBalance: 0, totalLifetimeEarnings: 0, primaryResidualBonus: 0 };
     }
 
     const now = new Date();
@@ -1042,29 +1042,30 @@ export default function TestPage() {
         }, 0);
     }
 
-    // --- 3. Calculate available balances from DB purses + live progressive earnings ---
-    const availableMain = (profile.saldoUSDT || 0) + progressiveROI + progressiveResidual;
-    const availableReferral = profile.bonoRetirable || 0;
+    // --- 3. Define wallet values as per user request ---
 
-    // --- 4. Calculate display values ---
+    // A. "Saldo Actual" (Main Wallet for ROI and Residuals)
+    const finalMainBalance = parseFloat(((profile.saldoUSDT || 0) + progressiveROI + progressiveResidual).toFixed(2));
     
-    // "Saldo Actual" is the sum of both available purses.
-    const finalGlobalEarnings = parseFloat((availableMain + availableReferral).toFixed(2));
-    
-    // "Ganancias Generadas" is total lifetime earnings (Direct + ROI + Residual), capped at 300%.
+    // B. "Bono Referido" (Separate wallet for 10% direct bonuses)
+    const finalReferralBalance = parseFloat((profile.bonoRetirable || 0).toFixed(2));
+
+    // C. "Ganancias Generadas" (Total lifetime earnings for progress bar and history)
     const totalLifetimeDirect = profile.bonoDirecto || 0;
     const allTimeEarnings = progressiveROI + progressiveResidual + totalLifetimeDirect;
     const maxEarnings = planActivo > 0 ? planActivo * 3 : Infinity;
     const finalTotalLifetimeEarnings = parseFloat(Math.min(allTimeEarnings, maxEarnings).toFixed(2));
-
-    const finalPrimaryResidualBonus = parseFloat(Math.abs(progressiveResidual).toFixed(2));
+    
+    // D. "Bono Residual Primario" (Display card for total accumulated residual)
+    const finalPrimaryResidualBonus = parseFloat(progressiveResidual.toFixed(2));
 
     return { 
-        globalEarnings: finalGlobalEarnings, // Saldo Actual
-        totalLifetimeEarnings: finalTotalLifetimeEarnings, // Ganancias Generadas
+        mainBalance: finalMainBalance,
+        referralBalance: finalReferralBalance,
+        totalLifetimeEarnings: finalTotalLifetimeEarnings,
         primaryResidualBonus: finalPrimaryResidualBonus
     };
-  }, [profile, directReferrals, authLoading, networkLoading]);
+  }, [profile, directReferrals, authLoading]);
 
 
   const statItems = useMemo(() => {
@@ -1098,23 +1099,23 @@ export default function TestPage() {
     for (let i = 0; i < points; i++) {
         const date = new Date();
         date.setDate(date.getDate() - (points - 1 - i));
-        const balance = (globalEarnings / points) * (i + 1);
+        const balance = (mainBalance / points) * (i + 1);
         data.push({
             date: date.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }),
             balance: parseFloat(balance.toFixed(2)),
         });
     }
     
-    // Ensure the last point is exactly the global earnings value and labeled 'Ahora'.
+    // Ensure the last point is exactly the main balance value and labeled 'Ahora'.
     if (data.length > 0) {
-        data[data.length - 1].balance = globalEarnings;
+        data[data.length - 1].balance = mainBalance;
         data[data.length - 1].date = 'Ahora';
-    } else if (globalEarnings > 0) {
-        data.push({ date: 'Ahora', balance: globalEarnings });
+    } else if (mainBalance > 0) {
+        data.push({ date: 'Ahora', balance: mainBalance });
     }
 
     setChartData(data);
-  }, [globalEarnings, authLoading, profile]);
+  }, [mainBalance, authLoading, profile]);
   
 
   const handleLogout = async () => {
@@ -1126,12 +1127,11 @@ export default function TestPage() {
     }
   };
   
-  const referralBonus = profile?.bonoRetirable ?? 0;
   const userName = profile?.name || t('dashboard.investor');
   const planActivo = profile?.planActivo ?? 0;
 
-  const formattedMainBalance = formatCurrency(globalEarnings);
-  const formattedReferralBonus = formatCurrency(referralBonus);
+  const formattedMainBalance = formatCurrency(mainBalance);
+  const formattedReferralBonus = formatCurrency(referralBalance);
   
   const progress = planActivo > 0 ? (totalLifetimeEarnings / (planActivo * 3)) * 100 : 0;
 
@@ -1323,7 +1323,7 @@ export default function TestPage() {
 
                 {profile && !authLoading && (
                   <div className="w-full max-w-5xl">
-                    <WithdrawalSection user={profile} mainBalance={globalEarnings} referralBalance={referralBonus} />
+                    <WithdrawalSection user={profile} mainBalance={mainBalance} referralBalance={referralBalance} />
                   </div>
                 )}
                 
