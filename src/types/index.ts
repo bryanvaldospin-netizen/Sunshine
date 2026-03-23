@@ -19,6 +19,7 @@ export type UserProfile = {
   estadoPlan?: 'activo' | 'vencido';
   fechaVencimiento?: string | null;
   lastConsolidation?: string;
+  isVip?: boolean;
 };
 
 export type DepositRequest = {

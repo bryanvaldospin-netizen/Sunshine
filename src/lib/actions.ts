@@ -109,6 +109,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
       fechaRegistro: new Date().toISOString(),
       estadoPlan: 'activo',
       lastConsolidation: null,
+      isVip: false,
     });
 
     const newWalletRef = systemDb.collection('wallet_addresses').doc(walletAddress);
@@ -168,7 +169,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
 }
 
 export async function getWalletAddress() {
-  return "0x471d4424e1016a256a8d13283522302cb020a4d2";
+  return "0x471d4424e1016a256a256a8d13283522302cb020a4d2";
 }
 
 export async function syncInviteCodes() {
@@ -362,11 +363,18 @@ const withdrawalSchema = z.object({
   withdrawalType: z.enum(['referral', 'main']),
 });
 
-const getDailyRate = (planAmount: number): number => {
-    if (planAmount >= 1001) return 0.025;
-    if (planAmount >= 501) return 0.020;
-    if (planAmount >= 101) return 0.018;
-    if (planAmount >= 20) return 0.015;
+const getDailyRate = (planAmount: number, isVip: boolean = false): number => {
+    if (isVip) {
+        if (planAmount >= 1001) return 0.028; // 2.8%
+        if (planAmount >= 501) return 0.026;  // 2.6%
+        if (planAmount >= 101) return 0.024;  // 2.4%
+        if (planAmount >= 20) return 0.020;   // 2.0%
+    } else {
+        if (planAmount >= 1001) return 0.025;
+        if (planAmount >= 501) return 0.020;
+        if (planAmount >= 101) return 0.018;
+        if (planAmount >= 20) return 0.015;
+    }
     return 0;
 };
 
@@ -383,7 +391,7 @@ async function calculateProgressiveEarnings(db: system.firestore.Firestore, user
         if (diffTime > 0) {
             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
             if (diffDays > 0) {
-                const dailyRate = getDailyRate(planActivo);
+                const dailyRate = getDailyRate(planActivo, user.isVip ?? false);
                 const earnedROI = planActivo * dailyRate * diffDays;
                 totalEarned += earnedROI;
             }
@@ -617,7 +625,7 @@ export async function reconcileAccount(userId: string): Promise<{success: true, 
             const diffTime = now.getTime() - startDate.getTime();
             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
             if (diffDays > 0) {
-                const dailyRate = getDailyRate(planActivo);
+                const dailyRate = getDailyRate(planActivo, userData.isVip ?? false);
                 totalAuditedEarnings += planActivo * dailyRate * diffDays;
             }
         }

@@ -48,7 +48,7 @@ const InvestmentPlansSection = () => {
     const { toast } = useToast();
     const [open, setOpen] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<{name: string, investment: string, dailyRate: string} | null>(null);
-    const walletAddress = '0x471d4424e1016a256a8d13283522302cb020a4d2';
+    const walletAddress = '0x471d4424e1016a256a256a8d13283522302cb020a4d2';
 
     const handleCopy = () => {
         navigator.clipboard.writeText(walletAddress);
@@ -61,30 +61,71 @@ const InvestmentPlansSection = () => {
         { name: 'Oro', investment: '$501 - $1000', dailyRate: '2.0% Diario', icon: Crown, color: 'border-golden', textColor: 'text-golden' },
         { name: 'Diamante', investment: '$1001+', dailyRate: '2.5% Diario', icon: Gem, color: 'border-diamond', textColor: 'text-diamond' },
     ];
+    
+    const vipPlans = [
+        { name: 'Bronce VIP', investment: '$20 - $100', dailyRate: '2.0% Diario', icon: Shield, color: 'border-amber-400', textColor: 'text-amber-400' },
+        { name: 'Plata VIP', investment: '$101 - $500', dailyRate: '2.4% Diario', icon: Star, color: 'border-amber-400', textColor: 'text-amber-400' },
+        { name: 'Oro VIP', investment: '$501 - $1000', dailyRate: '2.6% Diario', icon: Crown, color: 'border-amber-400', textColor: 'text-amber-400' },
+        { name: 'Diamante VIP', investment: '$1001+', dailyRate: '2.8% Diario', icon: Gem, color: 'border-amber-400', textColor: 'text-amber-400' },
+    ];
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <div className="p-4 md:p-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {plans.map((plan) => (
-                        <Card key={plan.name} className={`bg-gray-800/80 backdrop-blur-sm flex flex-col ${plan.color} border-2 shadow-lg hover:shadow-golden/20 transition-shadow duration-300`}>
-                            <CardHeader className="items-center text-center">
-                                <plan.icon className={`w-12 h-12 mb-2 ${plan.textColor}`} />
-                                <CardTitle className={`text-xl ${plan.textColor}`}>{plan.name}</CardTitle>
-                                <CardDescription className="font-semibold text-gray-300">{plan.investment}</CardDescription>
-                            </CardHeader>
-                            <CardContent className="flex-grow flex items-center justify-center text-center">
-                                <p className="text-3xl font-bold text-white">{plan.dailyRate}</p>
-                            </CardContent>
-                            <CardFooter>
-                                <DialogTrigger asChild>
-                                    <Button onClick={() => setSelectedPlan(plan)} className="w-full bg-gradient-to-r from-golden to-red-800 text-white">
-                                        Depositar USDT
-                                    </Button>
-                                </DialogTrigger>
-                            </CardFooter>
-                        </Card>
-                    ))}
+            <div className="p-4 md:p-8 space-y-12">
+                <div>
+                    <h2 className="text-3xl font-bold text-center mb-2 text-gray-300">Planes Estándar</h2>
+                    <p className="text-center text-muted-foreground mb-8">Rendimientos consistentes para iniciar tu camino.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {plans.map((plan) => (
+                            <Card key={plan.name} className={`bg-gray-800/80 backdrop-blur-sm flex flex-col ${plan.color} border-2 shadow-lg hover:shadow-golden/20 transition-shadow duration-300`}>
+                                <CardHeader className="items-center text-center">
+                                    <plan.icon className={`w-12 h-12 mb-2 ${plan.textColor}`} />
+                                    <CardTitle className={`text-xl ${plan.textColor}`}>{plan.name}</CardTitle>
+                                    <CardDescription className="font-semibold text-gray-300">{plan.investment}</CardDescription>
+                                </CardHeader>
+                                <CardContent className="flex-grow flex items-center justify-center text-center">
+                                    <p className="text-3xl font-bold text-white">{plan.dailyRate}</p>
+                                </CardContent>
+                                <CardFooter>
+                                    <DialogTrigger asChild>
+                                        <Button onClick={() => setSelectedPlan(plan)} className="w-full bg-gradient-to-r from-golden to-red-800 text-white">
+                                            Depositar USDT
+                                        </Button>
+                                    </DialogTrigger>
+                                </CardFooter>
+                            </Card>
+                        ))}
+                    </div>
+                </div>
+
+                <div>
+                    <h2 className="text-3xl font-bold text-center mb-2 text-amber-400">Planes VIP Boost</h2>
+                    <p className="text-center text-muted-foreground mb-8">Maximiza tus ganancias con nuestras tasas preferenciales.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {vipPlans.map((plan) => (
+                            <Card key={plan.name} className={`bg-gray-900/80 backdrop-blur-sm flex flex-col ${plan.color} border-2 shadow-lg hover:shadow-amber-400/30 transition-shadow duration-300 relative overflow-hidden`}>
+                                <Badge className="absolute top-2 right-2 bg-amber-500 text-black border-amber-500">VIP Boost</Badge>
+                                <CardHeader className="items-center text-center">
+                                    <plan.icon className={`w-12 h-12 mb-2 ${plan.textColor}`} />
+                                    <CardTitle className={`text-xl ${plan.textColor}`}>{plan.name}</CardTitle>
+                                    <CardDescription className="font-semibold text-gray-300">{plan.investment}</CardDescription>
+                                </CardHeader>
+                                <CardContent className="flex-grow flex items-center justify-center text-center">
+                                    <p className="text-3xl font-bold text-white">{plan.dailyRate}</p>
+                                </CardContent>
+                                <CardFooter className="flex-col items-center">
+                                    <DialogTrigger asChild>
+                                        <Button onClick={() => setSelectedPlan(plan)} className="w-full bg-gradient-to-r from-amber-500 to-amber-700 text-white">
+                                            Depositar USDT
+                                        </Button>
+                                    </DialogTrigger>
+                                    <p className="text-xs text-muted-foreground mt-3 text-center">
+                                        +$3 USDT de activación incluido en el monto final.
+                                    </p>
+                                </CardFooter>
+                            </Card>
+                        ))}
+                    </div>
                 </div>
             </div>
 
@@ -925,11 +966,18 @@ export default function TestPage() {
     currency: 'USD',
   }).format(value);
 
-  const getDailyRate = (planAmount: number): number => {
-    if (planAmount >= 1001) return 0.025; // 2.5%
-    if (planAmount >= 501) return 0.020;  // 2.0%
-    if (planAmount >= 101) return 0.018;  // 1.8%
-    if (planAmount >= 20) return 0.015;   // 1.5%
+  const getDailyRate = (planAmount: number, isVip: boolean = false): number => {
+    if (isVip) {
+        if (planAmount >= 1001) return 0.028; // 2.8%
+        if (planAmount >= 501) return 0.026;  // 2.6%
+        if (planAmount >= 101) return 0.024;  // 2.4%
+        if (planAmount >= 20) return 0.020;   // 2.0%
+    } else {
+        if (planAmount >= 1001) return 0.025; // 2.5%
+        if (planAmount >= 501) return 0.020;  // 2.0%
+        if (planAmount >= 101) return 0.018;  // 1.8%
+        if (planAmount >= 20) return 0.015;   // 1.5%
+    }
     return 0;
   };
 
@@ -977,7 +1025,7 @@ export default function TestPage() {
             const diffTime = now.getTime() - startDate.getTime();
             const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
             if (diffDays > 0) {
-                progressiveROI = planActivo * getDailyRate(planActivo) * diffDays;
+                progressiveROI = planActivo * getDailyRate(planActivo, profile.isVip ?? false) * diffDays;
             }
         }
     }
@@ -1262,7 +1310,7 @@ export default function TestPage() {
                             ) : planActivo > 0 ? (
                                 <div className="space-y-2">
                                     <p className="text-lg">Tu plan de inversión: <span className="font-bold text-golden">{formatCurrency(planActivo)} USDT Activo</span></p>
-                                    <p className="text-lg">Tasa de ganancia diaria: <span className="font-bold text-cyan-400">{(getDailyRate(planActivo) * 100).toFixed(1)}%</span></p>
+                                    <p className="text-lg">Tasa de ganancia diaria: <span className="font-bold text-cyan-400">{(getDailyRate(planActivo, profile?.isVip ?? false) * 100).toFixed(1)}%</span></p>
                                     <p className="text-lg">Ganancias Totales (Plan + Red): <span className="font-bold text-green-400">{formatCurrency(totalLifetimeEarnings)}</span> / <span className="text-sm text-gray-400" title="Límite de Retorno (300%)">{formatCurrency(planActivo * 3)}</span></p>
                                     {profile?.fechaInicioPlan && new Date(typeof (profile.fechaInicioPlan as any)?.toDate === 'function' ? (profile.fechaInicioPlan as any).toDate() : profile.fechaInicioPlan).toString() !== 'Invalid Date' && <p className="text-sm text-gray-400">Inversión iniciada el: {new Date(typeof (profile.fechaInicioPlan as any)?.toDate === 'function' ? (profile.fechaInicioPlan as any).toDate() : profile.fechaInicioPlan).toLocaleDateString('es-ES')}</p>}
                                 </div>

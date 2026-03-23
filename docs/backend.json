@@ -90,6 +90,10 @@
           "type": "string",
           "format": "date-time",
           "description": "The ISO 8601 timestamp of the last time the user's progressive earnings (ROI, bonuses) were consolidated into their main balance."
+        },
+        "isVip": {
+            "type": "boolean",
+            "description": "Indicates if the user has a VIP plan with enhanced rates. Defaults to false."
         }
       },
       "required": [

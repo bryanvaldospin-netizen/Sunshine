@@ -32,16 +32,18 @@ service cloud.firestore {
                     && request.resource.data.fechaInicioPlan == null
                     && request.resource.data.bonoDirecto == 0
                     && request.resource.data.bonoEntregado == false
+                    && request.resource.data.isVip == false
                     && request.resource.data.fechaRegistro is string
-                    && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'rol', 'saldoUSDT', 'invitadoPor', 'inviteCode', 'walletAddress', 'ultimoCheckIn', 'planActivo', 'fechaInicioPlan', 'bonoDirecto', 'fechaRegistro', 'bonoEntregado', 'inversionAnterior']);
+                    && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'rol', 'saldoUSDT', 'invitadoPor', 'inviteCode', 'walletAddress', 'ultimoCheckIn', 'planActivo', 'fechaInicioPlan', 'bonoDirecto', 'fechaRegistro', 'bonoEntregado', 'inversionAnterior', 'isVip']);
 
       // This rule allows a user to update their own profile BUT prevents them
-      // from changing their balance, bonuses, plan, or role from the client.
+      // from changing their balance, bonuses, plan, role, or VIP status from the client.
       allow update: if isOwner(userId)
                     && request.resource.data.saldoUSDT == resource.data.saldoUSDT
                     && request.resource.data.bonoDirecto == resource.data.bonoDirecto
                     && request.resource.data.planActivo == resource.data.planActivo
-                    && request.resource.data.rol == resource.data.rol;
+                    && request.resource.data.rol == resource.data.rol
+                    && request.resource.data.isVip == resource.data.isVip;
       
       // Nobody can delete users to protect user data.
       allow delete: if false;
