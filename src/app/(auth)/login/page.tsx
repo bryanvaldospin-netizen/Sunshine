@@ -195,7 +195,7 @@ export default function LoginPage() {
             </div>
             
             <div className="mt-4">
-              <Link href="/user-stats">
+              <Link href="/statistics">
                 <Button variant="outline" className="w-full">
                   Ingresar a usuarios temporal
                 </Button>
