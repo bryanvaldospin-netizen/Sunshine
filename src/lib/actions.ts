@@ -197,16 +197,19 @@ export async function syncInviteCodes() {
         }
       }
 
+      // Audit and correct referral bonus
+      const retirable = (userData.bonoDirecto ?? 0) - (userData.retirosTotales ?? 0);
+      if (userData.bonoRetirable !== retirable) {
+        userUpdate.bonoRetirable = retirable;
+      }
+      
       if (!Object.prototype.hasOwnProperty.call(userData, 'bonoDirecto')) {
         userUpdate.bonoDirecto = 0;
       }
       if (!Object.prototype.hasOwnProperty.call(userData, 'bonoEntregado')) {
         userUpdate.bonoEntregado = false;
       }
-      if (!Object.prototype.hasOwnProperty.call(userData, 'bonoRetirable')) {
-        userUpdate.bonoRetirable = 0;
-      }
-       if (!Object.prototype.hasOwnProperty.call(userData, 'retirosTotales')) {
+      if (!Object.prototype.hasOwnProperty.call(userData, 'retirosTotales')) {
         userUpdate.retirosTotales = 0;
       }
 
@@ -381,7 +384,7 @@ async function calculateProgressiveEarnings(db: system.firestore.Firestore, user
         const calculationStartDate = startDate > lastConsolidationDate ? startDate : lastConsolidationDate;
         const diffTime = consolidationTime.getTime() - calculationStartDate.getTime();
         if (diffTime > 0) {
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            const diffDays = Math.floor((diffTime / (1000 * 60 * 60 * 24)) + 1e-9);
             if (diffDays > 0) {
                 const dailyRate = getDailyRate(planActivo);
                 const earnedROI = planActivo * dailyRate * diffDays;
@@ -402,7 +405,7 @@ async function calculateProgressiveEarnings(db: system.firestore.Firestore, user
                     const calculationStartDate = refStartDate > lastConsolidationDate ? refStartDate : lastConsolidationDate;
                     const diffTime = consolidationTime.getTime() - calculationStartDate.getTime();
                     if (diffTime > 0) {
-                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                        const diffDays = Math.floor((diffTime / (1000 * 60 * 60 * 24)) + 1e-9);
                         if (diffDays > 0) {
                             const dailyBonus = (refData.planActivo ?? 0) * 0.01;
                             residualBonus += dailyBonus * diffDays;
@@ -593,70 +596,105 @@ export async function getSecondLevelReferrals(directReferralId: string): Promise
 }
 
 export async function reconcileAccount(userId: string): Promise<{success: true, message: string} | {error: string}> {
-    if (!userId) {
-      return { error: 'User ID is missing.' };
-    }
-  
-    const userRef = systemDb.collection('users').doc(userId);
-    const now = new Date();
-  
-    try {
-        const userSnap = await userRef.get();
-        if (!userSnap.exists) {
-          throw new Error('Usuario no encontrado.');
-        }
-        const userData = userSnap.data() as UserProfile;
+  if (!userId) {
+    return { error: 'User ID is missing.' };
+  }
 
-        // Full audit calculation from the beginning
-        const planActivo = userData.planActivo ?? 0;
-        let totalAuditedEarnings = 0;
-        
-        // 1. Calculate ROI
-        if (planActivo > 0 && userData.fechaInicioPlan && userData.estadoPlan !== 'vencido') {
-            const startDate = new Date(userData.fechaInicioPlan);
-            const diffTime = now.getTime() - startDate.getTime();
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-            if (diffDays > 0) {
-                const dailyRate = getDailyRate(planActivo);
-                totalAuditedEarnings += planActivo * dailyRate * diffDays;
-            }
-        }
-        
-        // 2. Calculate Residual
-        if ((userData.planActivo ?? 0) >= 101) {
-            const referralsSnapshot = await systemDb.collection('users').where('invitadoPor', '==', userData.uid).get();
-            if (!referralsSnapshot.empty) {
-                let residualBonus = 0;
-                referralsSnapshot.forEach(refDoc => {
-                    const refData = refDoc.data() as UserProfile;
-                    if ((refData.planActivo ?? 0) >= 20 && refData.estadoPlan !== 'vencido' && refData.fechaInicioPlan) {
-                        const refStartDate = new Date(refData.fechaInicioPlan);
-                        const diffTime = now.getTime() - refStartDate.getTime();
-                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                        if (diffDays > 0) {
-                            const dailyBonus = (refData.planActivo ?? 0) * 0.01;
-                            residualBonus += dailyBonus * diffDays;
-                        }
-                    }
-                });
-                totalAuditedEarnings += residualBonus;
-            }
-        }
+  const userRef = systemDb.collection('users').doc(userId);
+  const now = new Date();
 
-        const finalAuditedBalance = parseFloat(totalAuditedEarnings.toFixed(2));
-  
-        // Overwrite if different
-        if (userData.saldoUSDT !== finalAuditedBalance) {
-          await userRef.update({
-            saldoUSDT: finalAuditedBalance,
-          });
-          return { success: true, message: `Cuenta auditada. Saldo corregido a ${finalAuditedBalance.toFixed(2)} USDT.` };
-        }
+  try {
+      const userSnap = await userRef.get();
+      if (!userSnap.exists) {
+        throw new Error('Usuario no encontrado.');
+      }
+      const userData = userSnap.data() as UserProfile;
 
-        return { success: true, message: 'La cuenta ya estaba sincronizada.' };
-  
-    } catch (error: any) {
-      console.error(`Error en reconcileAccount para el usuario ${userId}:`, error.message);
-      return { error: `Error del Servidor durante la conciliación: ${error.message}` };
-    }
+      // Full audit calculation from the beginning
+      const planActivo = userData.planActivo ?? 0;
+      let totalAuditedEarnings = 0;
+      
+      // 1. Calculate ROI
+      if (planActivo > 0 && userData.fechaInicioPlan && userData.estadoPlan !== 'vencido') {
+          const startDate = new Date(userData.fechaInicioPlan);
+          const diffTime = now.getTime() - startDate.getTime();
+          const daysCalculated = Math.floor((diffTime / (1000 * 60 * 60 * 24)) + 1e-9);
+          console.log(`[AUDIT-ROI] Days calculated for ROI: ${daysCalculated}`);
+          
+          if (daysCalculated > 0) {
+              const dailyRate = getDailyRate(planActivo);
+              const rawROI = planActivo * dailyRate * daysCalculated;
+              console.log(`[AUDIT-ROI] Raw ROI calculated: ${rawROI}`);
+              totalAuditedEarnings += rawROI;
+          }
+      }
+      
+      // 2. Calculate Residual
+      if ((userData.planActivo ?? 0) >= 101) {
+          const referralsSnapshot = await systemDb.collection('users').where('invitadoPor', '==', userData.uid).get();
+          if (!referralsSnapshot.empty) {
+              let residualBonus = 0;
+              referralsSnapshot.forEach(refDoc => {
+                  const refData = refDoc.data() as UserProfile;
+                  if ((refData.planActivo ?? 0) >= 20 && refData.estadoPlan !== 'vencido' && refData.fechaInicioPlan) {
+                      const refStartDate = new Date(refData.fechaInicioPlan);
+                      const diffTime = now.getTime() - refStartDate.getTime();
+                      const diffDays = Math.floor((diffTime / (1000 * 60 * 60 * 24)) + 1e-9);
+                      if (diffDays > 0) {
+                          const dailyBonus = (refData.planActivo ?? 0) * 0.01;
+                          residualBonus += dailyBonus * diffDays;
+                      }
+                  }
+              });
+              console.log(`[AUDIT-RESIDUAL] Residual sum calculated: ${residualBonus}`);
+              totalAuditedEarnings += residualBonus;
+          }
+      }
+
+      const finalAuditedBalance = parseFloat(totalAuditedEarnings.toFixed(2));
+      console.log(`[AUDIT-FINAL] Final write value for saldoUSDT: ${finalAuditedBalance}`);
+
+      // Overwrite if different
+      if (userData.saldoUSDT !== finalAuditedBalance) {
+        await userRef.update({
+          saldoUSDT: finalAuditedBalance,
+        });
+        return { success: true, message: `Cuenta auditada. Saldo corregido de ${userData.saldoUSDT} a ${finalAuditedBalance.toFixed(2)} USDT.` };
+      }
+
+      return { success: true, message: 'La cuenta ya estaba sincronizada.' };
+
+  } catch (error: any) {
+    console.error(`Error en reconcileAccount para el usuario ${userId}:`, error.message);
+    return { error: `Error del Servidor durante la conciliación: ${error.message}` };
+  }
+}
+
+export async function getUserStats(): Promise<{ totalUsers: number; inactiveCount: number; } | { error: string; }> {
+  try {
+    const usersSnapshot = await systemDb.collection('users').get();
+    const totalUsers = usersSnapshot.size;
+
+    const tenDaysAgo = new Date();
+    tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+
+    const inactiveUsersQuery = systemDb.collection('users').where('planActivo', '==', 0);
+    const inactiveSnapshot = await inactiveUsersQuery.get();
+    
+    let inactiveCount = 0;
+    inactiveSnapshot.forEach(doc => {
+      const userData = doc.data();
+      if (userData.fechaRegistro) {
+        const registrationDate = new Date(userData.fechaRegistro);
+        if (registrationDate < tenDaysAgo) {
+          inactiveCount++;
+        }
+      }
+    });
+
+    return { totalUsers, inactiveCount };
+  } catch (error: any) {
+    console.error('Error getting user stats:', error);
+    return { error: 'No se pudieron obtener las estadísticas de los usuarios.' };
+  }
 }
