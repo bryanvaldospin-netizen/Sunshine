@@ -193,6 +193,14 @@ export default function LoginPage() {
                     </button>
                 </DialogTrigger>
             </div>
+            
+            <div className="mt-4">
+              <Link href="/user-stats">
+                <Button variant="outline" className="w-full">
+                  Ingresar a usuarios temporal
+                </Button>
+              </Link>
+            </div>
 
             <div className="relative my-4">
             <div className="absolute inset-0 flex items-center">
