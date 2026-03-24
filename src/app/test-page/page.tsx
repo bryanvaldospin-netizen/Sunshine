@@ -41,6 +41,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { InstallPWA } from '@/components/install-pwa';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { APP_DOMAIN } from '@/lib/config';
 
 
 const InvestmentPlansSection = () => {
@@ -358,7 +359,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
       toast({ variant: 'destructive', title: 'Sin código', description: 'No tienes un código de invitación para compartir.' });
       return;
     }
-    const link = `https://www.sunshineuk.com/register?ref=${user.inviteCode}`;
+    const link = `${APP_DOMAIN}/register?ref=${user.inviteCode}`;
     navigator.clipboard.writeText(link);
     toast({ title: 'Enlace de invitación copiado', description: '¡Comparte tu enlace para hacer crecer tu red!' });
   };
@@ -410,7 +411,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
         <CardContent className="space-y-4">
           <Label>Tu Enlace de Invitación</Label>
           <div className="flex items-center gap-2">
-            <Input readOnly value={user.inviteCode ? `https://www.sunshineuk.com/register?ref=${user.inviteCode}` : "Generando enlace..."} className="bg-gray-700 border-gray-600 truncate"/>
+            <Input readOnly value={user.inviteCode ? `${APP_DOMAIN}/register?ref=${user.inviteCode}` : "Generando enlace..."} className="bg-gray-700 border-gray-600 truncate"/>
             <Button onClick={handleCopyLink} variant="outline" className="border-golden text-golden hover:bg-golden/10 hover:text-golden whitespace-nowrap">
               <LinkIcon className="mr-2 h-4 w-4" />
               Copiar Enlace
