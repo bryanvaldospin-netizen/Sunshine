@@ -10,9 +10,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 // This gives the server-side actions privileged access to bypass security rules.
 if (!system.apps.length) {
     try {
-        system.initializeApp({
-            projectId: "studio-2504766329-6c1a7",
-        });
+        system.initializeApp(); // Use application default credentials
     } catch (error) {
         console.error("Firebase system initialization error:", error);
     }
@@ -668,3 +666,5 @@ export async function reconcileAccount(userId: string): Promise<{success: true, 
       return { error: `Error del Servidor durante la conciliación: ${error.message}` };
     }
 }
+
+    
