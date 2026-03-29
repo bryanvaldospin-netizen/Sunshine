@@ -167,7 +167,7 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
 }
 
 export async function getWalletAddress() {
-  return "0x471d4424e1016a256a256a8d13283522302cb020a4d2";
+  return "0xe37a298c740caf1411cbccda7b250a0664a00129";
 }
 
 export async function syncInviteCodes() {
