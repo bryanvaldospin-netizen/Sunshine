@@ -1,25 +1,56 @@
 'use client';
 
+import { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Mail, LogOut, Copy, User as UserIcon, ArrowLeft } from 'lucide-react';
+import { Mail, LogOut, Copy, User as UserIcon, ArrowLeft, Edit } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { syncInviteCodes } from '@/lib/actions';
+import { syncInviteCodes, updateWalletAddress } from '@/lib/actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+
+const walletFormSchema = z.object({
+  newWalletAddress: z.string().min(20, { message: 'Por favor, introduce una dirección de billetera USDT (BEP-20) válida.' }),
+});
 
 export default function ProfilePage() {
   const { user, loading: authLoading } = useAuth();
   const { t, locale, setLocale } = useTranslation();
   const router = useRouter();
   const { toast } = useToast();
+  const [isWalletDialogOpen, setIsWalletDialogOpen] = useState(false);
+
+  const walletForm = useForm<z.infer<typeof walletFormSchema>>({
+    resolver: zodResolver(walletFormSchema),
+    defaultValues: {
+      newWalletAddress: '',
+    },
+  });
+
+  const handleWalletUpdate = async (values: z.infer<typeof walletFormSchema>) => {
+    if (!user) return;
+    const result = await updateWalletAddress(user.uid, values.newWalletAddress);
+    if (result.success) {
+        toast({ title: 'Éxito', description: result.message });
+        setIsWalletDialogOpen(false);
+        walletForm.reset();
+    } else {
+        toast({ variant: 'destructive', title: 'Error', description: result.error });
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -105,6 +136,43 @@ export default function ProfilePage() {
                               >
                                   <Copy className="h-4 w-4" />
                               </Button>
+                              <Dialog open={isWalletDialogOpen} onOpenChange={setIsWalletDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 ml-1 text-gray-400 hover:text-white hover:bg-gray-700 flex-shrink-0">
+                                        <Edit className="h-4 w-4" />
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="bg-gray-800 border-golden text-white">
+                                    <DialogHeader>
+                                        <DialogTitle>Cambiar Billetera de Retiro</DialogTitle>
+                                        <DialogDescription>
+                                            Ingresa la nueva dirección de billetera USDT (BEP-20) que deseas usar. La dirección anterior será desvinculada.
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <Form {...walletForm}>
+                                        <form onSubmit={walletForm.handleSubmit(handleWalletUpdate)} className="space-y-4 py-4">
+                                            <FormField
+                                                control={walletForm.control}
+                                                name="newWalletAddress"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Nueva Billetera USDT (BEP-20)</FormLabel>
+                                                        <FormControl>
+                                                            <Input placeholder="Introduce la nueva dirección" {...field} className="bg-gray-700 border-gray-600" />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <DialogFooter>
+                                                <Button type="submit" className="w-full bg-gradient-to-r from-golden to-red-800 text-white" disabled={walletForm.formState.isSubmitting}>
+                                                    {walletForm.formState.isSubmitting ? 'Actualizando...' : 'Actualizar Billetera'}
+                                                </Button>
+                                            </DialogFooter>
+                                        </form>
+                                    </Form>
+                                </DialogContent>
+                              </Dialog>
                           </div>
                       ) : (
                           <span className="text-gray-500">N/A</span>

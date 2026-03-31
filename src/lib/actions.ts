@@ -387,7 +387,7 @@ async function calculateProgressiveEarnings(db: system.firestore.Firestore, user
         const calculationStartDate = startDate > lastConsolidationDate ? startDate : lastConsolidationDate;
         const diffTime = consolidationTime.getTime() - calculationStartDate.getTime();
         if (diffTime > 0) {
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            const diffDays = diffTime / (1000 * 60 * 60 * 24);
             if (diffDays > 0) {
                 const dailyRate = getDailyRate(planActivo, user.isVip ?? false);
                 const earnedROI = planActivo * dailyRate * diffDays;
@@ -411,7 +411,7 @@ async function calculateProgressiveEarnings(db: system.firestore.Firestore, user
                     const calculationStartDate = refStartDate > lastConsolidationDate ? refStartDate : lastConsolidationDate;
                     const diffTime = consolidationTime.getTime() - calculationStartDate.getTime();
                     if (diffTime > 0) {
-                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                        const diffDays = diffTime / (1000 * 60 * 60 * 24);
                         if (diffDays > 0) {
                             const refDailyEarning = (refData.planActivo ?? 0) * getDailyRate(refData.planActivo ?? 0, refData.isVip ?? false);
                             const dailyBonus = refDailyEarning * level1CommissionRate;
@@ -633,7 +633,7 @@ export async function reconcileAccount(userId: string): Promise<{success: true, 
         if (planActivo > 0 && userData.fechaInicioPlan && userData.estadoPlan !== 'vencido') {
             const startDate = new Date(userData.fechaInicioPlan);
             const diffTime = now.getTime() - startDate.getTime();
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            const diffDays = diffTime / (1000 * 60 * 60 * 24);
             if (diffDays > 0) {
                 const dailyRate = getDailyRate(planActivo, userData.isVip ?? false);
                 totalAuditedEarnings += planActivo * dailyRate * diffDays;
@@ -653,7 +653,7 @@ export async function reconcileAccount(userId: string): Promise<{success: true, 
                     if ((refData.planActivo ?? 0) >= 20 && refData.estadoPlan !== 'vencido' && refData.fechaInicioPlan) {
                         const refStartDate = new Date(refData.fechaInicioPlan);
                         const diffTime = now.getTime() - refStartDate.getTime();
-                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                        const diffDays = diffTime / (1000 * 60 * 60 * 24);
                         if (diffDays > 0) {
                             const refDailyEarning = (refData.planActivo ?? 0) * getDailyRate(refData.planActivo ?? 0, refData.isVip ?? false);
                             const dailyBonus = refDailyEarning * level1CommissionRate;
@@ -683,6 +683,55 @@ export async function reconcileAccount(userId: string): Promise<{success: true, 
     }
 }
 
+export async function updateWalletAddress(userId: string, newWalletAddress: string): Promise<{ success: true; message: string } | { error: string }> {
+  if (!userId || !newWalletAddress || newWalletAddress.length < 20) {
+    return { error: 'La dirección de la billetera proporcionada no es válida.' };
+  }
+
+  const newWalletRef = systemDb.collection('wallet_addresses').doc(newWalletAddress);
+  const userRef = systemDb.collection('users').doc(userId);
+
+  try {
+    await systemDb.runTransaction(async (transaction) => {
+      const newWalletSnap = await transaction.get(newWalletRef);
+      if (newWalletSnap.exists) {
+        throw new Error('Esta billetera ya está en uso por otra cuenta.');
+      }
+
+      const userSnap = await transaction.get(userRef);
+      if (!userSnap.exists) {
+        throw new Error('El usuario no existe.');
+      }
+      const userData = userSnap.data() as UserProfile;
+      const oldWalletAddress = userData.walletAddress;
+
+      // Update the user's profile with the new address
+      transaction.update(userRef, { walletAddress: newWalletAddress });
+
+      // Create the new entry in the wallet_addresses collection
+      transaction.set(newWalletRef, {
+        userId: userId,
+        createdAt: new Date().toISOString()
+      });
+
+      // If an old wallet address exists, remove it from the collection to free it up
+      if (oldWalletAddress) {
+        const oldWalletRef = systemDb.collection('wallet_addresses').doc(oldWalletAddress);
+        const oldWalletSnap = await transaction.get(oldWalletRef);
+        if (oldWalletSnap.exists) {
+            transaction.delete(oldWalletRef);
+        }
+      }
+    });
+
+    return { success: true, message: '¡Tu dirección de billetera ha sido actualizada con éxito!' };
+
+  } catch (error: any) {
+    console.error('Error actualizando la billetera:', error);
+    return { error: error.message || 'Ocurrió un error inesperado al actualizar la billetera.' };
+  }
+}
     
 
     
+
