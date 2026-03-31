@@ -42,7 +42,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { APP_DOMAIN } from '@/lib/config';
 import { UpdateNoticeModal } from '@/components/update-notice';
-
+import { Header } from '@/components/header';
+import SplashScreen from '@/components/splash-screen';
 
 const InvestmentPlansSection = () => {
     const { t } = useTranslation();
@@ -653,6 +654,10 @@ const TransactionHistory = ({ userId }: { userId: string }) => {
   );
 };
 
+const withdrawalFormSchema = z.object({
+  amount: z.coerce.number().positive({ message: 'Por favor, introduce un monto válido.' }),
+});
+
 const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserProfile, mainBalance: number, referralBalance: number }) => {
   const { toast } = useToast();
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
@@ -663,8 +668,8 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
   useEffect(() => {
     const checkDate = () => {
         try {
-            const londonTime = new Date().toLocaleString('en-US', { timeZone: 'Europe/London' });
-            const day = new Date(londonTime).getDate();
+            const londonTime = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/London' }));
+            const day = londonTime.getDate();
             const isSpecialDay = [10, 20, 30].includes(day);
 
             if (withdrawalType === 'main') {
@@ -684,12 +689,8 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
     return () => clearInterval(interval);
   }, [withdrawalType]);
   
-  const formSchema = z.object({
-    amount: z.coerce.number().positive({ message: 'Por favor, introduce un monto válido.' }),
-  });
-
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<z.infer<typeof withdrawalFormSchema>>({
+    resolver: zodResolver(withdrawalFormSchema),
     defaultValues: {
       amount: 0,
     },
@@ -723,7 +724,7 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
   }, [withdrawalType]);
 
 
-  const handleGenerateToken = async (values: z.infer<typeof formSchema>) => {
+  const handleGenerateToken = async (values: z.infer<typeof withdrawalFormSchema>) => {
     if (!user) {
       toast({ variant: 'destructive', title: 'Error', description: 'Debes iniciar sesión para realizar esta acción.' });
       return;
@@ -857,8 +858,8 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
   );
 };
 
-export default function TestPage() {
-  const { user: profile, loading: authLoading } = useAuth();
+export default function DashboardPage() {
+  const { user: profile, firebaseUser, loading: authLoading } = useAuth();
   const { t, setLocale } = useTranslation();
   const router = useRouter();
   
@@ -867,6 +868,12 @@ export default function TestPage() {
   const [networkLoading, setNetworkLoading] = useState(true);
   const [dataVersion, setDataVersion] = useState(0); // Used to force re-render
   const renderTime = useMemo(() => new Date(), [dataVersion]); // Snapshot of time on data change
+
+  useEffect(() => {
+    if (!authLoading && !firebaseUser) {
+      router.replace('/login');
+    }
+  }, [authLoading, firebaseUser, router]);
 
   const forceDataRefresh = () => setDataVersion(v => v + 1);
 
@@ -1037,6 +1044,10 @@ export default function TestPage() {
     }
   };
   
+  if (authLoading || !firebaseUser) {
+    return <SplashScreen />;
+  }
+
   const userName = profile?.name || t('dashboard.investor');
   const progress = totalEarningsCap > 0 ? (totalLifetimeEarnings / totalEarningsCap) * 100 : 0;
   
@@ -1049,179 +1060,184 @@ export default function TestPage() {
 
 
   return (
-    <main className="bg-gray-900 text-white min-h-screen font-body relative pb-24">
-       <UpdateNoticeModal />
-       <header className="bg-black/50 backdrop-blur-sm sticky top-0 z-50">
-         <div className="container mx-auto flex h-16 items-center justify-end gap-2 px-4">
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-gray-700 w-9 h-9 p-0">
-                        <Globe className="h-5 w-5" />
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700 text-white">
-                    <DropdownMenuItem onClick={() => setLocale('es')} className="focus:bg-gray-700 cursor-pointer">Español</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setLocale('en')} className="focus:bg-gray-700 cursor-pointer">English</DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
-            <Button onClick={handleLogout} variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-gray-700">
-                <LogOut className="mr-2 h-4 w-4" />
-                {t('profile.logout')}
-            </Button>
-          </div>
-        <AnnouncementMarquee />
-      </header>
-
-      <Tabs defaultValue="inicio" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-gray-800/50 rounded-none sticky top-16 z-40 backdrop-blur-sm">
-          <TabsTrigger value="inicio"><Home className="mr-2 h-4 w-4" /> Inicio</TabsTrigger>
-          <TabsTrigger value="profile" asLink href="/profile"><UserIcon className="mr-2 h-4 w-4" />{t('profile.title')}</TabsTrigger>
-          <TabsTrigger value="mi-red"><Users className="mr-2 h-4 w-4" /> Mi Red</TabsTrigger>
-        </TabsList>
-        <TabsContent value="inicio">
-          <div className="p-4 md:p-8">
-            <div className="flex flex-col items-center justify-start w-full h-full pt-8 space-y-8">
-                <div className="text-center space-y-2">
-                    <h1 className="text-3xl font-bold">{t('dashboard.greeting', { name: userName })}</h1>
-                </div>
-
-                <div className="text-center -my-4">
-                  <p className="text-xs text-golden/70 tracking-[0.2em] uppercase">
-                    ATENCIÓN AL CLIENTE: LUNES A VIERNES 10 AM - 12 AM | SÁBADO Y DOMINGO 12 PM - 12 AM
-                  </p>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-5xl">
-                    <Card className="bg-gray-800 border-green-400 text-white text-center">
-                        <CardHeader>
-                        <CardTitle className="text-xl font-medium text-gray-300">
-                            Saldo de Billetera (para Invertir)
-                        </CardTitle>
-                        </CardHeader>
-                        <CardContent className="py-2">
-                        {authLoading ? (
-                            <Skeleton className="h-12 w-1/2 mx-auto bg-gray-700" />
-                        ) : (
-                            <p className="text-5xl font-bold text-green-400">{formatCurrency(profile?.saldoUSDT ?? 0)}</p>
-                        )}
-                        </CardContent>
-                    </Card>
-                    <Card className="bg-gray-800 border-cyan-400 text-white text-center">
-                        <CardHeader>
-                        <CardTitle className="text-xl font-medium text-gray-300">
-                            Bono Referido (Retirable)
-                        </CardTitle>
-                        </CardHeader>
-                        <CardContent className="py-2">
-                        {authLoading ? (
-                            <Skeleton className="h-12 w-1/2 mx-auto bg-gray-700" />
-                        ) : (
-                            <p className="text-5xl font-bold text-cyan-400">{formatCurrency(referralBalance)}</p>
-                        )}
-                        </CardContent>
-                    </Card>
-                </div>
-
-                <div className="w-full max-w-5xl">
-                    <InvestmentPlansSection />
-                </div>
-                
-                 <div className="w-full max-w-5xl">
-                    {profile && !authLoading && <ActivateInvestmentModal user={profile} walletBalance={profile.saldoUSDT} onSuccessfulInvestment={forceDataRefresh} />}
-                 </div>
-
-                <div className="w-full max-w-5xl">
-                   {statsLoading ? (
-                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
-                        <Skeleton className="h-28 bg-gray-800" />
-                        <Skeleton className="h-28 bg-gray-800" />
-                        <Skeleton className="h-28 bg-gray-800" />
-                    </div>
-                   ) : (
-                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
-                        {statItems.map((item, index) => (
-                            <Card key={index} className="bg-gray-800 border-gray-700 text-white">
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium text-gray-400">{item.title}</CardTitle>
-                                    <item.icon className="h-5 w-5 text-golden" />
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold">{formatCurrency(item.value)}</div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
-                   )}
-                </div>
-                
-                <div className="w-full max-w-5xl">
-                    <Card className="bg-gray-800 border-gray-700 text-white">
-                        <CardHeader>
-                            <CardTitle>Estado de Inversión Global</CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-4">
-                            {authLoading ? (
-                               <Skeleton className="h-20 w-full bg-gray-700" />
-                            ) : totalInvested > 0 ? (
-                                <div className="space-y-2">
-                                    <p className="text-lg">Inversión Total Activa: <span className="font-bold text-golden">{formatCurrency(totalInvested)} USDT</span></p>
-                                    <p className="text-lg">Ganancias Totales (Plan + Red): <span className="font-bold text-green-400">{formatCurrency(totalLifetimeEarnings)}</span> / <span className="text-sm text-gray-400" title="Límite de Retorno (300%)">{formatCurrency(totalEarningsCap)}</span></p>
-                                </div>
-                            ) : (
-                                <p>No tienes un plan activo. Realiza un depósito y activa una inversión para obtener uno.</p>
-                            )}
-                        </CardContent>
-                        {totalInvested > 0 && (
-                            <CardFooter className="pt-4 flex-col items-start gap-4">
-                                <div className="w-full space-y-1">
-                                    <div className="flex justify-between text-xs text-muted-foreground">
-                                        <span>Progreso de Retorno (Límite 300%)</span>
-                                        <span>{progress.toFixed(0)}%</span>
-                                    </div>
-                                    <Progress value={progress} className="h-2 [&>div]:bg-golden" />
-                                </div>
-                            </CardFooter>
-                        )}
-                    </Card>
-                </div>
-
-                {profile && !authLoading && (
-                  <div className="w-full max-w-5xl">
-                    <WithdrawalSection user={profile} mainBalance={mainBalance} referralBalance={referralBalance} />
-                  </div>
-                )}
-                
-                {profile && !authLoading && (
-                  <div className="w-full max-w-5xl">
-                      <TransactionHistory userId={profile.uid} />
-                  </div>
-                )}
-
-                <div className="w-full max-w-5xl">
-                    <Card className="bg-gray-800/80 border-gray-700 p-6 space-y-4">
-                        <div className="flex items-start gap-3">
-                            <span className="text-lg mt-0.5">⚠️</span>
-                            <p className="text-sm text-gray-300">
-                                <strong className="font-semibold text-white">Aviso de Seguridad:</strong> Las cuentas nuevas que no registren ninguna inversión durante sus primeros 10 días serán eliminadas automáticamente del sistema para optimizar recursos.
-                            </p>
-                        </div>
-                        <div className="flex items-start gap-3">
-                            <span className="text-lg mt-0.5">🛠️</span>
-                            <p className="text-sm text-gray-300">
-                                <strong className="font-semibold text-white">Soporte Técnico:</strong> Si detecta alguna falla, bug o anomalía en su saldo, por favor contacte a soporte técnico de inmediato para su corrección.
-                            </p>
-                        </div>
-                    </Card>
-                </div>
-
+    <div className="relative flex min-h-screen flex-col">
+      <Header />
+      <div className="flex-1">
+        <main className="bg-gray-900 text-white min-h-screen font-body relative pb-24">
+          <UpdateNoticeModal />
+          <header className="bg-black/50 backdrop-blur-sm sticky top-0 z-50">
+            <div className="container mx-auto flex h-16 items-center justify-end gap-2 px-4">
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-gray-700 w-9 h-9 p-0">
+                            <Globe className="h-5 w-5" />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="bg-gray-800 border-gray-700 text-white">
+                        <DropdownMenuItem onClick={() => setLocale('es')} className="focus:bg-gray-700 cursor-pointer">Español</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setLocale('en')} className="focus:bg-gray-700 cursor-pointer">English</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+                <Button onClick={handleLogout} variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-gray-700">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    {t('profile.logout')}
+                </Button>
               </div>
-            </div>
-        </TabsContent>
-        <TabsContent value="mi-red">
-          <MyNetworkTab user={profile} directReferrals={directReferrals} networkLoading={networkLoading} primaryResidualBonus={primaryResidualBonus} totalInvested={totalInvested}/>
-        </TabsContent>
-      </Tabs>
-      <InstallPWA />
-    </main>
+            <AnnouncementMarquee />
+          </header>
+
+          <Tabs defaultValue="inicio" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 bg-gray-800/50 rounded-none sticky top-16 z-40 backdrop-blur-sm">
+              <TabsTrigger value="inicio"><Home className="mr-2 h-4 w-4" /> Inicio</TabsTrigger>
+              <TabsTrigger value="profile" asLink href="/profile"><UserIcon className="mr-2 h-4 w-4" />{t('profile.title')}</TabsTrigger>
+              <TabsTrigger value="mi-red"><Users className="mr-2 h-4 w-4" /> Mi Red</TabsTrigger>
+            </TabsList>
+            <TabsContent value="inicio">
+              <div className="p-4 md:p-8">
+                <div className="flex flex-col items-center justify-start w-full h-full pt-8 space-y-8">
+                    <div className="text-center space-y-2">
+                        <h1 className="text-3xl font-bold">{t('dashboard.greeting', { name: userName })}</h1>
+                    </div>
+
+                    <div className="text-center -my-4">
+                      <p className="text-xs text-golden/70 tracking-[0.2em] uppercase">
+                        ATENCIÓN AL CLIENTE: LUNES A VIERNES 10 AM - 12 AM | SÁBADO Y DOMINGO 12 PM - 12 AM
+                      </p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-5xl">
+                        <Card className="bg-gray-800 border-green-400 text-white text-center">
+                            <CardHeader>
+                            <CardTitle className="text-xl font-medium text-gray-300">
+                                Saldo de Billetera (para Invertir)
+                            </CardTitle>
+                            </CardHeader>
+                            <CardContent className="py-2">
+                            {authLoading ? (
+                                <Skeleton className="h-12 w-1/2 mx-auto bg-gray-700" />
+                            ) : (
+                                <p className="text-5xl font-bold text-green-400">{formatCurrency(profile?.saldoUSDT ?? 0)}</p>
+                            )}
+                            </CardContent>
+                        </Card>
+                        <Card className="bg-gray-800 border-cyan-400 text-white text-center">
+                            <CardHeader>
+                            <CardTitle className="text-xl font-medium text-gray-300">
+                                Bono Referido (Retirable)
+                            </CardTitle>
+                            </CardHeader>
+                            <CardContent className="py-2">
+                            {authLoading ? (
+                                <Skeleton className="h-12 w-1/2 mx-auto bg-gray-700" />
+                            ) : (
+                                <p className="text-5xl font-bold text-cyan-400">{formatCurrency(referralBalance)}</p>
+                            )}
+                            </CardContent>
+                        </Card>
+                    </div>
+
+                    <div className="w-full max-w-5xl">
+                        <InvestmentPlansSection />
+                    </div>
+                    
+                     <div className="w-full max-w-5xl">
+                        {profile && !authLoading && <ActivateInvestmentModal user={profile} walletBalance={profile.saldoUSDT} onSuccessfulInvestment={forceDataRefresh} />}
+                     </div>
+
+                    <div className="w-full max-w-5xl">
+                       {statsLoading ? (
+                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
+                            <Skeleton className="h-28 bg-gray-800" />
+                            <Skeleton className="h-28 bg-gray-800" />
+                            <Skeleton className="h-28 bg-gray-800" />
+                        </div>
+                       ) : (
+                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
+                            {statItems.map((item, index) => (
+                                <Card key={index} className="bg-gray-800 border-gray-700 text-white">
+                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                        <CardTitle className="text-sm font-medium text-gray-400">{item.title}</CardTitle>
+                                        <item.icon className="h-5 w-5 text-golden" />
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="text-2xl font-bold">{formatCurrency(item.value)}</div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                       )}
+                    </div>
+                    
+                    <div className="w-full max-w-5xl">
+                        <Card className="bg-gray-800 border-gray-700 text-white">
+                            <CardHeader>
+                                <CardTitle>Estado de Inversión Global</CardTitle>
+                            </CardHeader>
+                            <CardContent className="pt-4">
+                                {authLoading ? (
+                                   <Skeleton className="h-20 w-full bg-gray-700" />
+                                ) : totalInvested > 0 ? (
+                                    <div className="space-y-2">
+                                        <p className="text-lg">Inversión Total Activa: <span className="font-bold text-golden">{formatCurrency(totalInvested)} USDT</span></p>
+                                        <p className="text-lg">Ganancias Totales (Plan + Red): <span className="font-bold text-green-400">{formatCurrency(totalLifetimeEarnings)}</span> / <span className="text-sm text-gray-400" title="Límite de Retorno (300%)">{formatCurrency(totalEarningsCap)}</span></p>
+                                    </div>
+                                ) : (
+                                    <p>No tienes un plan activo. Realiza un depósito y activa una inversión para obtener uno.</p>
+                                )}
+                            </CardContent>
+                            {totalInvested > 0 && (
+                                <CardFooter className="pt-4 flex-col items-start gap-4">
+                                    <div className="w-full space-y-1">
+                                        <div className="flex justify-between text-xs text-muted-foreground">
+                                            <span>Progreso de Retorno (Límite 300%)</span>
+                                            <span>{progress.toFixed(0)}%</span>
+                                        </div>
+                                        <Progress value={progress} className="h-2 [&>div]:bg-golden" />
+                                    </div>
+                                </CardFooter>
+                            )}
+                        </Card>
+                    </div>
+
+                    {profile && !authLoading && (
+                      <div className="w-full max-w-5xl">
+                        <WithdrawalSection user={profile} mainBalance={mainBalance} referralBalance={referralBalance} />
+                      </div>
+                    )}
+                    
+                    {profile && !authLoading && (
+                      <div className="w-full max-w-5xl">
+                          <TransactionHistory userId={profile.uid} />
+                      </div>
+                    )}
+
+                    <div className="w-full max-w-5xl">
+                        <Card className="bg-gray-800/80 border-gray-700 p-6 space-y-4">
+                            <div className="flex items-start gap-3">
+                                <span className="text-lg mt-0.5">⚠️</span>
+                                <p className="text-sm text-gray-300">
+                                    <strong className="font-semibold text-white">Aviso de Seguridad:</strong> Las cuentas nuevas que no registren ninguna inversión durante sus primeros 10 días serán eliminadas automáticamente del sistema para optimizar recursos.
+                                </p>
+                            </div>
+                            <div className="flex items-start gap-3">
+                                <span className="text-lg mt-0.5">🛠️</span>
+                                <p className="text-sm text-gray-300">
+                                    <strong className="font-semibold text-white">Soporte Técnico:</strong> Si detecta alguna falla, bug o anomalía en su saldo, por favor contacte a soporte técnico de inmediato para su corrección.
+                                </p>
+                            </div>
+                        </Card>
+                    </div>
+
+                  </div>
+                </div>
+            </TabsContent>
+            <TabsContent value="mi-red">
+              <MyNetworkTab user={profile} directReferrals={directReferrals} networkLoading={networkLoading} primaryResidualBonus={primaryResidualBonus} totalInvested={totalInvested}/>
+            </TabsContent>
+          </Tabs>
+          <InstallPWA />
+        </main>
+      </div>
+    </div>
   );
 }

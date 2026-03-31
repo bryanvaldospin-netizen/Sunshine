@@ -21,12 +21,15 @@ import { Input } from '@/components/ui/input';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { Header } from '@/components/header';
+import SplashScreen from '@/components/splash-screen';
+import { useEffect } from 'react';
 
 const walletFormSchema = z.object({
   newWalletAddress: z.string().min(20, { message: 'Por favor, introduce una dirección de billetera USDT (BEP-20) válida.' }),
 });
 
-export default function ProfilePage() {
+function ProfilePageContent() {
   const { user, loading: authLoading } = useAuth();
   const { t, locale, setLocale } = useTranslation();
   const router = useRouter();
@@ -103,7 +106,7 @@ export default function ProfilePage() {
         <CardHeader>
           <div className="flex justify-between items-center mb-1">
             <CardTitle className="text-2xl font-bold flex items-center gap-2"><UserIcon /> {t('profile.title')}</CardTitle>
-            <Link href="/test-page">
+            <Link href="/dashboard">
                 <Button variant="outline" className="border-golden text-golden hover:bg-golden/10">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Volver al Panel
@@ -249,6 +252,30 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+export default function ProfilePage() {
+  const { firebaseUser, loading } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !firebaseUser) {
+      router.replace('/login');
+    }
+  }, [loading, firebaseUser, router]);
+
+  if (loading || !firebaseUser) {
+    return <SplashScreen />;
+  }
+
+  return (
+    <div className="relative flex min-h-screen flex-col">
+      <Header />
+      <div className="flex-1">
+        <ProfilePageContent />
+      </div>
     </div>
   );
 }
