@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon, User as UserIcon, Wallet, Info, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Globe, Gem, Shield, Crown, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon, User as UserIcon, Wallet, Info, ChevronRight, AlertTriangle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, onSnapshot, doc, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -45,31 +45,72 @@ import { UpdateNoticeModal } from '@/components/update-notice';
 import { Header } from '@/components/header';
 import SplashScreen from '@/components/splash-screen';
 
-const InvestmentPlansSection = () => {
+const investmentSchema = z.object({
+  amount: z.coerce.number().positive('El monto debe ser positivo.'),
+});
+
+const InvestmentPlansSection = ({ user }: { user: UserProfile | null }) => {
     const { t } = useTranslation();
     const { toast } = useToast();
     const [open, setOpen] = useState(false);
-    const [selectedPlan, setSelectedPlan] = useState<{name: string, investment: string, dailyRate: string} | null>(null);
-    const walletAddress = '0xe37a298c740caf1411cbccda7b250a0664a00129';
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    const [selectedPlan, setSelectedPlan] = useState<{name: string, min: number, max: number, dailyRate: string} | null>(null);
 
-    const handleCopy = () => {
-        navigator.clipboard.writeText(walletAddress);
-        toast({ title: t('dashboard.copy'), description: t('dashboard.copied') });
+    const form = useForm<z.infer<typeof investmentSchema>>({
+        resolver: zodResolver(investmentSchema),
+        defaultValues: { amount: 0 }
+    });
+
+    const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+    }).format(value);
+
+    const handleActivateInvestment = async (data: z.infer<typeof investmentSchema>) => {
+        if (!user) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Debes iniciar sesión.' });
+            return;
+        }
+
+        if (data.amount < (selectedPlan?.min ?? 20)) {
+             toast({ variant: 'destructive', title: 'Monto Inválido', description: `El monto mínimo para el plan ${selectedPlan?.name} es de ${selectedPlan?.min} USDT.` });
+             return;
+        }
+        if (selectedPlan?.max && data.amount > selectedPlan.max) {
+             toast({ variant: 'destructive', title: 'Monto Inválido', description: `El monto máximo para el plan ${selectedPlan?.name} es de ${selectedPlan?.max} USDT.` });
+             return;
+        }
+        if (data.amount > (user.saldoUSDT ?? 0)) {
+            toast({ variant: 'destructive', title: 'Saldo Insuficiente', description: 'No tienes suficiente saldo en tu billetera para esta inversión.' });
+            return;
+        }
+
+        setIsSubmitting(true);
+        const result = await activateInvestment(user.uid, data.amount);
+        if (result.success) {
+            toast({ title: '¡Éxito!', description: result.message });
+            setOpen(false);
+            form.reset();
+        } else {
+            toast({ variant: 'destructive', title: 'Error al Invertir', description: result.error });
+        }
+        setIsSubmitting(false);
     };
     
     const vipPlans = [
-        { name: 'Bronce VIP', investment: '$20 - $100', dailyRate: '2.0% Diario', icon: Shield, color: 'border-amber-400', textColor: 'text-amber-400' },
-        { name: 'Plata VIP', investment: '$101 - $500', dailyRate: '2.4% Diario', icon: Star, color: 'border-amber-400', textColor: 'text-amber-400' },
-        { name: 'Oro VIP', investment: '$501 - $1000', dailyRate: '2.6% Diario', icon: Crown, color: 'border-amber-400', textColor: 'text-amber-400' },
-        { name: 'Diamante VIP', investment: '$1001+', dailyRate: '2.8% Diario', icon: Gem, color: 'border-amber-400', textColor: 'text-amber-400' },
+        { name: 'Bronce VIP', investment: '$20 - $100', min: 20, max: 100, dailyRate: '2.0% Diario', icon: Shield, color: 'border-amber-400', textColor: 'text-amber-400' },
+        { name: 'Plata VIP', investment: '$101 - $500', min: 101, max: 500, dailyRate: '2.4% Diario', icon: Star, color: 'border-amber-400', textColor: 'text-amber-400' },
+        { name: 'Oro VIP', investment: '$501 - $1000', min: 501, max: 1000, dailyRate: '2.6% Diario', icon: Crown, color: 'border-amber-400', textColor: 'text-amber-400' },
+        { name: 'Diamante VIP', investment: '$1001+', min: 1001, max: Infinity, dailyRate: '2.8% Diario', icon: Gem, color: 'border-amber-400', textColor: 'text-amber-400' },
     ];
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <div className="w-full space-y-8">
                 <div>
-                    <h2 className="text-3xl font-bold text-center mb-2 text-amber-400">Depositar para Invertir</h2>
-                    <p className="text-center text-muted-foreground mb-8">Añade fondos a tu Saldo de Billetera para activar nuevos planes de inversión.</p>
+                    <h2 className="text-3xl font-bold text-center mb-2 text-amber-400">Invertir en Planes VIP</h2>
+                    <p className="text-center text-muted-foreground mb-8">Usa tu Saldo de Billetera para activar nuevos planes de inversión.</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {vipPlans.map((plan) => (
                             <Card key={plan.name} className={`bg-gray-900/80 backdrop-blur-sm flex flex-col ${plan.color} border-2 shadow-lg hover:shadow-amber-400/30 transition-shadow duration-300 relative overflow-hidden`}>
@@ -85,7 +126,7 @@ const InvestmentPlansSection = () => {
                                 <CardFooter>
                                      <DialogTrigger asChild>
                                         <Button onClick={() => setSelectedPlan(plan)} className="w-full bg-gradient-to-r from-golden to-red-800 text-white">
-                                            Depositar USDT
+                                            Invertir USDT
                                         </Button>
                                     </DialogTrigger>
                                 </CardFooter>
@@ -97,107 +138,43 @@ const InvestmentPlansSection = () => {
 
             <DialogContent className="bg-gray-800 border-golden text-white">
                 <DialogHeader>
-                    <DialogTitle>Realizar Depósito para Plan {selectedPlan?.name}</DialogTitle>
+                    <DialogTitle>Invertir en Plan {selectedPlan?.name}</DialogTitle>
                     <DialogDescription>
-                        Transfiere el monto a la billetera USDT (BEP-20) y luego haz clic para completar tu solicitud.
+                        Introduce el monto de tu Saldo de Billetera que deseas invertir.
+                        <br/>
+                        Saldo disponible: <strong className="text-green-400">{formatCurrency(user?.saldoUSDT ?? 0)}</strong>
                     </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4 py-4">
-                    <Label htmlFor="wallet-address">Billetera de Depósito (USDT - BEP-20)</Label>
-                    <div className="flex items-center gap-2">
-                        <Input id="wallet-address" readOnly value={walletAddress} className="bg-gray-700 border-gray-600 truncate text-sm"/>
-                        <Button variant="outline" size="icon" onClick={handleCopy} className="border-golden text-golden hover:bg-golden/10 hover:text-golden flex-shrink-0">
-                            <Copy className="h-4 w-4" />
-                        </Button>
-                    </div>
-                </div>
-                <DialogFooter>
-                     <Button asChild className="w-full bg-gradient-to-r from-golden to-red-800 text-white text-lg py-6">
-                      <a href="https://form.jotform.com/260646464495063" target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>
-                        Completar Solicitud de Depósito
-                      </a>
-                    </Button>
-                </DialogFooter>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(handleActivateInvestment)} className="space-y-4">
+                      <FormField
+                          control={form.control}
+                          name="amount"
+                          render={({ field }) => (
+                              <FormItem>
+                                  <FormLabel>Monto a Invertir (USDT)</FormLabel>
+                                  <FormControl>
+                                      <Input 
+                                        type="number" 
+                                        placeholder={`Mínimo: ${selectedPlan?.min ?? 20}`} 
+                                        {...field} 
+                                        className="bg-gray-700 border-gray-600" 
+                                      />
+                                  </FormControl>
+                                  <FormMessage />
+                              </FormItem>
+                          )}
+                      />
+                      <DialogFooter>
+                           <Button type="submit" disabled={isSubmitting} className="w-full bg-gradient-to-r from-golden to-red-800 text-white">
+                              {isSubmitting ? 'Activando Inversión...' : 'Activar Inversión'}
+                          </Button>
+                      </DialogFooter>
+                  </form>
+                </Form>
             </DialogContent>
         </Dialog>
     );
-};
-
-const activateInvestmentSchema = z.object({
-  amount: z.coerce.number().min(20, { message: 'La inversión mínima es de 20 USDT.' }),
-});
-
-const ActivateInvestmentModal = ({ user, walletBalance, onSuccessfulInvestment }: { user: UserProfile, walletBalance: number, onSuccessfulInvestment: () => void }) => {
-  const { toast } = useToast();
-  const [isOpen, setIsOpen] = useState(false);
-  
-  const form = useForm<z.infer<typeof activateInvestmentSchema>>({
-    resolver: zodResolver(activateInvestmentSchema),
-    defaultValues: { amount: 20 },
-  });
-  
-  const { isSubmitting } = form.formState;
-
-  const handleInvestment = async (values: z.infer<typeof activateInvestmentSchema>) => {
-    if (values.amount > walletBalance) {
-      form.setError('amount', { message: 'No tienes saldo suficiente.' });
-      return;
-    }
-
-    const result = await activateInvestment(user.uid, values.amount);
-
-    if (result.success) {
-      toast({ title: '¡Éxito!', description: result.message });
-      setIsOpen(false);
-      form.reset();
-      onSuccessfulInvestment(); // To refresh data
-    } else {
-      toast({ variant: 'destructive', title: 'Error', description: result.error });
-    }
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white text-lg py-6 hover:from-green-600 hover:to-emerald-700">
-          <Zap className="mr-2 h-5 w-5" /> Activar Inversión VIP
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="bg-gray-800 border-golden text-white">
-        <DialogHeader>
-          <DialogTitle>Activar Nueva Inversión VIP</DialogTitle>
-          <DialogDescription>
-            Usa tu Saldo de Billetera para iniciar un nuevo plan de inversión. Puedes tener múltiples planes activos.
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleInvestment)} className="space-y-4 py-4">
-            <FormField
-              control={form.control}
-              name="amount"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Monto a Invertir (USDT)</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="Ej: 100" {...field} className="bg-gray-700 border-gray-600" />
-                  </FormControl>
-                  <FormDescription className="text-xs">
-                     Saldo de Billetera Disponible: {walletBalance.toFixed(2)} USDT
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <DialogFooter>
-              <Button type="submit" className="w-full bg-gradient-to-r from-golden to-red-800 text-white" disabled={isSubmitting}>
-                {isSubmitting ? 'Activando...' : 'Confirmar Inversión'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  );
 };
 
 const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBonus, totalInvested }: { user: UserProfile | null, directReferrals: UserProfile[], networkLoading: boolean, primaryResidualBonus: number, totalInvested: number }) => {
@@ -870,11 +847,11 @@ export default function DashboardPage() {
   const [renderTime, setRenderTime] = useState<Date | null>(null);
 
   useEffect(() => {
-    setRenderTime(new Date());
-    // Refresh time every 30 seconds to update progressive earnings
+    // This effect ensures the time-sensitive calculations run only on the client
+    setRenderTime(new Date()); 
     const interval = setInterval(() => setRenderTime(new Date()), 30000);
     return () => clearInterval(interval);
-  }, [dataVersion]);
+  }, []);
 
   useEffect(() => {
     if (!authLoading && !firebaseUser) {
@@ -1144,12 +1121,8 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="w-full max-w-5xl">
-                        <InvestmentPlansSection />
+                        <InvestmentPlansSection user={profile} />
                     </div>
-                    
-                     <div className="w-full max-w-5xl">
-                        {profile && !authLoading && <ActivateInvestmentModal user={profile} walletBalance={profile.saldoUSDT} onSuccessfulInvestment={forceDataRefresh} />}
-                     </div>
 
                     <div className="w-full max-w-5xl">
                        {statsLoading ? (
