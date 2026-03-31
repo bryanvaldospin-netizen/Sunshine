@@ -465,31 +465,36 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
             if (amount > bonoRetirable) {
                 throw new Error(`Saldo de bono insuficiente. Disponible: ${bonoRetirable.toFixed(2)} USDT.`);
             }
+
+            const newBonoRetirable = bonoRetirable - amount;
             
             transaction.update(userRef, {
-                bonoRetirable: FieldValue.increment(-amount),
+                bonoRetirable: newBonoRetirable,
                 retirosTotales: FieldValue.increment(amount),
             });
 
         } else { // withdrawalType === 'main'
             tipoRetiroForDb = 'saldo_actual';
             
+            // 1. Calculate newly earned amount since last consolidation
             const earnedAmount = await calculateProgressiveEarnings(systemDb, dbUser, now);
-            
-            transaction.update(userRef, {
-                saldoUSDT: FieldValue.increment(earnedAmount),
-                lastConsolidation: now.toISOString(),
-            });
-            
-            const consolidatedSaldoUSDT = (dbUser.saldoUSDT ?? 0) + earnedAmount;
-            
-            if (amount > consolidatedSaldoUSDT) {
-                throw new Error(`Saldo actual insuficiente. Disponible: ${consolidatedSaldoUSDT.toFixed(2)} USDT.`);
+
+            // 2. Calculate the total available balance BEFORE withdrawal
+            const totalAvailableBalance = (dbUser.saldoUSDT ?? 0) + earnedAmount;
+
+            // 3. Check if withdrawal amount is valid
+            if (amount > totalAvailableBalance) {
+                throw new Error(`Saldo actual insuficiente. Disponible: ${totalAvailableBalance.toFixed(2)} USDT.`);
             }
 
+            // 4. Calculate the final balance after withdrawal
+            const newFinalBalance = totalAvailableBalance - amount;
+
+            // 5. Stage a single, clean update
             transaction.update(userRef, {
-                saldoUSDT: FieldValue.increment(-amount),
-                retirosTotales: FieldValue.increment(amount),
+                saldoUSDT: newFinalBalance, // Set the final calculated balance
+                lastConsolidation: now.toISOString(), // Mark that consolidation has happened
+                retirosTotales: FieldValue.increment(amount), // Increment total withdrawals
             });
         }
         
