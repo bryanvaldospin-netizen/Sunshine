@@ -4,8 +4,8 @@ import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import type { UserProfile, Transaction } from '@/types';
-import { processInitialBonus, createWithdrawalToken, claimAndFinalizeCycle, getSecondLevelReferrals, syncInviteCodes } from '@/lib/actions';
+import type { UserProfile, Transaction, Investment } from '@/types';
+import { processInitialBonus, createWithdrawalToken, activateInvestment, getSecondLevelReferrals } from '@/lib/actions';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -17,7 +17,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { useToast } from '@/hooks/use-toast';
 import { Globe, Gem, Shield, Crown, Zap, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon, User as UserIcon, Wallet, Info, ChevronRight, AlertTriangle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { collection, query, where, onSnapshot, doc, updateDoc, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -36,12 +36,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Copy } from 'lucide-react';
-import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { InstallPWA } from '@/components/install-pwa';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { APP_DOMAIN } from '@/lib/config';
+import { UpdateNoticeModal } from '@/components/update-notice';
 
 
 const InvestmentPlansSection = () => {
@@ -55,13 +55,6 @@ const InvestmentPlansSection = () => {
         navigator.clipboard.writeText(walletAddress);
         toast({ title: t('dashboard.copy'), description: t('dashboard.copied') });
     };
-
-    const plans = [
-        { name: 'Bronce', investment: '$20 - $100', dailyRate: '1.5% Diario', icon: Shield, color: 'border-bronze', textColor: 'text-bronze' },
-        { name: 'Plata', investment: '$101 - $500', dailyRate: '1.8% Diario', icon: Star, color: 'border-silver', textColor: 'text-silver' },
-        { name: 'Oro', investment: '$501 - $1000', dailyRate: '2.0% Diario', icon: Crown, color: 'border-golden', textColor: 'text-golden' },
-        { name: 'Diamante', investment: '$1001+', dailyRate: '2.5% Diario', icon: Gem, color: 'border-diamond', textColor: 'text-diamond' },
-    ];
     
     const vipPlans = [
         { name: 'Bronce VIP', investment: '$20 - $100', dailyRate: '2.0% Diario', icon: Shield, color: 'border-amber-400', textColor: 'text-amber-400' },
@@ -74,11 +67,12 @@ const InvestmentPlansSection = () => {
         <Dialog open={open} onOpenChange={setOpen}>
             <div className="p-4 md:p-8 space-y-12">
                 <div>
-                    <h2 className="text-3xl font-bold text-center mb-2 text-gray-300">Planes Estándar</h2>
-                    <p className="text-center text-muted-foreground mb-8">Rendimientos consistentes para iniciar tu camino.</p>
+                    <h2 className="text-3xl font-bold text-center mb-2 text-amber-400">Planes VIP Boost</h2>
+                    <p className="text-center text-muted-foreground mb-8">Maximiza tus ganancias con nuestras tasas preferenciales.</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {plans.map((plan) => (
-                            <Card key={plan.name} className={`bg-gray-800/80 backdrop-blur-sm flex flex-col ${plan.color} border-2 shadow-lg hover:shadow-golden/20 transition-shadow duration-300`}>
+                        {vipPlans.map((plan) => (
+                            <Card key={plan.name} className={`bg-gray-900/80 backdrop-blur-sm flex flex-col ${plan.color} border-2 shadow-lg hover:shadow-amber-400/30 transition-shadow duration-300 relative overflow-hidden`}>
+                                <Badge className="absolute top-2 right-2 bg-amber-500 text-black border-amber-500">VIP BOOST</Badge>
                                 <CardHeader className="items-center text-center">
                                     <plan.icon className={`w-12 h-12 mb-2 ${plan.textColor}`} />
                                     <CardTitle className={`text-xl ${plan.textColor}`}>{plan.name}</CardTitle>
@@ -88,41 +82,11 @@ const InvestmentPlansSection = () => {
                                     <p className="text-3xl font-bold text-white">{plan.dailyRate}</p>
                                 </CardContent>
                                 <CardFooter>
-                                    <DialogTrigger asChild>
+                                     <DialogTrigger asChild>
                                         <Button onClick={() => setSelectedPlan(plan)} className="w-full bg-gradient-to-r from-golden to-red-800 text-white">
                                             Depositar USDT
                                         </Button>
                                     </DialogTrigger>
-                                </CardFooter>
-                            </Card>
-                        ))}
-                    </div>
-                </div>
-
-                <div>
-                    <h2 className="text-3xl font-bold text-center mb-2 text-amber-400">Planes VIP Boost</h2>
-                    <p className="text-center text-muted-foreground mb-8">Maximiza tus ganancias con nuestras tasas preferenciales.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {vipPlans.map((plan) => (
-                            <Card key={plan.name} className={`bg-gray-900/80 backdrop-blur-sm flex flex-col ${plan.color} border-2 shadow-lg hover:shadow-amber-400/30 transition-shadow duration-300 relative overflow-hidden`}>
-                                <Badge className="absolute top-2 right-2 bg-amber-500 text-black border-amber-500">VIP Boost</Badge>
-                                <CardHeader className="items-center text-center">
-                                    <plan.icon className={`w-12 h-12 mb-2 ${plan.textColor}`} />
-                                    <CardTitle className={`text-xl ${plan.textColor}`}>{plan.name}</CardTitle>
-                                    <CardDescription className="font-semibold text-gray-300">{plan.investment}</CardDescription>
-                                </CardHeader>
-                                <CardContent className="flex-grow flex items-center justify-center text-center">
-                                    <p className="text-3xl font-bold text-white">{plan.dailyRate}</p>
-                                </CardContent>
-                                <CardFooter className="flex-col items-center">
-                                    <DialogTrigger asChild>
-                                        <Button onClick={() => setSelectedPlan(plan)} className="w-full bg-gradient-to-r from-amber-500 to-amber-700 text-white">
-                                            Depositar USDT
-                                        </Button>
-                                    </DialogTrigger>
-                                    <p className="text-xs text-muted-foreground mt-3 text-center">
-                                        +$3 USDT de activación incluido en el monto final.
-                                    </p>
                                 </CardFooter>
                             </Card>
                         ))}
@@ -149,7 +113,7 @@ const InvestmentPlansSection = () => {
                 <DialogFooter>
                      <Button asChild className="w-full bg-gradient-to-r from-golden to-red-800 text-white text-lg py-6">
                       <a href="https://form.jotform.com/260646464495063" target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>
-                        Solicitar Inversión
+                        Completar Solicitud de Depósito
                       </a>
                     </Button>
                 </DialogFooter>
@@ -158,136 +122,104 @@ const InvestmentPlansSection = () => {
     );
 };
 
-const DailyBonusCard = ({ user }: { user: UserProfile }) => {
-    const { toast } = useToast();
-    const [isLoading, setIsLoading] = useState(false);
-    const [isClaimable, setIsClaimable] = useState(false);
+const activateInvestmentSchema = z.object({
+  amount: z.coerce.number().min(20, { message: 'La inversión mínima es de 20 USDT.' }),
+});
 
-    useEffect(() => {
-        const canClaim = () => {
-            if (!user.ultimoCheckIn) return true;
-            const lastCheckInDate = new Date(user.ultimoCheckIn);
-            const today = new Date();
-            // Compare dates, ignoring time
-            return lastCheckInDate.toDateString() !== today.toDateString();
-        };
-        setIsClaimable(canClaim());
-    }, [user.ultimoCheckIn]);
+const ActivateInvestmentModal = ({ user, walletBalance, onSuccessfulInvestment }: { user: UserProfile, walletBalance: number, onSuccessfulInvestment: () => void }) => {
+  const { toast } = useToast();
+  const [isOpen, setIsOpen] = useState(false);
+  
+  const form = useForm<z.infer<typeof activateInvestmentSchema>>({
+    resolver: zodResolver(activateInvestmentSchema),
+    defaultValues: { amount: 20 },
+  });
+  
+  const { isSubmitting } = form.formState;
 
-    const handleClaim = async () => {
-        if (!user) return;
-        setIsLoading(true);
-        try {
-            const today = new Date();
-            const dayOfWeek = today.getDay(); // Sunday is 0, Saturday is 6
-            const bonus = (dayOfWeek === 0 || dayOfWeek === 6) ? 1.00 : 0.50;
-            
-            const userDocRef = doc(db, 'users', user.uid);
-            await updateDoc(userDocRef, {
-                saldoUSDT: user.saldoUSDT + bonus,
-                ultimoCheckIn: today.toISOString()
-            });
+  const handleInvestment = async (values: z.infer<typeof activateInvestmentSchema>) => {
+    if (values.amount > walletBalance) {
+      form.setError('amount', { message: 'No tienes saldo suficiente.' });
+      return;
+    }
 
-            toast({
-                title: '¡Felicidades!',
-                description: `Has recibido tu bono de ${bonus.toFixed(2)} USDT de hoy.`
-            });
-            setIsClaimable(false); // Update state after successful claim
+    const result = await activateInvestment(user.uid, values.amount);
 
-        } catch (error) {
-            console.error("Error claiming daily bonus: ", error);
-            toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: 'No se pudo reclamar el bono. Inténtalo de nuevo.'
-            });
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    
-    return (
-        <Card className="bg-gray-800 border-gray-700 text-white w-full">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Gift className="text-green-400" />
-                    Bono de Check-in Diario
-                </CardTitle>
-                <CardDescription>¡Reclama tu recompensa por visitar Sunshine cada día!</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Button 
-                    onClick={handleClaim} 
-                    disabled={!isClaimable || isLoading}
-                    className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white text-lg py-6 disabled:opacity-50 disabled:bg-gray-600 hover:from-green-600 hover:to-emerald-700"
-                >
-                    {isLoading ? 'Procesando...' : isClaimable ? 'Reclamar Bono Diario' : 'Vuelve Mañana'}
-                </Button>
-            </CardContent>
-        </Card>
-    );
+    if (result.success) {
+      toast({ title: '¡Éxito!', description: result.message });
+      setIsOpen(false);
+      form.reset();
+      onSuccessfulInvestment(); // To refresh data
+    } else {
+      toast({ variant: 'destructive', title: 'Error', description: result.error });
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white text-lg py-6 hover:from-green-600 hover:to-emerald-700">
+          <Zap className="mr-2 h-5 w-5" /> Activar Inversión VIP
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="bg-gray-800 border-golden text-white">
+        <DialogHeader>
+          <DialogTitle>Activar Nueva Inversión VIP</DialogTitle>
+          <DialogDescription>
+            Usa tu Saldo de Billetera para iniciar un nuevo plan de inversión. Puedes tener múltiples planes activos.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleInvestment)} className="space-y-4 py-4">
+            <FormField
+              control={form.control}
+              name="amount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Monto a Invertir (USDT)</FormLabel>
+                  <FormControl>
+                    <Input type="number" placeholder="Ej: 100" {...field} className="bg-gray-700 border-gray-600" />
+                  </FormControl>
+                  <FormDescription className="text-xs">
+                     Saldo de Billetera Disponible: {walletBalance.toFixed(2)} USDT
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <DialogFooter>
+              <Button type="submit" className="w-full bg-gradient-to-r from-golden to-red-800 text-white" disabled={isSubmitting}>
+                {isSubmitting ? 'Activando...' : 'Confirmar Inversión'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
 };
 
-const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBonus }: { user: UserProfile | null, directReferrals: UserProfile[], networkLoading: boolean, primaryResidualBonus: number }) => {
+const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBonus, totalInvested }: { user: UserProfile | null, directReferrals: UserProfile[], networkLoading: boolean, primaryResidualBonus: number, totalInvested: number }) => {
   const { toast } = useToast();
   const [claiming, setClaiming] = useState<Record<string, boolean>>({});
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [level2Data, setLevel2Data] = useState<Record<string, { referrals: UserProfile[]; loading: boolean }>>({});
-  const [bonusContributions, setBonusContributions] = useState<Record<string, number>>({});
 
   const { plan2PlusCount } = useMemo(() => {
     if (networkLoading || directReferrals.length === 0) {
       return { plan2PlusCount: 0 };
     }
-    const count = directReferrals.filter(ref => (ref.planActivo ?? 0) >= 101).length;
+    const count = directReferrals.filter(ref => (ref.totalInvested ?? 0) >= 101).length;
     return { plan2PlusCount: count };
   }, [directReferrals, networkLoading]);
 
-  const getDailyRate = (planAmount: number, isVip: boolean = false): number => {
-    if (isVip) {
-        if (planAmount >= 1001) return 0.028;
-        if (planAmount >= 501) return 0.026;
-        if (planAmount >= 101) return 0.024;
-        if (planAmount >= 20) return 0.020;
-    } else {
-        if (planAmount >= 1001) return 0.025;
-        if (planAmount >= 501) return 0.020;
-        if (planAmount >= 101) return 0.018;
-        if (planAmount >= 20) return 0.015;
-    }
+  const getDailyRate = (planAmount: number): number => {
+    if (planAmount >= 1001) return 0.028;
+    if (planAmount >= 501) return 0.026;
+    if (planAmount >= 101) return 0.024;
+    if (planAmount >= 20) return 0.020;
     return 0;
   };
-
-  useEffect(() => {
-    if (networkLoading || directReferrals.length === 0) {
-      setBonusContributions({});
-      return;
-    }
-
-    const contributions: Record<string, number> = {};
-    const now = new Date();
-    const level1CommissionRate = 5 / 100; // 5%
-
-    directReferrals.forEach((ref) => {
-      let contribution = 0;
-      const isContractActive = ref.estadoPlan !== 'vencido';
-      if (isContractActive && (ref.planActivo ?? 0) >= 20 && ref.fechaInicioPlan) {
-          const dateValue = ref.fechaInicioPlan as any;
-          const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
-          if (!isNaN(startDate.getTime())) {
-              const diffTime = now.getTime() - startDate.getTime();
-              if (diffTime > 0) {
-                  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                  const refDailyEarning = (ref.planActivo ?? 0) * getDailyRate(ref.planActivo ?? 0, ref.isVip ?? false);
-                  const dailyBonus = refDailyEarning * level1CommissionRate;
-                  contribution = dailyBonus * diffDays;
-              }
-          }
-      }
-      contributions[ref.uid] = parseFloat(contribution.toFixed(2));
-    });
-    setBonusContributions(contributions);
-  }, [directReferrals, networkLoading, plan2PlusCount]);
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -323,7 +255,6 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
     }
   };
 
-
   const handleClaimBonus = async (referralId: string) => {
     if (!user) return;
     setClaiming(prev => ({ ...prev, [referralId]: true }));
@@ -341,7 +272,6 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
                 description: result.error,
             });
         } else {
-            // This case handles unexpected return values
             console.error("Unexpected result from processInitialBonus:", result);
             toast({
                 variant: 'destructive',
@@ -448,8 +378,8 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
                     <TableRow className="border-gray-700 hover:bg-gray-800">
                         <TableHead className="text-white">Nombre</TableHead>
                         <TableHead className="text-white">Email</TableHead>
-                        <TableHead className="text-white">Plan Activo</TableHead>
-                        <TableHead className="text-right text-white">Acción</TableHead>
+                        <TableHead className="text-white">Inversión Total</TableHead>
+                        <TableHead className="text-right text-white">Acción de Bono</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -471,18 +401,14 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
                                     </TableCell>
                                     <TableCell className="text-muted-foreground">{ref.email}</TableCell>
                                     <TableCell>
-                                        <Badge className={(ref.planActivo ?? 0) > 0 ? 'bg-green-600 text-white' : 'bg-gray-600 text-white'}>
-                                            {(ref.planActivo ?? 0) > 0 ? formatCurrency(ref.planActivo ?? 0) : 'Inactivo'}
+                                        <Badge className={(ref.totalInvested ?? 0) > 0 ? 'bg-green-600 text-white' : 'bg-gray-600 text-white'}>
+                                            {(ref.totalInvested ?? 0) > 0 ? formatCurrency(ref.totalInvested ?? 0) : 'Inactivo'}
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="text-right">
                                     {(() => {
-                                        const hasNewInvestment = (ref.planActivo ?? 0) > (ref.inversionAnterior ?? 0);
-                                        if (ref.bonoEntregado === 'reclamado') {
-                                            return <span className="text-green-400 font-semibold text-sm">Cobrado ✅</span>;
-                                        }
-                                        if (ref.bonoEntregado === true && hasNewInvestment) {
-                                            if ((user?.planActivo ?? 0) > 0) {
+                                        if (ref.hasUnclaimedBonuses) {
+                                            if ((totalInvested ?? 0) > 0) {
                                                 return (
                                                     <Button
                                                         size="sm"
@@ -504,20 +430,20 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
                                                                         className="bg-gray-500 text-white h-8 px-3 cursor-not-allowed"
                                                                         disabled
                                                                     >
-                                                                        ⚠️ Activa un plan para cobrar
+                                                                        ⚠️ Activa un plan
                                                                     </Button>
                                                                 </span>
                                                             </TooltipTrigger>
                                                             <TooltipContent>
-                                                                <p>Según el reglamento, necesitas una inversión activa para generar comisiones de red.</p>
+                                                                <p>Necesitas una inversión activa para cobrar comisiones de red.</p>
                                                             </TooltipContent>
                                                         </Tooltip>
                                                     </TooltipProvider>
                                                 );
                                             }
                                         }
-                                        if ((ref.planActivo ?? 0) > 0 && ref.bonoEntregado !== true) {
-                                             return <Badge variant="outline" className="text-muted-foreground border-gray-600">Esperando Activación</Badge>;
+                                        if ((ref.totalInvested ?? 0) > 0) {
+                                             return <Badge variant="outline" className="text-muted-foreground border-gray-600">Sin bonos nuevos</Badge>;
                                         }
                                         return <span className="text-xs text-gray-500">Sin plan</span>;
                                     })()}
@@ -536,7 +462,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
                                                             <TableRow className="border-gray-700 hover:bg-gray-800/50">
                                                                 <TableHead className="text-white/70">Nombre</TableHead>
                                                                 <TableHead className="text-white/70">Email</TableHead>
-                                                                <TableHead className="text-right text-white/70">Plan Activo</TableHead>
+                                                                <TableHead className="text-right text-white/70">Inversión Total</TableHead>
                                                             </TableRow>
                                                         </TableHeader>
                                                         <TableBody>
@@ -545,8 +471,8 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
                                                                     <TableCell className="font-medium text-sm">{l2ref.name}</TableCell>
                                                                     <TableCell className="text-muted-foreground text-sm">{l2ref.email}</TableCell>
                                                                     <TableCell className="text-right">
-                                                                        <Badge variant="outline" className={(l2ref.planActivo ?? 0) > 0 ? 'border-green-600 text-green-400' : 'border-gray-600 text-gray-400'}>
-                                                                            {(l2ref.planActivo ?? 0) > 0 ? formatCurrency(l2ref.planActivo ?? 0) : 'Inactivo'}
+                                                                        <Badge variant="outline" className={(l2ref.totalInvested ?? 0) > 0 ? 'border-green-600 text-green-400' : 'border-gray-600 text-gray-400'}>
+                                                                            {(l2ref.totalInvested ?? 0) > 0 ? formatCurrency(l2ref.totalInvested ?? 0) : 'Inactivo'}
                                                                         </Badge>
                                                                     </TableCell>
                                                                 </TableRow>
@@ -582,13 +508,13 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
         <CardContent>
             {networkLoading ? (
                 <Skeleton className="h-16 w-full bg-gray-700" />
-            ) : user && (user.planActivo ?? 0) >= 101 && plan2PlusCount >= 10 ? (
+            ) : user && (totalInvested ?? 0) >= 101 && plan2PlusCount >= 10 ? (
                 <div>
                     <div className="flex justify-between items-center mb-2">
                         <span className="text-4xl font-bold text-cyan-400">{formatCurrency(primaryResidualBonus)}</span>
                         <Badge className="bg-green-600 text-white">ACTIVO</Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground">Este es el total acumulado del 5% de la ganancia diaria de tus directos con plan activo (>= $20) y contrato vigente.</p>
+                    <p className="text-xs text-muted-foreground">Este es el total acumulado del 5% de la ganancia diaria de tus directos con inversiones activas.</p>
                 </div>
             ) : (
                 <div className="text-center p-4 rounded-lg bg-gray-900/50">
@@ -597,57 +523,6 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
             )}
         </CardContent>
       </Card>
-      
-      <Card className="bg-gray-800 border-gray-700 text-white" data-ai-hint="residualStatusMonitor">
-        <CardHeader>
-          <CardTitle>Desglose de Bono Residual Primario</CardTitle>
-          <CardDescription>Monitorea el estado de la contribución de cada referido directo.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow className="border-gray-700 hover:bg-gray-800">
-                <TableHead className="text-white">Referido</TableHead>
-                <TableHead className="text-white">Bono Aportado</TableHead>
-                <TableHead className="text-right text-white">Estado del Contrato</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {networkLoading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <TableRow key={i} className="border-gray-700">
-                    <TableCell colSpan={3}><Skeleton className="h-8 w-full bg-gray-700"/></TableCell>
-                  </TableRow>
-                ))
-              ) : directReferrals.length > 0 ? (
-                directReferrals.map((ref) => {
-                  const isContractActive = ref.estadoPlan !== 'vencido';
-                  const bonusContribution = bonusContributions[ref.uid] ?? 0;
-
-                  return (
-                    <TableRow key={ref.uid} className="border-gray-700 hover:bg-gray-700/50">
-                      <TableCell className="font-medium text-sm">{ref.email}</TableCell>
-                      <TableCell className="font-mono text-cyan-400">{formatCurrency(bonusContribution)}</TableCell>
-                      <TableCell className="text-right">
-                        <Badge className={isContractActive ? 'bg-green-600 text-white' : 'bg-red-800 text-white'}>
-                          {isContractActive ? 'Activo' : 'Límite Alcanzado'}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={3} className="text-center text-muted-foreground h-24">
-                    No tienes referidos directos que califiquen para este bono.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
 
       <Card className="bg-gray-800 border-gray-700 text-white">
         <CardHeader>
@@ -655,7 +530,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
           <CardDescription>Desbloquea niveles invitando a nuevos miembros con un Plan Plata o superior (≥ $101).</CardDescription>
         </CardHeader>
         <CardContent>
-           {networkLoading ? <Skeleton className="h-4 w-32 bg-gray-700 mb-4"/> : <p className="mb-4 text-sm">Directos con Plan 2+: <span className="font-bold text-golden">{plan2PlusCount}</span></p>}
+           {networkLoading ? <Skeleton className="h-4 w-32 bg-gray-700 mb-4"/> : <p className="mb-4 text-sm">Directos con Plan Plata o superior: <span className="font-bold text-golden">{plan2PlusCount}</span></p>}
            <Table>
               <TableHeader>
                   <TableRow className="border-gray-700 hover:bg-gray-800">
@@ -788,8 +663,8 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
   useEffect(() => {
     const checkDate = () => {
         try {
-            const londonDateStr = new Date().toLocaleDateString('en-GB', { timeZone: 'Europe/London' }); // Format: dd/mm/yyyy
-            const day = parseInt(londonDateStr.split('/')[0], 10);
+            const londonTime = new Date().toLocaleString('en-US', { timeZone: 'Europe/London' });
+            const day = new Date(londonTime).getDate();
             const isSpecialDay = [10, 20, 30].includes(day);
 
             if (withdrawalType === 'main') {
@@ -803,10 +678,10 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
         }
     };
 
-    checkDate(); // Check immediately on mount and when withdrawalType changes
-    const interval = setInterval(checkDate, 60000); // Re-check every minute to catch date changes
+    checkDate();
+    const interval = setInterval(checkDate, 60000); 
 
-    return () => clearInterval(interval); // Cleanup interval on component unmount
+    return () => clearInterval(interval);
   }, [withdrawalType]);
   
   const formSchema = z.object({
@@ -908,7 +783,7 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
               </div>
               <div className="flex items-center space-x-2">
                   <RadioGroupItem value="main" id="r2" />
-                  <Label htmlFor="r2">Saldo Actual</Label>
+                  <Label htmlFor="r2">Ganancias de Inversión</Label>
               </div>
             </RadioGroup>
 
@@ -986,30 +861,25 @@ export default function TestPage() {
   const { user: profile, loading: authLoading } = useAuth();
   const { t, setLocale } = useTranslation();
   const router = useRouter();
-  const { toast } = useToast();
   
   const [directReferrals, setDirectReferrals] = useState<UserProfile[]>([]);
+  const [investments, setInvestments] = useState<Investment[]>([]);
   const [networkLoading, setNetworkLoading] = useState(true);
-  const renderTime = useMemo(() => new Date(), []); // Snapshot of time on component render
+  const [dataVersion, setDataVersion] = useState(0); // Used to force re-render
+  const renderTime = useMemo(() => new Date(), [dataVersion]); // Snapshot of time on data change
 
+  const forceDataRefresh = () => setDataVersion(v => v + 1);
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
   }).format(value);
 
-  const getDailyRate = (planAmount: number, isVip: boolean = false): number => {
-    if (isVip) {
-        if (planAmount >= 1001) return 0.028; // 2.8%
-        if (planAmount >= 501) return 0.026;  // 2.6%
-        if (planAmount >= 101) return 0.024;  // 2.4%
-        if (planAmount >= 20) return 0.020;   // 2.0%
-    } else {
-        if (planAmount >= 1001) return 0.025; // 2.5%
-        if (planAmount >= 501) return 0.020;  // 2.0%
-        if (planAmount >= 101) return 0.018;  // 1.8%
-        if (planAmount >= 20) return 0.015;   // 1.5%
-    }
+  const getDailyRate = (planAmount: number): number => {
+    if (planAmount >= 1001) return 0.028;
+    if (planAmount >= 501) return 0.026;
+    if (planAmount >= 101) return 0.024;
+    if (planAmount >= 20) return 0.020;
     return 0;
   };
 
@@ -1022,98 +892,93 @@ export default function TestPage() {
     }
     
     setNetworkLoading(true);
-    const referralsQuery = query(
-      collection(db, 'users'),
-      where('invitadoPor', '==', profile.uid)
-    );
-  
+    const referralsQuery = query(collection(db, 'users'), where('invitadoPor', '==', profile.uid));
     const unsubscribe = onSnapshot(referralsQuery, (snapshot) => {
       const refs = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile));
       setDirectReferrals(refs);
       setNetworkLoading(false);
     }, (error) => {
       console.error("Error fetching referrals:", error);
-      setDirectReferrals([]);
       setNetworkLoading(false);
     });
 
     return () => unsubscribe();
   }, [profile?.uid]);
+
+  // Fetch all investments for the user
+  useEffect(() => {
+    if (!profile?.uid) {
+        setInvestments([]);
+        return;
+    };
+    const investmentsQuery = query(collection(db, 'users', profile.uid, 'investments'));
+    const unsubscribe = onSnapshot(investmentsQuery, (snapshot) => {
+        const invs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Investment));
+        setInvestments(invs);
+    });
+    return () => unsubscribe();
+  }, [profile?.uid]);
   
-  const { mainBalance, referralBalance, totalLifetimeEarnings, primaryResidualBonus } = useMemo(() => {
+  const { mainBalance, referralBalance, totalLifetimeEarnings, primaryResidualBonus, totalInvested, totalEarningsCap } = useMemo(() => {
     if (!profile || authLoading) {
-      return { mainBalance: 0, referralBalance: 0, totalLifetimeEarnings: 0, primaryResidualBonus: 0 };
+      return { mainBalance: 0, referralBalance: 0, totalLifetimeEarnings: 0, primaryResidualBonus: 0, totalInvested: 0, totalEarningsCap: 0 };
     }
 
     const now = renderTime;
 
-    // --- Progressive ROI based on full days ---
     let progressiveROI = 0;
-    const planActivo = profile.planActivo ?? 0;
-    if (planActivo > 0 && profile.fechaInicioPlan && profile.estadoPlan !== 'vencido') {
-        const dateValue = profile.fechaInicioPlan as any;
-        const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
-        if (!isNaN(startDate.getTime())) {
-            const diffTime = now.getTime() - startDate.getTime();
-            if (diffTime > 0) {
-                const diffDays = diffTime / (1000 * 60 * 60 * 24);
-                progressiveROI = planActivo * getDailyRate(planActivo, profile.isVip ?? false) * diffDays;
+    let currentTotalInvested = 0;
+    let currentTotalEarningsCap = 0;
+
+    investments.forEach(inv => {
+        if (inv.status === 'active') {
+            currentTotalInvested += inv.amount;
+            currentTotalEarningsCap += inv.amount * 3;
+            
+            const startDate = new Date(inv.startDate);
+            if (!isNaN(startDate.getTime())) {
+                const diffTime = now.getTime() - startDate.getTime();
+                if (diffTime > 0) {
+                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                    const earningForThisInvestment = inv.amount * inv.dailyRate * diffDays;
+                    const maxEarningForThis = (inv.amount * 3) - inv.earningsGenerated;
+                    progressiveROI += Math.min(earningForThisInvestment, maxEarningForThis);
+                }
             }
         }
-    }
+    });
 
-    // --- Progressive Residual Bonus based on full days ---
-    const plan2PlusCount = directReferrals.filter(ref => (ref.planActivo ?? 0) >= 101).length;
+    const plan2PlusCount = directReferrals.filter(ref => (ref.totalInvested ?? 0) >= 101).length;
     let progressiveResidual = 0;
-    if ((profile.planActivo ?? 0) >= 101 && plan2PlusCount >= 10) {
-        const level1CommissionRate = 5 / 100; // 5%
-
+    if (totalInvested >= 101 && plan2PlusCount >= 10) {
+        const level1CommissionRate = 5 / 100;
         progressiveResidual = directReferrals.reduce((total, ref) => {
-            if ((ref.planActivo ?? 0) >= 20 && ref.estadoPlan !== 'vencido' && ref.fechaInicioPlan) {
-                const dateValue = ref.fechaInicioPlan as any;
-                const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
-                if (!isNaN(startDate.getTime())) {
-                    const diffTime = now.getTime() - startDate.getTime();
-                    if (diffTime > 0) {
-                        const diffDays = diffTime / (1000 * 60 * 60 * 24);
-                        if (diffDays > 0) {
-                            const refDailyEarning = (ref.planActivo ?? 0) * getDailyRate(ref.planActivo ?? 0, ref.isVip ?? false);
-                            const dailyBonus = refDailyEarning * level1CommissionRate;
-                            return total + (dailyBonus * diffDays);
-                        }
-                    }
-                }
+            if ((ref.totalInvested ?? 0) >= 20) {
+                // This is a simplified calculation for display. The server has the final say.
+                const refDailyEarning = (ref.totalInvested ?? 0) * getDailyRate(ref.totalInvested ?? 0);
+                const dailyBonus = refDailyEarning * level1CommissionRate;
+                return total + dailyBonus; // Simplified to daily rate for UI purposes
             }
             return total;
         }, 0);
     }
     
-    // --- Define final wallet values ---
-    
-    // "Saldo Actual": Sum of progressive ROI and progressive Residual Bonus.
     const finalMainBalance = parseFloat((progressiveROI + progressiveResidual).toFixed(2));
-    
-    // "Bono Referido" (Separate wallet for 10% direct bonuses)
     const finalReferralBalance = parseFloat((profile.bonoRetirable || 0).toFixed(2));
-
-    // "Ganancias Generadas" (Total lifetime earnings for progress bar and history)
-    // This is the total potential value generated, including all bonus types.
     const totalLifetimeDirect = profile.bonoDirecto || 0;
     const allTimeEarnings = progressiveROI + progressiveResidual + totalLifetimeDirect;
-
-    const maxEarnings = planActivo > 0 ? planActivo * 3 : Infinity;
-    const finalTotalLifetimeEarnings = parseFloat(Math.min(allTimeEarnings, maxEarnings).toFixed(2));
-    
-    // "Bono Residual Primario" (Display card for total accumulated residual)
+    const finalTotalLifetimeEarnings = parseFloat(Math.min(allTimeEarnings, currentTotalEarningsCap > 0 ? currentTotalEarningsCap : Infinity).toFixed(2));
     const finalPrimaryResidualBonus = parseFloat(progressiveResidual.toFixed(2));
 
     return { 
         mainBalance: finalMainBalance,
         referralBalance: finalReferralBalance,
         totalLifetimeEarnings: finalTotalLifetimeEarnings,
-        primaryResidualBonus: finalPrimaryResidualBonus
+        primaryResidualBonus: finalPrimaryResidualBonus,
+        totalInvested: currentTotalInvested,
+        totalEarningsCap: currentTotalEarningsCap,
     };
-  }, [profile, directReferrals, authLoading, renderTime]);
+  }, [profile, investments, directReferrals, authLoading, renderTime, totalInvested]);
 
 
   const statItems = useMemo(() => {
@@ -1125,16 +990,15 @@ export default function TestPage() {
       ];
     }
     return [
-      { title: t('dashboard.totalInvestment'), value: profile.planActivo ?? 0, icon: PiggyBank },
+      { title: t('dashboard.totalInvestment'), value: totalInvested, icon: PiggyBank },
       { title: t('dashboard.generatedEarnings'), value: totalLifetimeEarnings, icon: TrendingUp },
       { title: t('dashboard.totalWithdrawals'), value: profile.retirosTotales ?? 0, icon: CircleDollarSign },
     ];
-  }, [t, profile, totalLifetimeEarnings]);
+  }, [t, profile, totalInvested, totalLifetimeEarnings]);
 
   const [chartData, setChartData] = useState<any[]>([]);
   const statsLoading = authLoading;
 
-  // Static Chart Generation Effect
   useEffect(() => {
     if (authLoading || !profile) {
       setChartData([]);
@@ -1143,7 +1007,6 @@ export default function TestPage() {
 
     const points = 7;
     const data = [];
-    // Generate previous points as a simple linear representation of the current earnings.
     for (let i = 0; i < points; i++) {
         const date = new Date();
         date.setDate(date.getDate() - (points - 1 - i));
@@ -1154,7 +1017,6 @@ export default function TestPage() {
         });
     }
     
-    // Ensure the last point is exactly the main balance value and labeled 'Ahora'.
     if (data.length > 0) {
         data[data.length - 1].balance = totalLifetimeEarnings;
         data[data.length - 1].date = 'Ahora';
@@ -1176,48 +1038,8 @@ export default function TestPage() {
   };
   
   const userName = profile?.name || t('dashboard.investor');
-  const planActivo = profile?.planActivo ?? 0;
-
-  const formattedMainBalance = formatCurrency(mainBalance);
-  const formattedReferralBonus = formatCurrency(referralBalance);
+  const progress = totalEarningsCap > 0 ? (totalLifetimeEarnings / totalEarningsCap) * 100 : 0;
   
-  const progress = planActivo > 0 ? (totalLifetimeEarnings / (planActivo * 3)) * 100 : 0;
-
-  // Effect for Automatic Cycle Claim
-  useEffect(() => {
-    if (progress >= 100 && profile && profile.estadoPlan !== 'vencido') {
-      const autoClaim = async () => {
-        toast({
-          title: '¡Ciclo Completado!',
-          description: 'Procesando tu reclamo final automáticamente...',
-        });
-        try {
-          const result = await claimAndFinalizeCycle(profile.uid);
-          if (result?.success) {
-            toast({
-              title: '¡Ciclo Reclamado y Finalizado!',
-              description: result.message,
-            });
-          } else {
-            toast({
-              variant: 'destructive',
-              title: 'Error en Reclamo Automático',
-              description: result?.error || 'No se pudo procesar el reclamo.',
-            });
-          }
-        } catch (e) {
-          console.error("Error in autoClaim:", e);
-          toast({
-            variant: 'destructive',
-            title: 'Error de Conexión',
-            description: 'No se pudo conectar con el servidor para el reclamo automático.',
-          });
-        }
-      };
-      autoClaim();
-    }
-  }, [progress, profile, toast]);
-
   const chartConfig = {
     balance: {
       label: 'Saldo',
@@ -1228,6 +1050,7 @@ export default function TestPage() {
 
   return (
     <main className="bg-gray-900 text-white min-h-screen font-body relative pb-24">
+       <UpdateNoticeModal />
        <header className="bg-black/50 backdrop-blur-sm sticky top-0 z-50">
          <div className="container mx-auto flex h-16 items-center justify-end gap-2 px-4">
             <DropdownMenu>
@@ -1270,38 +1093,40 @@ export default function TestPage() {
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-5xl">
-                    <Card className="bg-gray-800 border-golden text-white text-center">
+                    <Card className="bg-gray-800 border-green-400 text-white text-center">
                         <CardHeader>
                         <CardTitle className="text-xl font-medium text-gray-300">
-                            Saldo Actual
+                            Saldo de Billetera (para Invertir)
                         </CardTitle>
-                        <CardDescription className="text-xs text-gray-400">Retiros: Días 10, 20 y 30</CardDescription>
                         </CardHeader>
                         <CardContent className="py-2">
                         {authLoading ? (
                             <Skeleton className="h-12 w-1/2 mx-auto bg-gray-700" />
                         ) : (
-                            <p className="text-5xl font-bold text-golden">{formattedMainBalance}</p>
+                            <p className="text-5xl font-bold text-green-400">{formatCurrency(profile?.saldoUSDT ?? 0)}</p>
                         )}
                         </CardContent>
                     </Card>
                     <Card className="bg-gray-800 border-cyan-400 text-white text-center">
                         <CardHeader>
                         <CardTitle className="text-xl font-medium text-gray-300">
-                            Bono Referido
+                            Bono Referido (Retirable)
                         </CardTitle>
-                        <CardDescription className="text-xs text-gray-400">Retiros disponibles excepto 10, 20 y 30</CardDescription>
                         </CardHeader>
                         <CardContent className="py-2">
                         {authLoading ? (
                             <Skeleton className="h-12 w-1/2 mx-auto bg-gray-700" />
                         ) : (
-                            <p className="text-5xl font-bold text-cyan-400">{formattedReferralBonus}</p>
+                            <p className="text-5xl font-bold text-cyan-400">{formatCurrency(referralBalance)}</p>
                         )}
                         </CardContent>
                     </Card>
                 </div>
                 
+                 <div className="w-full max-w-5xl">
+                    {profile && !authLoading && <ActivateInvestmentModal user={profile} walletBalance={profile.saldoUSDT} onSuccessfulInvestment={forceDataRefresh} />}
+                 </div>
+
                 <div className="w-full max-w-5xl">
                    {statsLoading ? (
                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full">
@@ -1329,35 +1154,21 @@ export default function TestPage() {
                 <div className="w-full max-w-5xl">
                     <Card className="bg-gray-800 border-gray-700 text-white">
                         <CardHeader>
-                            <CardTitle>Estado de Inversión</CardTitle>
+                            <CardTitle>Estado de Inversión Global</CardTitle>
                         </CardHeader>
                         <CardContent className="pt-4">
                             {authLoading ? (
                                <Skeleton className="h-20 w-full bg-gray-700" />
-                            ) : profile?.estadoPlan === 'vencido' ? (
-                                <div className="p-4 text-center bg-red-900/50 border border-red-700 rounded-lg">
-                                    <p className="font-bold text-lg text-amber-400">¡CICLO COMPLETADO!</p>
-                                    <p className="text-sm text-gray-300 mt-2">
-                                        Tienes 3 días para incrementar tu plan o tu cuenta se cerrará.
-                                    </p>
-                                    {profile.fechaVencimiento && (
-                                       <p className="text-sm text-gray-300 mt-2">
-                                            Tu cuenta se cerrará aproximadamente el: {new Date(profile.fechaVencimiento).toLocaleDateString('es-ES')}
-                                       </p>
-                                    )}
-                                </div>
-                            ) : planActivo > 0 ? (
+                            ) : totalInvested > 0 ? (
                                 <div className="space-y-2">
-                                    <p className="text-lg">Tu plan de inversión: <span className="font-bold text-golden">{formatCurrency(planActivo)} USDT Activo</span></p>
-                                    <p className="text-lg">Tasa de ganancia diaria: <span className="font-bold text-cyan-400">{(getDailyRate(planActivo, profile?.isVip ?? false) * 100).toFixed(1)}%</span></p>
-                                    <p className="text-lg">Ganancias Totales (Plan + Red): <span className="font-bold text-green-400">{formatCurrency(totalLifetimeEarnings)}</span> / <span className="text-sm text-gray-400" title="Límite de Retorno (300%)">{formatCurrency(planActivo * 3)}</span></p>
-                                    {profile?.fechaInicioPlan && new Date(typeof (profile.fechaInicioPlan as any)?.toDate === 'function' ? (profile.fechaInicioPlan as any).toDate() : profile.fechaInicioPlan).toString() !== 'Invalid Date' && <p className="text-sm text-gray-400">Inversión iniciada el: {new Date(typeof (profile.fechaInicioPlan as any)?.toDate === 'function' ? (profile.fechaInicioPlan as any).toDate() : profile.fechaInicioPlan).toLocaleDateString('es-ES')}</p>}
+                                    <p className="text-lg">Inversión Total Activa: <span className="font-bold text-golden">{formatCurrency(totalInvested)} USDT</span></p>
+                                    <p className="text-lg">Ganancias Totales (Plan + Red): <span className="font-bold text-green-400">{formatCurrency(totalLifetimeEarnings)}</span> / <span className="text-sm text-gray-400" title="Límite de Retorno (300%)">{formatCurrency(totalEarningsCap)}</span></p>
                                 </div>
                             ) : (
-                                <p>Tu plan de inversión: No tienes un plan activo. Realiza una inversión para obtener uno.</p>
+                                <p>No tienes un plan activo. Realiza un depósito y activa una inversión para obtener uno.</p>
                             )}
                         </CardContent>
-                        {planActivo > 0 && profile?.estadoPlan !== 'vencido' && (
+                        {totalInvested > 0 && (
                             <CardFooter className="pt-4 flex-col items-start gap-4">
                                 <div className="w-full space-y-1">
                                     <div className="flex justify-between text-xs text-muted-foreground">
@@ -1470,12 +1281,10 @@ export default function TestPage() {
            <InvestmentPlansSection />
         </TabsContent>
         <TabsContent value="mi-red">
-          <MyNetworkTab user={profile} directReferrals={directReferrals} networkLoading={networkLoading} primaryResidualBonus={primaryResidualBonus} />
+          <MyNetworkTab user={profile} directReferrals={directReferrals} networkLoading={networkLoading} primaryResidualBonus={primaryResidualBonus} totalInvested={totalInvested}/>
         </TabsContent>
       </Tabs>
       <InstallPWA />
     </main>
   );
 }
-
-    
