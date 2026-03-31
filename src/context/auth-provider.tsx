@@ -65,6 +65,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const previousPlanActivo = previousUser?.planActivo ?? 0;
             const newPlanActivo = userData.planActivo ?? 0;
 
+            // Check for a new plan activation (from 0 to >0)
+            if (newPlanActivo > 0 && previousPlanActivo === 0) {
+              // This is a new plan, set its start date.
+              // Do not await, let it run in the background.
+              updateDoc(docSnap.ref, {
+                fechaInicioPlan: new Date().toISOString()
+              }).catch(err => console.error("Failed to set plan start date:", err));
+            }
+
             if (newPlanActivo > previousPlanActivo) {
                 createInvestmentTransaction(currentFirebaseUser.uid, newPlanActivo, previousPlanActivo)
                     .catch(e => console.error("Failed to create investment transaction:", e));
