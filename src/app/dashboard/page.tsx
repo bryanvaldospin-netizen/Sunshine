@@ -867,7 +867,14 @@ export default function DashboardPage() {
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [networkLoading, setNetworkLoading] = useState(true);
   const [dataVersion, setDataVersion] = useState(0); // Used to force re-render
-  const renderTime = useMemo(() => new Date(), [dataVersion]); // Snapshot of time on data change
+  const [renderTime, setRenderTime] = useState<Date | null>(null);
+
+  useEffect(() => {
+    setRenderTime(new Date());
+    // Refresh time every 30 seconds to update progressive earnings
+    const interval = setInterval(() => setRenderTime(new Date()), 30000);
+    return () => clearInterval(interval);
+  }, [dataVersion]);
 
   useEffect(() => {
     if (!authLoading && !firebaseUser) {
@@ -927,7 +934,7 @@ export default function DashboardPage() {
   }, [profile?.uid]);
   
   const { mainBalance, referralBalance, totalLifetimeEarnings, primaryResidualBonus, totalInvested, totalEarningsCap } = useMemo(() => {
-    if (!profile || authLoading) {
+    if (!profile || authLoading || !renderTime) {
       return { mainBalance: 0, referralBalance: 0, totalLifetimeEarnings: 0, primaryResidualBonus: 0, totalInvested: 0, totalEarningsCap: 0 };
     }
 
