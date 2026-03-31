@@ -65,10 +65,10 @@ const InvestmentPlansSection = () => {
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <div className="p-4 md:p-8 space-y-12">
+            <div className="w-full space-y-8">
                 <div>
-                    <h2 className="text-3xl font-bold text-center mb-2 text-amber-400">Planes VIP Boost</h2>
-                    <p className="text-center text-muted-foreground mb-8">Maximiza tus ganancias con nuestras tasas preferenciales.</p>
+                    <h2 className="text-3xl font-bold text-center mb-2 text-amber-400">Depositar para Invertir</h2>
+                    <p className="text-center text-muted-foreground mb-8">Añade fondos a tu Saldo de Billetera para activar nuevos planes de inversión.</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {vipPlans.map((plan) => (
                             <Card key={plan.name} className={`bg-gray-900/80 backdrop-blur-sm flex flex-col ${plan.color} border-2 shadow-lg hover:shadow-amber-400/30 transition-shadow duration-300 relative overflow-hidden`}>
@@ -1073,9 +1073,8 @@ export default function TestPage() {
       </header>
 
       <Tabs defaultValue="inicio" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 bg-gray-800/50 rounded-none sticky top-16 z-40 backdrop-blur-sm">
+        <TabsList className="grid w-full grid-cols-3 bg-gray-800/50 rounded-none sticky top-16 z-40 backdrop-blur-sm">
           <TabsTrigger value="inicio"><Home className="mr-2 h-4 w-4" /> Inicio</TabsTrigger>
-          <TabsTrigger value="inversiones"><Briefcase className="mr-2 h-4 w-4" /> Inversiones</TabsTrigger>
           <TabsTrigger value="profile" asLink href="/profile"><UserIcon className="mr-2 h-4 w-4" />{t('profile.title')}</TabsTrigger>
           <TabsTrigger value="mi-red"><Users className="mr-2 h-4 w-4" /> Mi Red</TabsTrigger>
         </TabsList>
@@ -1121,6 +1120,10 @@ export default function TestPage() {
                         )}
                         </CardContent>
                     </Card>
+                </div>
+
+                <div className="w-full max-w-5xl">
+                    <InvestmentPlansSection />
                 </div>
                 
                  <div className="w-full max-w-5xl">
@@ -1213,9 +1216,6 @@ export default function TestPage() {
 
               </div>
             </div>
-        </TabsContent>
-        <TabsContent value="inversiones">
-           <InvestmentPlansSection />
         </TabsContent>
         <TabsContent value="mi-red">
           <MyNetworkTab user={profile} directReferrals={directReferrals} networkLoading={networkLoading} primaryResidualBonus={primaryResidualBonus} totalInvested={totalInvested}/>

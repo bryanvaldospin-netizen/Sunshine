@@ -25,7 +25,6 @@ export type UserProfile = {
   hasUnclaimedBonuses?: boolean; // Flag for sponsor to claim direct bonus
   fechaRegistro?: string;
   lastConsolidation?: string;
-  isVip?: boolean;
 };
 
 export type DepositRequest = {
