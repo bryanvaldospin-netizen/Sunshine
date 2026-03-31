@@ -400,6 +400,9 @@ async function calculateProgressiveEarnings(db: system.firestore.Firestore, user
     if ((user.planActivo ?? 0) >= 101) {
         const referralsSnapshot = await db.collection('users').where('invitadoPor', '==', user.uid).get();
         if (!referralsSnapshot.empty) {
+            const plan2PlusCount = referralsSnapshot.docs.filter(doc => (doc.data().planActivo ?? 0) >= 101).length;
+            const level1CommissionRate = (plan2PlusCount >= 10 ? 5 : plan2PlusCount * 0.5) / 100;
+            
             let residualBonus = 0;
             referralsSnapshot.forEach(refDoc => {
                 const refData = refDoc.data() as UserProfile;
@@ -410,7 +413,8 @@ async function calculateProgressiveEarnings(db: system.firestore.Firestore, user
                     if (diffTime > 0) {
                         const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                         if (diffDays > 0) {
-                            const dailyBonus = (refData.planActivo ?? 0) * 0.01;
+                            const refDailyEarning = (refData.planActivo ?? 0) * getDailyRate(refData.planActivo ?? 0, refData.isVip ?? false);
+                            const dailyBonus = refDailyEarning * level1CommissionRate;
                             residualBonus += dailyBonus * diffDays;
                         }
                     }
@@ -632,6 +636,9 @@ export async function reconcileAccount(userId: string): Promise<{success: true, 
         if ((userData.planActivo ?? 0) >= 101) {
             const referralsSnapshot = await systemDb.collection('users').where('invitadoPor', '==', userData.uid).get();
             if (!referralsSnapshot.empty) {
+                const plan2PlusCount = referralsSnapshot.docs.filter(doc => (doc.data().planActivo ?? 0) >= 101).length;
+                const level1CommissionRate = (plan2PlusCount >= 10 ? 5 : plan2PlusCount * 0.5) / 100;
+                
                 let residualBonus = 0;
                 referralsSnapshot.forEach(refDoc => {
                     const refData = refDoc.data() as UserProfile;
@@ -640,7 +647,8 @@ export async function reconcileAccount(userId: string): Promise<{success: true, 
                         const diffTime = now.getTime() - refStartDate.getTime();
                         const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                         if (diffDays > 0) {
-                            const dailyBonus = (refData.planActivo ?? 0) * 0.01;
+                            const refDailyEarning = (refData.planActivo ?? 0) * getDailyRate(refData.planActivo ?? 0, refData.isVip ?? false);
+                            const dailyBonus = refDailyEarning * level1CommissionRate;
                             residualBonus += dailyBonus * diffDays;
                         }
                     }

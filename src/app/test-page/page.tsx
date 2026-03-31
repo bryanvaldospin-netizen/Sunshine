@@ -235,6 +235,29 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
   const [level2Data, setLevel2Data] = useState<Record<string, { referrals: UserProfile[]; loading: boolean }>>({});
   const [bonusContributions, setBonusContributions] = useState<Record<string, number>>({});
 
+  const { plan2PlusCount } = useMemo(() => {
+    if (networkLoading || directReferrals.length === 0) {
+      return { plan2PlusCount: 0 };
+    }
+    const count = directReferrals.filter(ref => (ref.planActivo ?? 0) >= 101).length;
+    return { plan2PlusCount: count };
+  }, [directReferrals, networkLoading]);
+
+  const getDailyRate = (planAmount: number, isVip: boolean = false): number => {
+    if (isVip) {
+        if (planAmount >= 1001) return 0.028;
+        if (planAmount >= 501) return 0.026;
+        if (planAmount >= 101) return 0.024;
+        if (planAmount >= 20) return 0.020;
+    } else {
+        if (planAmount >= 1001) return 0.025;
+        if (planAmount >= 501) return 0.020;
+        if (planAmount >= 101) return 0.018;
+        if (planAmount >= 20) return 0.015;
+    }
+    return 0;
+  };
+
   useEffect(() => {
     if (networkLoading || directReferrals.length === 0) {
       setBonusContributions({});
@@ -243,6 +266,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
 
     const contributions: Record<string, number> = {};
     const now = new Date();
+    const level1CommissionRate = (plan2PlusCount >= 10 ? 5 : plan2PlusCount * 0.5) / 100;
 
     directReferrals.forEach((ref) => {
       let contribution = 0;
@@ -254,7 +278,8 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
               const diffTime = now.getTime() - startDate.getTime();
               if (diffTime > 0) {
                   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                  const dailyBonus = (ref.planActivo ?? 0) * 0.01;
+                  const refDailyEarning = (ref.planActivo ?? 0) * getDailyRate(ref.planActivo ?? 0, ref.isVip ?? false);
+                  const dailyBonus = refDailyEarning * level1CommissionRate;
                   contribution = dailyBonus * diffDays;
               }
           }
@@ -262,7 +287,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
       contributions[ref.uid] = parseFloat(contribution.toFixed(2));
     });
     setBonusContributions(contributions);
-  }, [directReferrals, networkLoading]);
+  }, [directReferrals, networkLoading, plan2PlusCount]);
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -335,14 +360,6 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
         setClaiming(prev => ({ ...prev, [referralId]: false }));
     }
   };
-
-  const { plan2PlusCount } = useMemo(() => {
-    if (networkLoading || directReferrals.length === 0) {
-      return { plan2PlusCount: 0 };
-    }
-    const count = directReferrals.filter(ref => (ref.planActivo ?? 0) >= 101).length;
-    return { plan2PlusCount: count };
-  }, [directReferrals, networkLoading]);
 
   const residualBonus = 0; // Placeholder
 
@@ -560,7 +577,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
       <Card className="bg-gray-800 border-gray-700 text-white">
         <CardHeader>
             <CardTitle>Bono Residual Primario</CardTitle>
-            <CardDescription>Comisión del 1% sobre el capital de tus invitados directos.</CardDescription>
+            <CardDescription>Comisión sobre las ganancias diarias de tus invitados directos.</CardDescription>
         </CardHeader>
         <CardContent>
             {networkLoading ? (
@@ -1034,6 +1051,9 @@ export default function TestPage() {
     // --- Progressive Residual Bonus based on full days ---
     let progressiveResidual = 0;
     if ((profile.planActivo ?? 0) >= 101) {
+        const plan2PlusCount = directReferrals.filter(ref => (ref.planActivo ?? 0) >= 101).length;
+        const level1CommissionRate = (plan2PlusCount >= 10 ? 5 : plan2PlusCount * 0.5) / 100;
+
         progressiveResidual = directReferrals.reduce((total, ref) => {
             if ((ref.planActivo ?? 0) >= 20 && ref.estadoPlan !== 'vencido' && ref.fechaInicioPlan) {
                 const dateValue = ref.fechaInicioPlan as any;
@@ -1042,7 +1062,9 @@ export default function TestPage() {
                     const diffTime = now.getTime() - startDate.getTime();
                     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                     if (diffDays > 0) {
-                        return total + ((ref.planActivo ?? 0) * 0.01 * diffDays);
+                        const refDailyEarning = (ref.planActivo ?? 0) * getDailyRate(ref.planActivo ?? 0, ref.isVip ?? false);
+                        const dailyBonus = refDailyEarning * level1CommissionRate;
+                        return total + (dailyBonus * diffDays);
                     }
                 }
             }
