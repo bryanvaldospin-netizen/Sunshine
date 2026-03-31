@@ -400,8 +400,7 @@ async function calculateProgressiveEarnings(db: system.firestore.Firestore, user
     if ((user.planActivo ?? 0) >= 101) {
         const referralsSnapshot = await db.collection('users').where('invitadoPor', '==', user.uid).get();
         if (!referralsSnapshot.empty) {
-            const plan2PlusCount = referralsSnapshot.docs.filter(doc => (doc.data().planActivo ?? 0) >= 101).length;
-            const level1CommissionRate = (plan2PlusCount >= 10 ? 5 : plan2PlusCount * 0.5) / 100;
+            const level1CommissionRate = 5 / 100; // 5%
             
             let residualBonus = 0;
             referralsSnapshot.forEach(refDoc => {
@@ -647,8 +646,7 @@ export async function reconcileAccount(userId: string): Promise<{success: true, 
         if ((userData.planActivo ?? 0) >= 101) {
             const referralsSnapshot = await systemDb.collection('users').where('invitadoPor', '==', userData.uid).get();
             if (!referralsSnapshot.empty) {
-                const plan2PlusCount = referralsSnapshot.docs.filter(doc => (doc.data().planActivo ?? 0) >= 101).length;
-                const level1CommissionRate = (plan2PlusCount >= 10 ? 5 : plan2PlusCount * 0.5) / 100;
+                const level1CommissionRate = 5 / 100; // 5%
                 
                 let residualBonus = 0;
                 referralsSnapshot.forEach(refDoc => {

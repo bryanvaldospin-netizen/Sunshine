@@ -266,7 +266,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
 
     const contributions: Record<string, number> = {};
     const now = new Date();
-    const level1CommissionRate = (plan2PlusCount >= 10 ? 5 : plan2PlusCount * 0.5) / 100;
+    const level1CommissionRate = 5 / 100; // 5%
 
     directReferrals.forEach((ref) => {
       let contribution = 0;
@@ -364,7 +364,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
   const residualBonus = 0; // Placeholder
 
   const levels = [
-    { level: 1, required: 10, percentage: plan2PlusCount >= 10 ? 5 : plan2PlusCount * 0.5 },
+    { level: 1, required: 0, percentage: 5 },
     { level: 2, required: 15, percentage: 3 },
     { level: 3, required: 20, percentage: 2 },
     { level: 4, required: 25, percentage: 1 },
@@ -588,7 +588,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
                         <span className="text-4xl font-bold text-cyan-400">{formatCurrency(primaryResidualBonus)}</span>
                         <Badge className="bg-green-600 text-white">ACTIVO</Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground">Este es el total acumulado del 1% de la inversión de tus directos con plan activo (>= $20) y contrato vigente.</p>
+                    <p className="text-xs text-muted-foreground">Este es el total acumulado del 5% de la ganancia diaria de tus directos con plan activo (>= $20) y contrato vigente.</p>
                 </div>
             ) : (
                 <div className="text-center p-4 rounded-lg bg-gray-900/50">
@@ -1065,8 +1065,7 @@ export default function TestPage() {
     // --- Progressive Residual Bonus based on full days ---
     let progressiveResidual = 0;
     if ((profile.planActivo ?? 0) >= 101) {
-        const plan2PlusCount = directReferrals.filter(ref => (ref.planActivo ?? 0) >= 101).length;
-        const level1CommissionRate = (plan2PlusCount >= 10 ? 5 : plan2PlusCount * 0.5) / 100;
+        const level1CommissionRate = 5 / 100; // 5%
 
         progressiveResidual = directReferrals.reduce((total, ref) => {
             if ((ref.planActivo ?? 0) >= 20 && ref.estadoPlan !== 'vencido' && ref.fechaInicioPlan) {
