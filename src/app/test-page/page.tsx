@@ -792,7 +792,7 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
             const day = nowInLondon.getDate();
             const hour = nowInLondon.getHours();
             
-            const isOpen = [10, 20, 30, 13].includes(day) && hour >= 6;
+            const isOpen = [10, 20, 30].includes(day) && hour >= 6;
             setIsWindowOpen(isOpen);
         } catch (e) {
             console.error("Could not determine London time.", e);
@@ -822,11 +822,11 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
 
 
   const isAmountInvalid = amount <= 0 || amount > maxAmount;
-  const isButtonDisabled = isSubmitting || isAmountInvalid || (withdrawalType === 'main' && !isWindowOpen);
+  const isButtonDisabled = isSubmitting || isAmountInvalid || !isWindowOpen;
 
   const getButtonText = () => {
     if (isSubmitting) return 'Generando...';
-    if (withdrawalType === 'main' && !isWindowOpen) {
+    if (!isWindowOpen) {
         return 'Fuera de horario de retiro';
     }
     return 'Generar Token';
@@ -888,7 +888,7 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
             <RadioGroup defaultValue="referral" onValueChange={(value) => setWithdrawalType(value as 'referral' | 'main')} className="flex gap-4">
               <div className="flex items-center space-x-2">
                   <RadioGroupItem value="referral" id="r1" />
-                  <Label htmlFor="r1">Bono Referido (Retiro 24/7)</Label>
+                  <Label htmlFor="r1">Bono Referido</Label>
               </div>
               <div className="flex items-center space-x-2">
                   <RadioGroupItem value="main" id="r2" />
@@ -896,15 +896,13 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
               </div>
             </RadioGroup>
 
-            {withdrawalType === 'main' && (
-              <Alert variant="default" className="bg-amber-900/30 border-amber-700/50 text-amber-200 [&>svg]:text-amber-400">
-                <Info className="h-4 w-4" />
-                <AlertTitle>Aviso de Retiro</AlertTitle>
-                <AlertDescription>
-                  Retiros disponibles los días 10, 20 y 30 a partir de las 06:00 AM (Hora de Londres).
-                </AlertDescription>
-              </Alert>
-            )}
+            <Alert variant="default" className="bg-amber-900/30 border-amber-700/50 text-amber-200 [&>svg]:text-amber-400">
+              <Info className="h-4 w-4" />
+              <AlertTitle>Aviso de Retiro</AlertTitle>
+              <AlertDescription>
+                Retiros disponibles los días 10, 20 y 30 a partir de las 06:00 AM (Hora de Londres).
+              </AlertDescription>
+            </Alert>
             
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleGenerateToken)} className="space-y-4">
@@ -1274,7 +1272,7 @@ export default function TestPage() {
                         <CardTitle className="text-xl font-medium text-gray-300">
                             Bono Referido
                         </CardTitle>
-                        <CardDescription className="text-xs text-gray-400">Retiros: 24/7</CardDescription>
+                        <CardDescription className="text-xs text-gray-400">Retiros: Días 10, 20 y 30</CardDescription>
                         </CardHeader>
                         <CardContent className="py-2">
                         {authLoading ? (
@@ -1461,3 +1459,5 @@ export default function TestPage() {
     </main>
   );
 }
+
+    

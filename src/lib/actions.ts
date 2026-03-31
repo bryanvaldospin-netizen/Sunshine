@@ -441,6 +441,19 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
         }
         const dbUser = userSnap.data() as UserProfile;
         
+        // --- Universal Withdrawal Window Check ---
+        const ukTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/London' }));
+        const day = ukTime.getDate();
+        const hour = ukTime.getHours();
+        
+        const isWithdrawalDay = [10, 20, 30].includes(day);
+        const isWithdrawalTime = hour >= 6;
+
+        if (!isWithdrawalDay || !isWithdrawalTime) {
+            throw new Error('Ventana de retiro cerrada. Retiros disponibles solo los días 10, 20 y 30, a partir de las 6:00 AM (Hora de Londres).');
+        }
+        // --- End Check ---
+
         let tipoRetiroForDb: 'bono_referido' | 'saldo_actual';
         
         if (withdrawalType === 'referral') {
@@ -457,16 +470,6 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
 
         } else { // withdrawalType === 'main'
             tipoRetiroForDb = 'saldo_actual';
-            const ukTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/London' }));
-            const day = ukTime.getDate();
-            const hour = ukTime.getHours();
-            
-            const isWithdrawalDay = [10, 20, 30].includes(day);
-            const isWithdrawalTime = hour >= 6;
-
-            if (!isWithdrawalDay || !isWithdrawalTime) {
-                throw new Error('Retiros de Saldo Actual disponibles solo los días 10, 20 y 30, a partir de las 6:00 AM (Hora de Londres).');
-            }
             
             const earnedAmount = await calculateProgressiveEarnings(systemDb, dbUser, now);
             
@@ -674,5 +677,7 @@ export async function reconcileAccount(userId: string): Promise<{success: true, 
       return { error: `Error del Servidor durante la conciliación: ${error.message}` };
     }
 }
+
+    
 
     
