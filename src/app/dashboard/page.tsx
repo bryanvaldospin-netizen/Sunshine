@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Globe, Gem, Shield, Crown, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon, User as UserIcon, Wallet, Info, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Globe, Gem, Shield, Crown, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon, User as UserIcon, Wallet, Info, ChevronRight, AlertTriangle, Copy } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, onSnapshot, doc, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -35,7 +35,6 @@ import { AnnouncementMarquee } from '@/components/announcement-marquee';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Copy } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { InstallPWA } from '@/components/install-pwa';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -48,6 +47,51 @@ import SplashScreen from '@/components/splash-screen';
 const investmentSchema = z.object({
   amount: z.coerce.number().positive('El monto debe ser positivo.'),
 });
+
+const DepositSection = () => {
+    const { toast } = useToast();
+    const walletAddress = "0xe37a298c740caf1411cbccda7b250a0664a00129";
+
+    const handleCopyAddress = () => {
+        navigator.clipboard.writeText(walletAddress);
+        toast({ title: "Dirección copiada", description: "La dirección de depósito ha sido copiada al portapapeles." });
+    }
+
+    return (
+        <Card className="bg-gray-800 border-golden text-white w-full">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-xl font-bold">
+                    <PiggyBank />
+                    Depositar Fondos en Billetera
+                </CardTitle>
+                <CardDescription>
+                    Sigue estos pasos para añadir fondos a tu Saldo de Billetera.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div>
+                    <Label className="text-gray-400">Paso 1: Realizar Transferencia</Label>
+                    <p className="text-sm text-gray-300">
+                        Transfiere la cantidad de USDT que desees (Red BEP-20) a la siguiente dirección de la empresa:
+                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                        <Input readOnly value={walletAddress} className="bg-gray-700 border-gray-600 truncate font-mono"/>
+                        <Button onClick={handleCopyAddress} variant="outline" className="border-golden text-golden hover:bg-golden/10 hover:text-golden">
+                            <Copy className="mr-2 h-4 w-4" />
+                            Copiar
+                        </Button>
+                    </div>
+                </div>
+                <div>
+                    <Label className="text-gray-400">Paso 2: Notificar a Soporte</Label>
+                     <p className="text-sm text-gray-300">
+                        Una vez realizada la transferencia, contacta a soporte técnico con el comprobante (ID de transacción) para que tu saldo sea acreditado en tu billetera.
+                    </p>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
 
 const InvestmentPlansSection = ({ user }: { user: UserProfile | null }) => {
     const { t } = useTranslation();
@@ -1118,6 +1162,10 @@ export default function DashboardPage() {
                             )}
                             </CardContent>
                         </Card>
+                    </div>
+
+                    <div className="w-full max-w-5xl">
+                        <DepositSection />
                     </div>
 
                     <div className="w-full max-w-5xl">
