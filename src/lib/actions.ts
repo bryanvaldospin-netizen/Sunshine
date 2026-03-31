@@ -397,33 +397,34 @@ async function calculateProgressiveEarnings(db: system.firestore.Firestore, user
     }
 
     // 2. Consolidate Primary Residual Bonus
-    if ((user.planActivo ?? 0) >= 101) {
-        const referralsSnapshot = await db.collection('users').where('invitadoPor', '==', user.uid).get();
-        if (!referralsSnapshot.empty) {
-            const level1CommissionRate = 5 / 100; // 5%
-            
-            let residualBonus = 0;
-            referralsSnapshot.forEach(refDoc => {
-                const refData = refDoc.data() as UserProfile;
-                if ((refData.planActivo ?? 0) >= 20 && refData.estadoPlan !== 'vencido' && refData.fechaInicioPlan) {
-                    const refStartDate = new Date(refData.fechaInicioPlan);
-                    const calculationStartDate = refStartDate > lastConsolidationDate ? refStartDate : lastConsolidationDate;
-                    const diffTime = consolidationTime.getTime() - calculationStartDate.getTime();
-                    if (diffTime > 0) {
-                        const diffDays = diffTime / (1000 * 60 * 60 * 24);
-                        if (diffDays > 0) {
-                            const refDailyEarning = (refData.planActivo ?? 0) * getDailyRate(refData.planActivo ?? 0, refData.isVip ?? false);
-                            const dailyBonus = refDailyEarning * level1CommissionRate;
-                            residualBonus += dailyBonus * diffDays;
-                        }
+    const referralsSnapshot = await db.collection('users').where('invitadoPor', '==', user.uid).get();
+    const directReferralsData = referralsSnapshot.docs.map(doc => doc.data() as UserProfile);
+    const plan2PlusCount = directReferralsData.filter(ref => (ref.planActivo ?? 0) >= 101).length;
+
+    if ((user.planActivo ?? 0) >= 101 && plan2PlusCount >= 10) {
+        const level1CommissionRate = 5 / 100; // 5%
+        
+        let residualBonus = 0;
+        directReferralsData.forEach(refData => {
+            if ((refData.planActivo ?? 0) >= 20 && refData.estadoPlan !== 'vencido' && refData.fechaInicioPlan) {
+                const refStartDate = new Date(refData.fechaInicioPlan);
+                const calculationStartDate = refStartDate > lastConsolidationDate ? refStartDate : lastConsolidationDate;
+                const diffTime = consolidationTime.getTime() - calculationStartDate.getTime();
+                if (diffTime > 0) {
+                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                    if (diffDays > 0) {
+                        const refDailyEarning = (refData.planActivo ?? 0) * getDailyRate(refData.planActivo ?? 0, refData.isVip ?? false);
+                        const dailyBonus = refDailyEarning * level1CommissionRate;
+                        residualBonus += dailyBonus * diffDays;
                     }
                 }
-            });
-            totalEarned += residualBonus;
-        }
+            }
+        });
+        totalEarned += residualBonus;
     }
     return totalEarned;
 }
+
 
 export async function createWithdrawalToken(values: z.infer<typeof withdrawalSchema>): Promise<{ success: true, token: string } | { error: string }> {
   try {

@@ -364,7 +364,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
   const residualBonus = 0; // Placeholder
 
   const levels = [
-    { level: 1, required: 0, percentage: 5 },
+    { level: 1, required: 10, percentage: 5 },
     { level: 2, required: 15, percentage: 3 },
     { level: 3, required: 20, percentage: 2 },
     { level: 4, required: 25, percentage: 1 },
@@ -582,7 +582,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
         <CardContent>
             {networkLoading ? (
                 <Skeleton className="h-16 w-full bg-gray-700" />
-            ) : user && (user.planActivo ?? 0) >= 101 ? (
+            ) : user && (user.planActivo ?? 0) >= 101 && plan2PlusCount >= 10 ? (
                 <div>
                     <div className="flex justify-between items-center mb-2">
                         <span className="text-4xl font-bold text-cyan-400">{formatCurrency(primaryResidualBonus)}</span>
@@ -592,7 +592,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
                 </div>
             ) : (
                 <div className="text-center p-4 rounded-lg bg-gray-900/50">
-                     <p className="text-muted-foreground">Invierte $101 o más para activar tu Bono Residual Primario.</p>
+                     <p className="text-muted-foreground">Invierte $101 o más y ten 10 invitados directos con Plan Plata o superior para activar.</p>
                 </div>
             )}
         </CardContent>
@@ -1063,8 +1063,9 @@ export default function TestPage() {
     }
 
     // --- Progressive Residual Bonus based on full days ---
+    const plan2PlusCount = directReferrals.filter(ref => (ref.planActivo ?? 0) >= 101).length;
     let progressiveResidual = 0;
-    if ((profile.planActivo ?? 0) >= 101) {
+    if ((profile.planActivo ?? 0) >= 101 && plan2PlusCount >= 10) {
         const level1CommissionRate = 5 / 100; // 5%
 
         progressiveResidual = directReferrals.reduce((total, ref) => {
