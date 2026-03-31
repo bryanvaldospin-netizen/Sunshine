@@ -4,6 +4,7 @@ import './globals.css';
 import { AuthProvider } from '@/context/auth-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { LanguageProvider } from '@/context/language-provider';
+import { MaintenanceModal } from '@/components/maintenance-modal';
 
 export const metadata: Metadata = {
   title: 'Sunshine',
@@ -38,6 +39,7 @@ export default function RootLayout({
       <body className={cn('min-h-screen bg-background font-body antialiased')}>
         <AuthProvider>
           <LanguageProvider>
+            <MaintenanceModal />
             {children}
             <Toaster />
           </LanguageProvider>
