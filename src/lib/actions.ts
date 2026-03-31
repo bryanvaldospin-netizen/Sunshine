@@ -442,13 +442,13 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
         const dbUser = userSnap.data() as UserProfile;
         
         // --- Conditional Withdrawal Window Check ---
-        const ukTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/London' }));
-        const day = ukTime.getDate();
+        const londonDateStr = now.toLocaleDateString('en-GB', { timeZone: 'Europe/London' }); // Format: dd/mm/yyyy
+        const day = parseInt(londonDateStr.split('/')[0], 10);
         const isSpecialWithdrawalDay = [10, 20, 30].includes(day);
 
         if (withdrawalType === 'main') {
             if (!isSpecialWithdrawalDay) {
-                throw new Error('Retiro de Saldo Actual solo disponible los días 10, 20 y 30 de cada mes.');
+                throw new Error('Retiro de Saldo Actual solo disponible los días 10, 20 y 30 de cada mes (00:00 a 23:59, hora de Londres).');
             }
         } else { // withdrawalType === 'referral'
             if (isSpecialWithdrawalDay) {

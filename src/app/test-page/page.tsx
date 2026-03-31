@@ -783,6 +783,31 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [withdrawalType, setWithdrawalType] = useState<'referral' | 'main'>('referral');
+  const [isWindowOpen, setIsWindowOpen] = useState(false);
+
+  useEffect(() => {
+    const checkDate = () => {
+        try {
+            const londonDateStr = new Date().toLocaleDateString('en-GB', { timeZone: 'Europe/London' }); // Format: dd/mm/yyyy
+            const day = parseInt(londonDateStr.split('/')[0], 10);
+            const isSpecialDay = [10, 20, 30].includes(day);
+
+            if (withdrawalType === 'main') {
+                setIsWindowOpen(isSpecialDay);
+            } else { // For referral bonus
+                setIsWindowOpen(!isSpecialDay);
+            }
+        } catch (e) {
+            console.error("Could not determine London time for withdrawal rules.", e);
+            setIsWindowOpen(false); // Fail-safe
+        }
+    };
+
+    checkDate(); // Check immediately on mount and when withdrawalType changes
+    const interval = setInterval(checkDate, 60000); // Re-check every minute to catch date changes
+
+    return () => clearInterval(interval); // Cleanup interval on component unmount
+  }, [withdrawalType]);
   
   const formSchema = z.object({
     amount: z.coerce.number().positive({ message: 'Por favor, introduce un monto válido.' }),
@@ -799,27 +824,6 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
   const maxAmount = useMemo(() => {
     return withdrawalType === 'referral' ? referralBalance : mainBalance;
   }, [withdrawalType, referralBalance, mainBalance]);
-
-  const { isSpecialDay } = useMemo(() => {
-    try {
-        const nowInLondon = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/London' }));
-        const day = nowInLondon.getDate();
-        return {
-            isSpecialDay: [10, 20, 30].includes(day)
-        };
-    } catch (e) {
-        console.error("Could not determine London time for withdrawal rules.", e);
-        return { isSpecialDay: false };
-    }
-  }, []);
-
-  const isWindowOpen = useMemo(() => {
-    if (withdrawalType === 'main') {
-        return isSpecialDay;
-    }
-    // For referral bonus
-    return !isSpecialDay;
-  }, [withdrawalType, isSpecialDay]);
 
   const isAmountInvalid = amount <= 0 || amount > maxAmount;
   const isButtonDisabled = isSubmitting || isAmountInvalid || !isWindowOpen;
