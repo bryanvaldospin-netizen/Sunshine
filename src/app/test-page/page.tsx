@@ -800,28 +800,26 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
     return withdrawalType === 'referral' ? referralBalance : mainBalance;
   }, [withdrawalType, referralBalance, mainBalance]);
 
-  const { isSpecialDay, isAfterCutoff } = useMemo(() => {
+  const { isSpecialDay } = useMemo(() => {
     try {
         const nowInLondon = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/London' }));
         const day = nowInLondon.getDate();
-        const hour = nowInLondon.getHours();
         return {
-            isSpecialDay: [10, 20, 30].includes(day),
-            isAfterCutoff: hour >= 6
+            isSpecialDay: [10, 20, 30].includes(day)
         };
     } catch (e) {
         console.error("Could not determine London time for withdrawal rules.", e);
-        return { isSpecialDay: false, isAfterCutoff: false };
+        return { isSpecialDay: false };
     }
   }, []);
 
   const isWindowOpen = useMemo(() => {
     if (withdrawalType === 'main') {
-        return isSpecialDay && isAfterCutoff;
+        return isSpecialDay;
     }
     // For referral bonus
     return !isSpecialDay;
-  }, [withdrawalType, isSpecialDay, isAfterCutoff]);
+  }, [withdrawalType, isSpecialDay]);
 
   const isAmountInvalid = amount <= 0 || amount > maxAmount;
   const isButtonDisabled = isSubmitting || isAmountInvalid || !isWindowOpen;
@@ -840,7 +838,7 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
   
   const alertDescription = useMemo(() => {
     if (withdrawalType === 'main') {
-        return 'Retiros de Saldo Actual disponibles solo los días 10, 20 y 30 a partir de las 06:00 AM (Hora de Londres).';
+        return 'Retiros de Saldo Actual disponibles solo los días 10, 20 y 30 de cada mes (00:00 a 23:59, hora de Londres).';
     }
     return 'Retiros de Bono Referido disponibles cualquier día EXCEPTO los días 10, 20 y 30.';
   }, [withdrawalType]);
@@ -1053,8 +1051,8 @@ export default function TestPage() {
         const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
         if (!isNaN(startDate.getTime())) {
             const diffTime = now.getTime() - startDate.getTime();
-            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-            if (diffDays > 0) {
+            if (diffTime > 0) {
+                const diffDays = diffTime / (1000 * 60 * 60 * 24);
                 progressiveROI = planActivo * getDailyRate(planActivo, profile.isVip ?? false) * diffDays;
             }
         }
@@ -1072,11 +1070,13 @@ export default function TestPage() {
                 const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
                 if (!isNaN(startDate.getTime())) {
                     const diffTime = now.getTime() - startDate.getTime();
-                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                    if (diffDays > 0) {
-                        const refDailyEarning = (ref.planActivo ?? 0) * getDailyRate(ref.planActivo ?? 0, ref.isVip ?? false);
-                        const dailyBonus = refDailyEarning * level1CommissionRate;
-                        return total + (dailyBonus * diffDays);
+                    if (diffTime > 0) {
+                        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                        if (diffDays > 0) {
+                            const refDailyEarning = (ref.planActivo ?? 0) * getDailyRate(ref.planActivo ?? 0, ref.isVip ?? false);
+                            const dailyBonus = refDailyEarning * level1CommissionRate;
+                            return total + (dailyBonus * diffDays);
+                        }
                     }
                 }
             }

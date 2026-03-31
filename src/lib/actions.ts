@@ -444,13 +444,11 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
         // --- Conditional Withdrawal Window Check ---
         const ukTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/London' }));
         const day = ukTime.getDate();
-        const hour = ukTime.getHours();
         const isSpecialWithdrawalDay = [10, 20, 30].includes(day);
 
         if (withdrawalType === 'main') {
-            const isWithdrawalTime = hour >= 6;
-            if (!isSpecialWithdrawalDay || !isWithdrawalTime) {
-                throw new Error('Retiro de Saldo Actual solo disponible los días 10, 20 y 30, a partir de las 6:00 AM (Hora de Londres).');
+            if (!isSpecialWithdrawalDay) {
+                throw new Error('Retiro de Saldo Actual solo disponible los días 10, 20 y 30 de cada mes.');
             }
         } else { // withdrawalType === 'referral'
             if (isSpecialWithdrawalDay) {
@@ -734,4 +732,3 @@ export async function updateWalletAddress(userId: string, newWalletAddress: stri
     
 
     
-
