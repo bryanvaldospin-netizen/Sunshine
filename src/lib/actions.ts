@@ -387,7 +387,7 @@ async function calculateProgressiveEarnings(db: system.firestore.Firestore, user
         const calculationStartDate = startDate > lastConsolidationDate ? startDate : lastConsolidationDate;
         const diffTime = consolidationTime.getTime() - calculationStartDate.getTime();
         if (diffTime > 0) {
-            const diffDays = diffTime / (1000 * 60 * 60 * 24);
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
             if (diffDays > 0) {
                 const dailyRate = getDailyRate(planActivo, user.isVip ?? false);
                 const earnedROI = planActivo * dailyRate * diffDays;
@@ -408,7 +408,7 @@ async function calculateProgressiveEarnings(db: system.firestore.Firestore, user
                     const calculationStartDate = refStartDate > lastConsolidationDate ? refStartDate : lastConsolidationDate;
                     const diffTime = consolidationTime.getTime() - calculationStartDate.getTime();
                     if (diffTime > 0) {
-                        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                         if (diffDays > 0) {
                             const dailyBonus = (refData.planActivo ?? 0) * 0.01;
                             residualBonus += dailyBonus * diffDays;
@@ -621,7 +621,7 @@ export async function reconcileAccount(userId: string): Promise<{success: true, 
         if (planActivo > 0 && userData.fechaInicioPlan && userData.estadoPlan !== 'vencido') {
             const startDate = new Date(userData.fechaInicioPlan);
             const diffTime = now.getTime() - startDate.getTime();
-            const diffDays = diffTime / (1000 * 60 * 60 * 24);
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
             if (diffDays > 0) {
                 const dailyRate = getDailyRate(planActivo, userData.isVip ?? false);
                 totalAuditedEarnings += planActivo * dailyRate * diffDays;
@@ -638,7 +638,7 @@ export async function reconcileAccount(userId: string): Promise<{success: true, 
                     if ((refData.planActivo ?? 0) >= 20 && refData.estadoPlan !== 'vencido' && refData.fechaInicioPlan) {
                         const refStartDate = new Date(refData.fechaInicioPlan);
                         const diffTime = now.getTime() - refStartDate.getTime();
-                        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                         if (diffDays > 0) {
                             const dailyBonus = (refData.planActivo ?? 0) * 0.01;
                             residualBonus += dailyBonus * diffDays;

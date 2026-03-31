@@ -1024,7 +1024,7 @@ export default function TestPage() {
         const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
         if (!isNaN(startDate.getTime())) {
             const diffTime = now.getTime() - startDate.getTime();
-            const diffDays = diffTime / (1000 * 60 * 60 * 24);
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
             if (diffDays > 0) {
                 progressiveROI = planActivo * getDailyRate(planActivo, profile.isVip ?? false) * diffDays;
             }
@@ -1040,7 +1040,7 @@ export default function TestPage() {
                 const startDate = dateValue?.toDate ? dateValue.toDate() : new Date(dateValue);
                 if (!isNaN(startDate.getTime())) {
                     const diffTime = now.getTime() - startDate.getTime();
-                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                     if (diffDays > 0) {
                         return total + ((ref.planActivo ?? 0) * 0.01 * diffDays);
                     }
