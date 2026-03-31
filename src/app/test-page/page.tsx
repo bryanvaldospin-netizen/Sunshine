@@ -783,27 +783,7 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [withdrawalType, setWithdrawalType] = useState<'referral' | 'main'>('referral');
-  const [isWindowOpen, setIsWindowOpen] = useState(false);
-
-  useEffect(() => {
-    const checkWindow = () => {
-        try {
-            const nowInLondon = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/London' }));
-            const day = nowInLondon.getDate();
-            const hour = nowInLondon.getHours();
-            
-            const isOpen = [10, 20, 30].includes(day) && hour >= 6;
-            setIsWindowOpen(isOpen);
-        } catch (e) {
-            console.error("Could not determine London time.", e);
-            setIsWindowOpen(false);
-        }
-    };
-    checkWindow();
-    const interval = setInterval(checkWindow, 60000); // Re-check every minute
-    return () => clearInterval(interval);
-  }, []);
-
+  
   const formSchema = z.object({
     amount: z.coerce.number().positive({ message: 'Por favor, introduce un monto válido.' }),
   });
@@ -820,6 +800,28 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
     return withdrawalType === 'referral' ? referralBalance : mainBalance;
   }, [withdrawalType, referralBalance, mainBalance]);
 
+  const { isSpecialDay, isAfterCutoff } = useMemo(() => {
+    try {
+        const nowInLondon = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/London' }));
+        const day = nowInLondon.getDate();
+        const hour = nowInLondon.getHours();
+        return {
+            isSpecialDay: [10, 20, 30].includes(day),
+            isAfterCutoff: hour >= 6
+        };
+    } catch (e) {
+        console.error("Could not determine London time for withdrawal rules.", e);
+        return { isSpecialDay: false, isAfterCutoff: false };
+    }
+  }, []);
+
+  const isWindowOpen = useMemo(() => {
+    if (withdrawalType === 'main') {
+        return isSpecialDay && isAfterCutoff;
+    }
+    // For referral bonus
+    return !isSpecialDay;
+  }, [withdrawalType, isSpecialDay, isAfterCutoff]);
 
   const isAmountInvalid = amount <= 0 || amount > maxAmount;
   const isButtonDisabled = isSubmitting || isAmountInvalid || !isWindowOpen;
@@ -827,10 +829,22 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
   const getButtonText = () => {
     if (isSubmitting) return 'Generando...';
     if (!isWindowOpen) {
-        return 'Fuera de horario de retiro';
+        if (withdrawalType === 'main') {
+            return 'Retiro de Saldo no disponible hoy';
+        } else {
+            return 'Retiro de Bono no disponible hoy';
+        }
     }
     return 'Generar Token';
   };
+  
+  const alertDescription = useMemo(() => {
+    if (withdrawalType === 'main') {
+        return 'Retiros de Saldo Actual disponibles solo los días 10, 20 y 30 a partir de las 06:00 AM (Hora de Londres).';
+    }
+    return 'Retiros de Bono Referido disponibles cualquier día EXCEPTO los días 10, 20 y 30.';
+  }, [withdrawalType]);
+
 
   const handleGenerateToken = async (values: z.infer<typeof formSchema>) => {
     if (!user) {
@@ -900,7 +914,7 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
               <Info className="h-4 w-4" />
               <AlertTitle>Aviso de Retiro</AlertTitle>
               <AlertDescription>
-                Retiros disponibles los días 10, 20 y 30 a partir de las 06:00 AM (Hora de Londres).
+                {alertDescription}
               </AlertDescription>
             </Alert>
             
@@ -1272,7 +1286,7 @@ export default function TestPage() {
                         <CardTitle className="text-xl font-medium text-gray-300">
                             Bono Referido
                         </CardTitle>
-                        <CardDescription className="text-xs text-gray-400">Retiros: Días 10, 20 y 30</CardDescription>
+                        <CardDescription className="text-xs text-gray-400">Retiros disponibles excepto 10, 20 y 30</CardDescription>
                         </CardHeader>
                         <CardContent className="py-2">
                         {authLoading ? (
