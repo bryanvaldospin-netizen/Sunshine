@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useState, useEffect, ReactNode, useRef } from 'react';
-import { onAuthStateChanged, User as FirebaseUser, setPersistence, browserLocalPersistence, getRedirectResult } from 'firebase/auth';
+import { onAuthStateChanged, User as FirebaseUser, setPersistence, browserLocalPersistence, getRedirectResult, signOut } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile } from '@/types';
@@ -60,11 +60,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (docSnap.exists()) {
             const userData = docSnap.data() as UserProfile;
             setUser(userData);
+            setLoading(false);
           } else {
-             console.warn(`User ${currentFirebaseUser.uid} authenticated but has no profile document.`);
-            setUser(null);
+             console.error(`CRITICAL: User ${currentFirebaseUser.uid} authenticated but has no profile document. Forcing logout.`);
+             // This handles data inconsistency. Instead of letting the app crash,
+             // we force a logout. onAuthStateChanged will be triggered again and handle the state cleanup.
+             signOut(auth);
           }
-          setLoading(false);
         }, (error) => {
           console.error('Firestore snapshot error on user profile:', error);
           setUser(null);
