@@ -4,154 +4,63 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "UserProfile",
       "type": "object",
-      "description": "Represents a user's profile in the Sunshine application, including their financial balance and other personal settings.",
+      "description": "Represents a user's profile in the Sunshine application.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the UserProfile entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The full name of the user."
-        },
-        "email": {
-          "type": "string",
-          "description": "The user's email address.",
-          "format": "email"
-        },
-        "role": {
-          "type": "string",
-          "description": "The role of the user within the application, which is always 'user'.",
-          "enum": ["user"]
-        },
-        "saldoUSDT": {
-          "type": "number",
-          "description": "The user's current investment balance in USDT (Tether). This field is read-only for users and can only be modified through approved deposit requests."
-        },
-        "preferredLanguage": {
-          "type": "string",
-          "description": "The user's preferred language for the application interface (e.g., 'es' for Spanish, 'en' for English)."
-        },
-        "termsAccepted": {
-          "type": "boolean",
-          "description": "Indicates whether the user has accepted the 'Términos y Condiciones de Inversión de Sunshine' during registration."
-        },
-        "invitationCodeUsedId": {
-          "type": "string",
-          "description": "Reference to the InvitationCode entity that was used by this user during registration. (Relationship: InvitationCode 1:N UserProfile)"
-        },
-        "ultimoCheckIn": {
-          "type": "string",
-          "format": "date-time",
-          "description": "The ISO 8601 timestamp of the user's last daily check-in."
-        },
-        "walletAddress": {
-          "type": "string",
-          "description": "The user's unique USDT (BEP-20) wallet address, used to prevent multi-accounting."
-        },
-        "planActivo": {
-          "type": "number",
-          "description": "The amount of the user's active investment plan in USDT. 0 if no active plan."
-        },
-        "inversionAnterior": {
-          "type": "number",
-          "description": "Stores the value of the previous investment to calculate commissions on the difference when a plan is upgraded."
-        },
-        "fechaInicioPlan": {
-          "type": "string",
-          "format": "date-time",
-          "description": "The ISO 8601 timestamp of when the user's active investment plan started. Can be null."
-        },
-        "bonoDirecto": {
-          "type": "number",
-          "description": "The accumulated amount of direct referral bonuses in USDT."
-        },
-        "bonoEntregado": {
-          "type": ["boolean", "string"],
-          "enum": [false, true, "reclamado"],
-          "description": "Indica el estado del bono de bienvenida: false (inactivo), true (listo para reclamar), 'reclamado' (pagado)."
-        },
-        "fechaRegistro": {
-          "type": "string",
-          "format": "date-time",
-          "description": "The ISO 8601 timestamp of when the user account was created."
-        },
-        "estadoPlan": {
-          "type": "string",
-          "enum": ["activo", "vencido"],
-          "description": "Indica si el plan de inversión actual del usuario está activo o ha expirado después de alcanzar el retorno del 300%."
-        },
-        "fechaVencimiento": {
-          "type": "string",
-          "format": "date-time",
-          "description": "Marca de tiempo de cuándo expira oficialmente el plan, dando al usuario un período de gracia para actualizar."
-        },
-        "lastConsolidation": {
-          "type": "string",
-          "format": "date-time",
-          "description": "The ISO 8601 timestamp of the last time the user's progressive earnings (ROI, bonuses) were consolidated into their main balance."
-        },
-        "isVip": {
-            "type": "boolean",
-            "description": "Indicates if the user has a VIP plan with enhanced rates. Defaults to false."
-        }
+        "id": { "type": "string", "description": "Unique identifier for the UserProfile entity." },
+        "name": { "type": "string", "description": "The full name of the user." },
+        "email": { "type": "string", "description": "The user's email address.", "format": "email" },
+        "role": { "type": "string", "description": "The role of the user within the application, always 'user'.", "enum": ["user"] },
+        "saldoUSDT": { "type": "number", "description": "The user's available wallet balance in USDT, used for making new investments." },
+        "totalInvested": { "type": "number", "description": "The sum of all active investments a user currently has." },
+        "preferredLanguage": { "type": "string", "description": "The user's preferred language for the application interface (e.g., 'es', 'en')." },
+        "termsAccepted": { "type": "boolean", "description": "Indicates if the user has accepted the 'Términos y Condiciones de Inversión de Sunshine'." },
+        "invitationCodeUsedId": { "type": "string", "description": "Reference to the sponsor's UserProfile ID." },
+        "ultimoCheckIn": { "type": "string", "format": "date-time", "description": "The ISO 8601 timestamp of the user's last daily check-in." },
+        "walletAddress": { "type": "string", "description": "The user's unique USDT (BEP-20) wallet address." },
+        "bonoDirecto": { "type": "number", "description": "The accumulated amount of direct referral bonuses in USDT." },
+        "hasUnclaimedBonuses": { "type": "boolean", "description": "Flag indicating if the user has made a new investment that the sponsor can claim a bonus for." },
+        "fechaRegistro": { "type": "string", "format": "date-time", "description": "The ISO 8601 timestamp of when the user account was created." },
+        "lastConsolidation": { "type": "string", "format": "date-time", "description": "The ISO 8601 timestamp of the last time earnings were consolidated." },
+        "isVip": { "type": "boolean", "description": "Indicates if the user has a VIP plan with enhanced rates. Defaults to false." }
       },
-      "required": [
-        "id",
-        "name",
-        "email",
-        "role",
-        "saldoUSDT",
-        "termsAccepted",
-        "invitationCodeUsedId",
-        "walletAddress"
-      ]
+      "required": ["id", "name", "email", "role", "saldoUSDT", "totalInvested", "termsAccepted", "walletAddress"]
+    },
+    "Investment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Investment",
+      "type": "object",
+      "description": "Represents a single active investment plan for a user.",
+      "properties": {
+        "amount": { "type": "number", "description": "The amount invested in USDT." },
+        "startDate": { "type": "string", "format": "date-time", "description": "ISO 8601 timestamp when the investment was activated." },
+        "dailyRate": { "type": "number", "description": "The daily percentage rate for this investment (e.g., 0.02 for 2%)." },
+        "earningsGenerated": { "type": "number", "description": "Total earnings generated by this specific investment." },
+        "status": { "type": "string", "enum": ["active", "completed"], "description": "The current status of the investment." },
+        "bonusPaid": { "type": "boolean", "description": "Whether the direct referral bonus for this investment has been paid out." }
+      },
+      "required": ["amount", "startDate", "dailyRate", "status", "bonusPaid"]
     },
     "InvitationCode": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "InvitationCode",
       "type": "object",
-      "description": "Represents an invitation code required for new user registration in the Sunshine application. Each code can be used only once.",
+      "description": "Represents a legacy invitation code. This is being phased out.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "The unique invitation code string itself, serving as its identifier (e.g., 'SUNSHINE2023')."
-        },
-        "isUsed": {
-          "type": "boolean",
-          "description": "Indicates whether this invitation code has been used to register a user."
-        },
-        "usedByUserId": {
-          "type": "string",
-          "description": "Reference to the UserProfile entity that used this invitation code. Only present if 'isUsed' is true. (Relationship: UserProfile 1:1 InvitationCode)"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "The date and time when this invitation code was created.",
-          "format": "date-time"
-        }
+        "id": { "type": "string", "description": "The unique invitation code string." },
+        "isUsed": { "type": "boolean" },
+        "usedByUserId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "isUsed",
-        "createdAt"
-      ]
+      "required": ["id", "isUsed", "createdAt"]
     },
     "WalletAddress": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "WalletAddress",
       "type": "object",
-      "description": "Represents a unique wallet address to prevent multi-accounting. The document ID is the wallet address itself.",
+      "description": "Ensures wallet address uniqueness.",
       "properties": {
-        "userId": {
-          "type": "string",
-          "description": "The UID of the user this wallet belongs to."
-        },
-        "createdAt": {
-          "type": "string",
-          "format": "date-time",
-          "description": "Timestamp of when the wallet was registered."
-        }
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "createdAt"]
     },
@@ -159,12 +68,9 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "InviteCodeMap",
       "type": "object",
-      "description": "Maps a user's unique invite code to their user ID for efficient and secure sponsor lookup during registration.",
+      "description": "Maps a user's unique invite code to their user ID.",
       "properties": {
-        "userId": {
-          "type": "string",
-          "description": "The UID of the user who owns this invite code."
-        }
+        "userId": { "type": "string" }
       },
       "required": ["userId"]
     },
@@ -174,32 +80,16 @@
       "type": "object",
       "description": "Represents a single financial transaction in a user's history.",
       "properties": {
-        "fecha": {
-          "type": "string",
-          "format": "date-time",
-          "description": "The ISO 8601 timestamp of the transaction."
-        },
-        "tipo": {
-          "type": "string",
-          "description": "The type of transaction (e.g., 'Bono Directo', 'Depósito')."
-        },
-        "descripcion": {
-          "type": "string",
-          "description": "A brief description of the transaction."
-        },
-        "monto": {
-          "type": "number",
-          "description": "The amount of the transaction in USDT. Positive for income, negative for expenses."
-        }
+        "fecha": { "type": "string", "format": "date-time" },
+        "tipo": { "type": "string" },
+        "descripcion": { "type": "string" },
+        "monto": { "type": "number" }
       },
       "required": ["fecha", "tipo", "descripcion", "monto"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
     "structure": [
@@ -207,81 +97,51 @@
         "path": "/users/{userId}",
         "definition": {
           "entityName": "UserProfile",
-          "schema": {
-            "$ref": "#/backend/entities/UserProfile"
-          },
-          "description": "Stores individual user profiles. Each document ID (`userId`) corresponds to a Firebase Authentication UID. 'saldoUSDT' is read-only for users.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique Firebase Authentication User ID."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/UserProfile" },
+          "description": "Stores individual user profiles."
+        }
+      },
+      {
+        "path": "/users/{userId}/investments/{investmentId}",
+        "definition": {
+          "entityName": "Investment",
+          "schema": { "$ref": "#/backend/entities/Investment" },
+          "description": "Stores individual investment plans for a user."
         }
       },
       {
         "path": "/users/{userId}/transacciones/{transactionId}",
         "definition": {
           "entityName": "Transaction",
-          "schema": {
-            "$ref": "#/backend/entities/Transaction"
-          },
-          "description": "Stores the transaction history for a single user. Only the user can read their own history.",
-          "params": [
-            { "name": "userId", "description": "The UID of the user." },
-            { "name": "transactionId", "description": "The unique ID for the transaction." }
-          ]
+          "schema": { "$ref": "#/backend/entities/Transaction" },
+          "description": "Stores the transaction history for a single user."
         }
       },
       {
         "path": "/invitation_codes/{invitationCodeId}",
         "definition": {
           "entityName": "InvitationCode",
-          "schema": {
-            "$ref": "#/backend/entities/InvitationCode"
-          },
-          "description": "Stores unique invitation codes. Unauthenticated users can perform a `get()` to verify a specific code during registration.",
-          "params": [
-            {
-              "name": "invitationCodeId",
-              "description": "The unique invitation code string itself."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/InvitationCode" },
+          "description": "Legacy invitation codes."
         }
       },
       {
         "path": "/wallet_addresses/{walletAddressId}",
         "definition": {
           "entityName": "WalletAddress",
-          "schema": {
-            "$ref": "#/backend/entities/WalletAddress"
-          },
-          "description": "Stores unique wallet addresses to prevent multi-accounting. Used during registration to check for uniqueness. Document ID is the wallet address.",
-          "params": [
-            {
-              "name": "walletAddressId",
-              "description": "The wallet address string."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/WalletAddress" },
+          "description": "Stores unique wallet addresses to prevent multi-accounting."
         }
       },
       {
         "path": "/invite_codes_map/{inviteCodeId}",
         "definition": {
           "entityName": "InviteCodeMap",
-          "schema": {
-            "$ref": "#/backend/entities/InviteCodeMap"
-          },
-          "description": "Stores a mapping from a user's public invite code to their UID. Allows for unauthenticated sponsor lookups without exposing the main users collection.",
-          "params": [
-            {
-              "name": "inviteCodeId",
-              "description": "The user's unique invite code string."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/InviteCodeMap" },
+          "description": "Maps a user's public invite code to their UID for sponsor lookups."
         }
       }
     ],
-    "reasoning": "The proposed Firestore structure prioritizes secure, scalable, and debuggable authorization. Key collections like `wallet_addresses` and `invite_codes_map` are separated to allow for safe, unauthenticated checks during registration without exposing the primary `users` collection. This design prevents security rule complexity and avoids slow `get()` calls within rules."
+    "reasoning": "The structure is updated to support multiple investments per user via a subcollection. The UserProfile is simplified, removing single-plan fields and repurposing saldoUSDT as the main wallet balance."
   }
 }

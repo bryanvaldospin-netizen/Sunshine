@@ -1,23 +1,29 @@
+export type Investment = {
+  id: string;
+  amount: number;
+  startDate: string; // ISO string
+  dailyRate: number;
+  earningsGenerated: number;
+  status: 'active' | 'completed';
+  bonusPaid: boolean;
+};
+
 export type UserProfile = {
   uid: string;
   email: string;
   name: string;
   rol: 'user';
-  saldoUSDT: number;
+  saldoUSDT: number; // Wallet balance for new investments
+  totalInvested: number; // Sum of all active investments
   retirosTotales?: number;
   invitadoPor?: string | null;
   inviteCode?: string;
   ultimoCheckIn?: string;
   walletAddress?: string;
-  planActivo?: number;
-  inversionAnterior: number;
-  fechaInicioPlan?: string | null;
   bonoDirecto: number;
   bonoRetirable?: number;
-  bonoEntregado: boolean | 'reclamado';
+  hasUnclaimedBonuses?: boolean; // Flag for sponsor to claim direct bonus
   fechaRegistro?: string;
-  estadoPlan?: 'activo' | 'vencido';
-  fechaVencimiento?: string | null;
   lastConsolidation?: string;
   isVip?: boolean;
 };

@@ -26,22 +26,20 @@ service cloud.firestore {
                     && request.resource.data.name is string && request.resource.data.name.size() > 1
                     && request.resource.data.rol == 'user'
                     && request.resource.data.saldoUSDT == 0
+                    && request.resource.data.totalInvested == 0
                     && request.resource.data.walletAddress is string && request.resource.data.walletAddress.size() > 20
-                    && request.resource.data.planActivo == 0
-                    && request.resource.data.inversionAnterior == 0
-                    && request.resource.data.fechaInicioPlan == null
                     && request.resource.data.bonoDirecto == 0
-                    && request.resource.data.bonoEntregado == false
+                    && request.resource.data.bonoRetirable == 0
                     && request.resource.data.isVip == false
-                    && request.resource.data.fechaRegistro is string
-                    && request.resource.data.keys().hasOnly(['uid', 'name', 'email', 'rol', 'saldoUSDT', 'invitadoPor', 'inviteCode', 'walletAddress', 'ultimoCheckIn', 'planActivo', 'fechaInicioPlan', 'bonoDirecto', 'fechaRegistro', 'bonoEntregado', 'inversionAnterior', 'isVip']);
+                    && request.resource.data.fechaRegistro is string;
 
       // This rule allows a user to update their own profile BUT prevents them
-      // from changing their balance, bonuses, plan, role, or VIP status from the client.
+      // from changing their balance, bonuses, or VIP status from the client.
       allow update: if isOwner(userId)
                     && request.resource.data.saldoUSDT == resource.data.saldoUSDT
+                    && request.resource.data.totalInvested == resource.data.totalInvested
                     && request.resource.data.bonoDirecto == resource.data.bonoDirecto
-                    && request.resource.data.planActivo == resource.data.planActivo
+                    && request.resource.data.bonoRetirable == resource.data.bonoRetirable
                     && request.resource.data.rol == resource.data.rol
                     && request.resource.data.isVip == resource.data.isVip;
       
@@ -53,6 +51,14 @@ service cloud.firestore {
         // A user can read their own transactions.
         allow read, list: if isOwner(userId);
         // Only the server can create/update/delete transactions.
+        allow write: if false;
+      }
+
+      // Rules for user investments subcollection
+      match /investments/{investmentId} {
+        // A user can read their own investments.
+        allow read, list: if isOwner(userId);
+        // Only the server can create/update/delete investments.
         allow write: if false;
       }
     }

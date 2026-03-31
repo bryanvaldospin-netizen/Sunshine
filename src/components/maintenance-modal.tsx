@@ -7,7 +7,7 @@ import { Wrench } from 'lucide-react';
 
 export function MaintenanceModal() {
   // This state controls the visibility. Set to `false` in the code to disable the modal.
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
     <Dialog 

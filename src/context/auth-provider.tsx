@@ -2,10 +2,10 @@
 
 import React, { createContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { onAuthStateChanged, User as FirebaseUser, setPersistence, browserLocalPersistence, getRedirectResult } from 'firebase/auth';
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile } from '@/types';
-import { createInvestmentTransaction, reconcileAccount } from '@/lib/actions';
+import { reconcileAccount } from '@/lib/actions';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -23,8 +23,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const userRef = useRef(user);
-  userRef.current = user;
 
   useEffect(() => {
     const setAuthPersistence = async () => {
@@ -61,32 +59,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         unsubscribeFromSnapshot = onSnapshot(userDocRef, (docSnap) => {
           if (docSnap.exists()) {
             const userData = docSnap.data() as UserProfile;
-            const previousUser = userRef.current;
-            const previousPlanActivo = previousUser?.planActivo ?? 0;
-            const newPlanActivo = userData.planActivo ?? 0;
-
-            // Check for a new plan activation (from 0 to >0)
-            if (newPlanActivo > 0 && previousPlanActivo === 0) {
-              // This is a new plan, set its start date.
-              // Do not await, let it run in the background.
-              updateDoc(docSnap.ref, {
-                fechaInicioPlan: new Date().toISOString()
-              }).catch(err => console.error("Failed to set plan start date:", err));
-            }
-
-            if (newPlanActivo > previousPlanActivo) {
-                createInvestmentTransaction(currentFirebaseUser.uid, newPlanActivo, previousPlanActivo)
-                    .catch(e => console.error("Failed to create investment transaction:", e));
-            }
-            
-            // Backwards compatibility for existing users
-            if (userData.planActivo === undefined || userData.fechaInicioPlan === undefined) {
-              updateDoc(userDocRef, {
-                planActivo: userData.planActivo ?? 0,
-                fechaInicioPlan: userData.fechaInicioPlan ?? null,
-              }).catch(err => console.error("Failed to migrate user profile:", err));
-            }
-            
             setUser(userData);
           } else {
              console.warn(`User ${currentFirebaseUser.uid} authenticated but has no profile document.`);
