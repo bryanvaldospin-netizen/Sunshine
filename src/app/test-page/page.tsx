@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import type { UserProfile, Transaction, Investment } from '@/types';
-import { processInitialBonus, createWithdrawalToken, activateInvestment, getSecondLevelReferrals } from '@/lib/actions';
+import { processInitialBonus, createWithdrawalToken, getSecondLevelReferrals, activateInvestment } from '@/lib/actions';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -498,7 +498,7 @@ const MyNetworkTab = ({ user, directReferrals, networkLoading, primaryResidualBo
                 </TableBody>
             </Table>
         </CardContent>
-    </Card>
+      </Card>
       
       <Card className="bg-gray-800 border-gray-700 text-white">
         <CardHeader>
@@ -950,7 +950,7 @@ export default function TestPage() {
 
     const plan2PlusCount = directReferrals.filter(ref => (ref.totalInvested ?? 0) >= 101).length;
     let progressiveResidual = 0;
-    if (totalInvested >= 101 && plan2PlusCount >= 10) {
+    if (currentTotalInvested >= 101 && plan2PlusCount >= 10) {
         const level1CommissionRate = 5 / 100;
         progressiveResidual = directReferrals.reduce((total, ref) => {
             if ((ref.totalInvested ?? 0) >= 20) {
@@ -978,7 +978,7 @@ export default function TestPage() {
         totalInvested: currentTotalInvested,
         totalEarningsCap: currentTotalEarningsCap,
     };
-  }, [profile, investments, directReferrals, authLoading, renderTime, totalInvested]);
+  }, [profile, investments, directReferrals, authLoading, renderTime]);
 
 
   const statItems = useMemo(() => {
@@ -1193,69 +1193,6 @@ export default function TestPage() {
                       <TransactionHistory userId={profile.uid} />
                   </div>
                 )}
-
-                <div className="w-full max-w-5xl">
-                    <Card className="bg-gray-800 border-gray-700 text-white">
-                        <CardHeader>
-                            <CardTitle>{t('dashboard.balanceGrowth')}</CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-4 h-[290px] flex items-center justify-center">
-                          {statsLoading ? (
-                            <Skeleton className="w-full h-full bg-gray-700" />
-                          ) : chartData.length > 0 ? (
-                            <ChartContainer config={chartConfig} className="h-full w-full">
-                                <AreaChart
-                                    data={chartData}
-                                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                                >
-                                    <defs>
-                                        <linearGradient id="colorBalance" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
-                                            <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid vertical={false} stroke="rgba(255, 255, 255, 0.1)" strokeDasharray="3 3" />
-                                    <XAxis 
-                                        dataKey="date" 
-                                        tickLine={false}
-                                        axisLine={false}
-                                        stroke="rgba(255, 255, 255, 0.4)"
-                                        fontSize={12}
-                                    />
-                                    <YAxis
-                                        tickLine={false}
-                                        axisLine={false}
-                                        stroke="rgba(255, 255, 255, 0.4)"
-                                        fontSize={12}
-                                        tickFormatter={(value) => formatCurrency(value as number)}
-                                        domain={['dataMin - 100', 'dataMax + 100']}
-                                    />
-                                    <ChartTooltip 
-                                        cursor={true}
-                                        content={<ChartTooltipContent
-                                            indicator="line"
-                                            formatter={(value) => [formatCurrency(value as number), 'Saldo Acumulado']}
-                                            labelClassName="text-white"
-                                            className="bg-gray-900 border-golden"
-                                        />}
-                                    />
-                                    <Area 
-                                        dataKey="balance"
-                                        type="monotone" 
-                                        strokeWidth={2}
-                                        stroke="hsl(var(--primary))"
-                                        fill="url(#colorBalance)" 
-                                    />
-                                </AreaChart>
-                            </ChartContainer>
-                          ) : (
-                            <p className="text-muted-foreground text-center">
-                              {t('dashboard.growthHistoryPlaceholder')}
-                            </p>
-                          )}
-                        </CardContent>
-                    </Card>
-                </div>
 
                 <div className="w-full max-w-5xl">
                     <Card className="bg-gray-800/80 border-gray-700 p-6 space-y-4">
