@@ -1,3 +1,4 @@
+
 export type Investment = {
   id: string;
   amount: number;
@@ -6,6 +7,7 @@ export type Investment = {
   earningsGenerated: number;
   status: 'active' | 'completed';
   bonusPaid: boolean;
+  lastUpdated?: string; // ISO string
 };
 
 export type UserProfile = {
@@ -45,6 +47,7 @@ export type InvitationCode = {
 };
 
 export type Transaction = {
+  id?: string;
   fecha: string; // ISO string
   tipo: string;
   descripcion: string;

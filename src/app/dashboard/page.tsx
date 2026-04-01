@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, Fragment } from 'react';
@@ -628,11 +629,15 @@ const TransactionHistory = ({ userId }: { userId: string }) => {
   }).format(value);
 
   const formatDate = (isoString: string) => {
-    return new Date(isoString).toLocaleDateString('es-ES', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric'
-    });
+    try {
+        return new Date(isoString).toLocaleDateString('es-ES', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        });
+    } catch (e) {
+        return "Fecha inválida";
+    }
   }
 
   return (
@@ -661,8 +666,8 @@ const TransactionHistory = ({ userId }: { userId: string }) => {
                 <TableRow key={tx.id} className="border-gray-700 hover:bg-gray-700/50">
                   <TableCell className="text-muted-foreground text-xs">{formatDate(tx.fecha)}</TableCell>
                   <TableCell className="font-medium">{tx.descripcion}</TableCell>
-                  <TableCell className={`text-right font-semibold ${tx.tipo === 'Bono Directo' ? 'text-green-400' : 'text-white'}`}>
-                    {tx.tipo === 'Bono Directo' ? '+ ' : ''}{formatCurrency(tx.monto)}
+                  <TableCell className={`text-right font-semibold ${tx.monto > 0 ? 'text-green-400' : tx.monto < 0 ? 'text-red-400' : 'text-white'}`}>
+                    {tx.monto > 0 ? '+ ' : ''}{formatCurrency(tx.monto)}
                   </TableCell>
                 </TableRow>
               ))
@@ -734,7 +739,7 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
     if (isSubmitting) return 'Generando...';
     if (!isWindowOpen) {
         if (withdrawalType === 'main') {
-            return 'Retiro de Saldo no disponible hoy';
+            return 'Retiro de Ganancias no disponible hoy';
         } else {
             return 'Retiro de Bono no disponible hoy';
         }
@@ -744,7 +749,7 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
   
   const alertDescription = useMemo(() => {
     if (withdrawalType === 'main') {
-        return 'Retiros de Saldo Actual disponibles solo los días 10, 20 y 30 de cada mes (00:00 a 23:59, hora de Londres).';
+        return 'Retiros de Ganancias de Inversión disponibles solo los días 10, 20 y 30 de cada mes (00:00 a 23:59, hora de Londres).';
     }
     return 'Retiros de Bono Referido disponibles cualquier día EXCEPTO los días 10, 20 y 30.';
   }, [withdrawalType]);
@@ -892,14 +897,10 @@ export default function DashboardPage() {
   const [directReferrals, setDirectReferrals] = useState<UserProfile[]>([]);
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [networkLoading, setNetworkLoading] = useState(true);
-  const [dataVersion, setDataVersion] = useState(0); // Used to force re-render
   const [renderTime, setRenderTime] = useState<Date | null>(null);
 
   useEffect(() => {
-    // This effect ensures the time-sensitive calculations run only on the client
     setRenderTime(new Date()); 
-    const interval = setInterval(() => setRenderTime(new Date()), 30000);
-    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -907,8 +908,6 @@ export default function DashboardPage() {
       router.replace('/login');
     }
   }, [authLoading, firebaseUser, router]);
-
-  const forceDataRefresh = () => setDataVersion(v => v + 1);
 
   const formatCurrency = (value: number) => new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -923,7 +922,6 @@ export default function DashboardPage() {
     return 0;
   };
 
-  // Fetch direct referrals
   useEffect(() => {
     if (!profile?.uid) {
       setNetworkLoading(false);
@@ -945,7 +943,6 @@ export default function DashboardPage() {
     return () => unsubscribe();
   }, [profile?.uid]);
 
-  // Fetch all investments for the user
   useEffect(() => {
     if (!profile?.uid) {
         setInvestments([]);
@@ -964,77 +961,31 @@ export default function DashboardPage() {
       return { mainBalance: 0, referralBalance: 0, totalLifetimeEarnings: 0, primaryResidualBonus: 0, totalInvested: 0, totalEarningsCap: 0 };
     }
 
-    const now = renderTime;
-
-    let progressiveROI = 0;
-    let currentTotalInvested = 0;
-    let currentTotalEarningsCap = 0;
-
-    investments.forEach(inv => {
-        if (inv.status === 'active') {
-            currentTotalInvested += inv.amount;
-            currentTotalEarningsCap += inv.amount * 3;
-            
-            const startDate = new Date(inv.startDate);
-            if (!isNaN(startDate.getTime())) {
-                const diffTime = now.getTime() - startDate.getTime();
-                if (diffTime > 0) {
-                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
-                    const earningForThisInvestment = inv.amount * inv.dailyRate * diffDays;
-                    const maxEarningForThis = (inv.amount * 3) - inv.earningsGenerated;
-                    progressiveROI += Math.min(earningForThisInvestment, maxEarningForThis);
-                }
-            }
-        }
-    });
-
-    const plan2PlusCount = directReferrals.filter(ref => (ref.totalInvested ?? 0) >= 101).length;
-    let progressiveResidual = 0;
-    if (currentTotalInvested >= 101 && plan2PlusCount >= 10) {
-        const level1CommissionRate = 5 / 100;
-        progressiveResidual = directReferrals.reduce((total, ref) => {
-            if ((ref.totalInvested ?? 0) >= 20) {
-                // This is a simplified calculation for display. The server has the final say.
-                const refDailyEarning = (ref.totalInvested ?? 0) * getDailyRate(ref.totalInvested ?? 0);
-                const dailyBonus = refDailyEarning * level1CommissionRate;
-                return total + dailyBonus; // Simplified to daily rate for UI purposes
-            }
-            return total;
-        }, 0);
-    }
-    
-    const finalMainBalance = parseFloat((progressiveROI + progressiveResidual).toFixed(2));
-    const finalReferralBalance = parseFloat((profile.bonoRetirable || 0).toFixed(2));
-    const totalLifetimeDirect = profile.bonoDirecto || 0;
-    const allTimeEarnings = progressiveROI + progressiveResidual + totalLifetimeDirect;
-    const finalTotalLifetimeEarnings = parseFloat(Math.min(allTimeEarnings, currentTotalEarningsCap > 0 ? currentTotalEarningsCap : Infinity).toFixed(2));
-    const finalPrimaryResidualBonus = parseFloat(progressiveResidual.toFixed(2));
-
     return { 
-        mainBalance: finalMainBalance,
-        referralBalance: finalReferralBalance,
-        totalLifetimeEarnings: finalTotalLifetimeEarnings,
-        primaryResidualBonus: finalPrimaryResidualBonus,
-        totalInvested: currentTotalInvested,
-        totalEarningsCap: currentTotalEarningsCap,
+        mainBalance: profile.saldoUSDT ?? 0,
+        referralBalance: profile.bonoRetirable ?? 0,
+        totalLifetimeEarnings: 0, // This is too complex to calculate client-side accurately now.
+        primaryResidualBonus: 0, // Same.
+        totalInvested: profile.totalInvested ?? 0,
+        totalEarningsCap: (profile.totalInvested ?? 0) * 3,
     };
-  }, [profile, investments, directReferrals, authLoading, renderTime]);
+  }, [profile, authLoading, renderTime]);
 
 
   const statItems = useMemo(() => {
     if (!profile) {
       return [
         { title: t('dashboard.totalInvestment'), value: 0, icon: PiggyBank },
-        { title: t('dashboard.generatedEarnings'), value: 0, icon: TrendingUp },
+        { title: t('dashboard.generatedEarnings'), value: profile?.saldoUSDT ?? 0, icon: TrendingUp },
         { title: t('dashboard.totalWithdrawals'), value: 0, icon: CircleDollarSign },
       ];
     }
     return [
       { title: t('dashboard.totalInvestment'), value: totalInvested, icon: PiggyBank },
-      { title: t('dashboard.generatedEarnings'), value: totalLifetimeEarnings, icon: TrendingUp },
+      { title: t('dashboard.generatedEarnings'), value: profile.saldoUSDT, icon: TrendingUp },
       { title: t('dashboard.totalWithdrawals'), value: profile.retirosTotales ?? 0, icon: CircleDollarSign },
     ];
-  }, [t, profile, totalInvested, totalLifetimeEarnings]);
+  }, [t, profile, totalInvested]);
 
   const [chartData, setChartData] = useState<any[]>([]);
   const statsLoading = authLoading;
@@ -1047,10 +998,11 @@ export default function DashboardPage() {
 
     const points = 7;
     const data = [];
+    const earnings = profile.saldoUSDT ?? 0;
     for (let i = 0; i < points; i++) {
         const date = new Date();
         date.setDate(date.getDate() - (points - 1 - i));
-        const balance = (totalLifetimeEarnings / points) * (i + 1);
+        const balance = (earnings / points) * (i + 1);
         data.push({
             date: date.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }),
             balance: parseFloat(balance.toFixed(2)),
@@ -1058,14 +1010,14 @@ export default function DashboardPage() {
     }
     
     if (data.length > 0) {
-        data[data.length - 1].balance = totalLifetimeEarnings;
+        data[data.length - 1].balance = earnings;
         data[data.length - 1].date = 'Ahora';
-    } else if (totalLifetimeEarnings > 0) {
-        data.push({ date: 'Ahora', balance: totalLifetimeEarnings });
+    } else if (earnings > 0) {
+        data.push({ date: 'Ahora', balance: earnings });
     }
 
     setChartData(data);
-  }, [totalLifetimeEarnings, authLoading, profile]);
+  }, [profile?.saldoUSDT, authLoading, profile]);
   
 
   const handleLogout = async () => {
@@ -1082,7 +1034,7 @@ export default function DashboardPage() {
   }
 
   const userName = profile?.name || t('dashboard.investor');
-  const progress = totalEarningsCap > 0 ? (totalLifetimeEarnings / totalEarningsCap) * 100 : 0;
+  const progress = totalEarningsCap > 0 ? (mainBalance / totalEarningsCap) * 100 : 0;
   
   const chartConfig = {
     balance: {
@@ -1212,7 +1164,7 @@ export default function DashboardPage() {
                                 ) : totalInvested > 0 ? (
                                     <div className="space-y-2">
                                         <p className="text-lg">Inversión Total Activa: <span className="font-bold text-golden">{formatCurrency(totalInvested)} USDT</span></p>
-                                        <p className="text-lg">Ganancias Totales (Plan + Red): <span className="font-bold text-green-400">{formatCurrency(totalLifetimeEarnings)}</span> / <span className="text-sm text-gray-400" title="Límite de Retorno (300%)">{formatCurrency(totalEarningsCap)}</span></p>
+                                        <p className="text-lg">Ganancias Totales Acumuladas: <span className="font-bold text-green-400">{formatCurrency(mainBalance)}</span> / <span className="text-sm text-gray-400" title="Límite de Retorno (300%)">{formatCurrency(totalEarningsCap)}</span></p>
                                     </div>
                                 ) : (
                                     <p>No tienes un plan activo. Realiza un depósito y activa una inversión para obtener uno.</p>
