@@ -1,6 +1,5 @@
 
-export type Investment = {
-  id: string;
+export type InvestmentData = {
   amount: number;
   startDate: string; // ISO string
   dailyRate: number;
@@ -8,6 +7,10 @@ export type Investment = {
   status: 'active' | 'completed';
   bonusPaid: boolean;
   lastUpdated?: string; // ISO string
+};
+
+export type Investment = InvestmentData & {
+  id: string;
 };
 
 export type UserProfile = {
@@ -53,3 +56,4 @@ export type Transaction = {
   descripcion: string;
   monto: number;
 };
+

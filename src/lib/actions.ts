@@ -2,7 +2,7 @@
 'use server';
 
 import { z } from 'zod';
-import type { UserProfile, Investment } from '@/types';
+import type { UserProfile, InvestmentData } from '@/types';
 import * as system from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 
@@ -456,7 +456,7 @@ async function consolidateUserEarnings(userId: string, consolidationTime: Date, 
     let totalNewEarnings = 0;
 
     for (const invDoc of activeInvestmentsSnap.docs) {
-        const inv = invDoc.data() as Investment & { lastUpdated?: string };
+        const inv = invDoc.data() as InvestmentData;
         const startDate = new Date(inv.startDate);
         const lastUpdated = inv.lastUpdated ? new Date(inv.lastUpdated) : startDate;
 
