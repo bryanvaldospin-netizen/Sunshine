@@ -18,12 +18,18 @@ if (!system.apps.length) {
 const systemDb = system.firestore();
 const systemAuth = system.auth();
 
-const getDailyRate = (planAmount: number): number => {
-    // All plans are now VIP.
-    if (planAmount >= 1001) return 0.028; // 2.8% Diamante
-    if (planAmount >= 501) return 0.026;  // 2.6% Oro
-    if (planAmount >= 101) return 0.024;  // 2.4% Plata
-    if (planAmount >= 20) return 0.020;   // 2.0% Bronce
+const getDailyRate = (planAmount: number, isVip: boolean = false): number => {
+    if (isVip) {
+        if (planAmount >= 1001) return 0.028; // 2.8%
+        if (planAmount >= 501) return 0.026;  // 2.6%
+        if (planAmount >= 101) return 0.024;  // 2.4%
+        if (planAmount >= 20) return 0.020;   // 2.0%
+    } else {
+        if (planAmount >= 1001) return 0.025;
+        if (planAmount >= 501) return 0.020;
+        if (planAmount >= 101) return 0.018;
+        if (planAmount >= 20) return 0.015;
+    }
     return 0;
 };
 
@@ -101,17 +107,21 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
       email,
       rol: 'user',
       saldoUSDT: 0,
-      totalInvested: 0,
       retirosTotales: 0,
       invitadoPor: invitadoPor,
       inviteCode: inviteCode,
       walletAddress: walletAddress,
       ultimoCheckIn: null,
+      planActivo: 0,
+      inversionAnterior: 0,
+      fechaInicioPlan: null,
       bonoDirecto: 0,
       bonoRetirable: 0,
-      hasUnclaimedBonuses: false,
+      bonoEntregado: false,
       fechaRegistro: new Date().toISOString(),
+      estadoPlan: 'activo',
       lastConsolidation: null,
+      isVip: false,
     });
 
     const newWalletRef = systemDb.collection('wallet_addresses').doc(walletAddress);
@@ -192,15 +202,13 @@ export async function activateInvestment(userId: string, amount: number): Promis
         throw new Error(`Saldo de billetera insuficiente. Tienes ${currentBalance.toFixed(2)} USDT.`);
       }
 
-      const dailyRate = getDailyRate(amount);
+      const dailyRate = getDailyRate(amount, userData.isVip ?? false);
       if (dailyRate === 0) {
         throw new Error('No se pudo determinar una tasa de retorno para el monto de inversión especificado.');
       }
 
       transaction.update(userRef, {
         saldoUSDT: FieldValue.increment(-amount),
-        totalInvested: FieldValue.increment(amount),
-        hasUnclaimedBonuses: true,
       });
 
       const now = new Date();
@@ -210,7 +218,7 @@ export async function activateInvestment(userId: string, amount: number): Promis
         status: 'active',
         dailyRate: dailyRate,
         earningsGenerated: 0,
-        bonusPaid: false,
+        lastUpdated: now.toISOString(),
       });
 
       transaction.set(transactionRef, {
@@ -228,52 +236,6 @@ export async function activateInvestment(userId: string, amount: number): Promis
     return { error: error.message || 'Ocurrió un error inesperado al activar la inversión.' };
   }
 }
-
-export async function updateWalletAddress(userId: string, newAddress: string): Promise<{success: true, message: string} | {error: string}> {
-  if (!userId || !newAddress || newAddress.length < 20) {
-    return { error: 'La dirección de la billetera proporcionada no es válida.' };
-  }
-
-  const newWalletRef = systemDb.collection('wallet_addresses').doc(newAddress);
-  const userRef = systemDb.collection('users').doc(userId);
-
-  try {
-    const message = await systemDb.runTransaction(async (transaction) => {
-      const userSnap = await transaction.get(userRef);
-      if (!userSnap.exists) {
-        throw new Error('El usuario no fue encontrado.');
-      }
-      const userData = userSnap.data() as UserProfile;
-      const oldAddress = userData.walletAddress;
-
-      const newWalletSnap = await transaction.get(newWalletRef);
-      if (newWalletSnap.exists) {
-        throw new Error('Esta billetera ya está en uso por otra cuenta.');
-      }
-      
-      // Update user document
-      transaction.update(userRef, { walletAddress: newAddress });
-      
-      // Add new wallet to the uniqueness collection
-      transaction.set(newWalletRef, { userId: userId, createdAt: new Date().toISOString() });
-      
-      // Remove old wallet address from the uniqueness collection if it exists
-      if (oldAddress) {
-        const oldWalletRef = systemDb.collection('wallet_addresses').doc(oldAddress);
-        transaction.delete(oldWalletRef);
-      }
-      
-      return 'Tu dirección de billetera ha sido actualizada con éxito.';
-    });
-
-    return { success: true, message };
-
-  } catch (error: any) {
-    console.error(`Error updating wallet for user ${userId}:`, error);
-    return { error: error.message || 'Ocurrió un error inesperado al actualizar la billetera.' };
-  }
-}
-
 
 export async function getWalletAddress() {
   return "0x471d4424e1016a256a256a8d13283522302cb020a4d2";
@@ -307,6 +269,9 @@ export async function syncInviteCodes() {
 
       if (!Object.prototype.hasOwnProperty.call(userData, 'bonoDirecto')) {
         userUpdate.bonoDirecto = 0;
+      }
+      if (!Object.prototype.hasOwnProperty.call(userData, 'bonoEntregado')) {
+        userUpdate.bonoEntregado = false;
       }
       if (!Object.prototype.hasOwnProperty.call(userData, 'bonoRetirable')) {
         userUpdate.bonoRetirable = 0;
@@ -351,49 +316,56 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
             const referralSnap = await transaction.get(referralRef);
             if (!referralSnap.exists) {
                 console.warn(`[processInitialBonus] Intento de reclamar bono para referido no existente: ${referralId}`);
-                throw new Error('El usuario referido ya no existe en el sistema.');
+                return 'El usuario referido ya no existe en el sistema. No se puede procesar el bono.';
             }
             const referralData = referralSnap.data() as UserProfile;
 
             if (referralData.invitadoPor !== sponsorId) {
-                throw new Error('No tienes permiso para reclamar este bono.');
+                return 'No tienes permiso para reclamar este bono.';
             }
-            if (!referralData.hasUnclaimedBonuses) {
-                throw new Error('Este usuario no tiene bonos nuevos para reclamar.');
+            if (referralData.bonoEntregado !== true) {
+                return 'Este bono no está listo para ser reclamado o ya fue procesado.';
             }
 
             const sponsorSnap = await transaction.get(sponsorRef);
             if (!sponsorSnap.exists) {
                 console.warn(`[processInitialBonus] Patrocinador no encontrado para el referido ${referralId}. Patrocinador ID: ${sponsorId}`);
-                transaction.update(referralRef, { hasUnclaimedBonuses: false }); // Mark as processed even if sponsor not found
-                throw new Error('El patrocinador original no fue encontrado. El bono no pudo ser entregado.');
+                transaction.update(referralRef, { bonoEntregado: 'reclamado_sin_patrocinador' });
+                return 'El patrocinador original no fue encontrado. El bono no pudo ser entregado, pero se marcó como procesado.';
             }
             const sponsorData = sponsorSnap.data() as UserProfile;
 
-            const sponsorTotalInvested = sponsorData.totalInvested ?? 0;
-            if (sponsorTotalInvested <= 0) {
-                throw new Error('Necesitas una inversión activa para cobrar comisiones de red.');
-            }
-            
-            const investmentsQuery = referralRef.collection('investments').where('bonusPaid', '==', false);
-            const newInvestmentsSnap = await transaction.get(investmentsQuery);
-
-            if (newInvestmentsSnap.empty) {
-                transaction.update(referralRef, { hasUnclaimedBonuses: false });
-                throw new Error('No se encontraron nuevas inversiones para comisionar.');
+            const sponsorPlan = sponsorData.planActivo ?? 0;
+            if (sponsorPlan <= 0) {
+                return 'Bono no pagado: El patrocinador necesita un plan activo para recibir comisiones.';
             }
 
-            let totalCommission = 0;
-            newInvestmentsSnap.docs.forEach(doc => {
-                const investment = doc.data();
-                totalCommission += investment.amount * 0.10;
-                transaction.update(doc.ref, { bonusPaid: true });
-            });
+            const investmentDifference = (referralData.planActivo ?? 0) - (referralData.inversionAnterior ?? 0);
+            if (investmentDifference <= 0) {
+                return 'No hay nueva inversión para comisionar.';
+            }
 
-            if (totalCommission > 0) {
+            const potentialCommission = investmentDifference * 0.10;
+            const sponsorBonos = sponsorData.bonoDirecto ?? 0;
+            const sponsorMaxBonus = sponsorPlan * 3;
+
+            if (sponsorBonos >= sponsorMaxBonus) {
+                transaction.update(referralRef, { 
+                    bonoEntregado: 'reclamado',
+                    inversionAnterior: referralData.planActivo ?? 0
+                });
+                return 'Límite de ganancias del patrocinador (300%) alcanzado. El bono no fue entregado.';
+            }
+
+            const availableRoom = sponsorMaxBonus - sponsorBonos;
+            const payableCommission = Math.round(Math.min(potentialCommission, availableRoom) * 100) / 100;
+
+            let message: string;
+
+            if (payableCommission > 0) {
                 transaction.update(sponsorRef, {
-                    bonoDirecto: FieldValue.increment(totalCommission),
-                    bonoRetirable: FieldValue.increment(totalCommission),
+                    bonoDirecto: FieldValue.increment(payableCommission),
+                    bonoRetirable: FieldValue.increment(payableCommission),
                 });
 
                 const sponsorTransactionRef = sponsorRef.collection('transacciones').doc();
@@ -401,13 +373,24 @@ export async function processInitialBonus(referralId: string, sponsorId: string)
                     fecha: new Date().toISOString(),
                     tipo: 'Bono Directo',
                     descripcion: `Comisión por inversión de ${referralData.name}`,
-                    monto: totalCommission
+                    monto: payableCommission
                 });
+                
+                if (payableCommission < potentialCommission) {
+                    message = `Bono parcial de ${payableCommission.toFixed(2)} USDT reclamado. Patrocinador alcanzó el límite del 300%.`;
+                } else {
+                    message = `¡Bono de ${payableCommission.toFixed(2)} USDT reclamado con éxito!`;
+                }
+            } else {
+                message = 'El bono no pudo ser pagado porque el patrocinador no tenía margen de ganancia.';
             }
 
-            transaction.update(referralRef, { hasUnclaimedBonuses: false });
+            transaction.update(referralRef, { 
+                bonoEntregado: 'reclamado',
+                inversionAnterior: referralData.planActivo ?? 0
+            });
 
-            return `¡Bono de ${totalCommission.toFixed(2)} USDT reclamado con éxito!`;
+            return message;
         });
 
         return { success: true, message: resultMessage };
@@ -430,30 +413,50 @@ const withdrawalSchema = z.object({
   withdrawalType: z.enum(['referral', 'main']),
 });
 
-async function calculateProgressiveEarnings(db: system.firestore.Firestore, userId: string, consolidationTime: Date): Promise<{ earnings: number, investments: any[] }> {
+async function calculateProgressiveEarnings(db: system.firestore.Firestore, user: UserProfile, consolidationTime: Date): Promise<number> {
     let totalEarned = 0;
-    
-    const investmentsRef = db.collection('users').doc(userId).collection('investments');
-    const activeInvestmentsSnap = await investmentsRef.where('status', '==', 'active').get();
-    
-    if (activeInvestmentsSnap.empty) {
-        return { earnings: 0, investments: [] };
-    }
-    
-    activeInvestmentsSnap.forEach(doc => {
-        const inv = doc.data();
-        const startDate = new Date(inv.startDate);
-        const diffTime = consolidationTime.getTime() - startDate.getTime();
-        
-        if (diffTime > 0) {
-            const diffDays = diffTime / (1000 * 60 * 60 * 24);
-            const earningForThisInvestment = inv.amount * inv.dailyRate * diffDays;
-            const maxEarningForThis = (inv.amount * 3) - inv.earningsGenerated;
-            totalEarned += Math.min(earningForThisInvestment, maxEarningForThis);
-        }
-    });
+    const lastConsolidationDate = user.lastConsolidation ? new Date(user.lastConsolidation) : new Date(user.fechaRegistro || consolidationTime);
 
-    return { earnings: totalEarned, investments: activeInvestmentsSnap.docs.map(d => d.data()) };
+    // 1. Consolidate ROI
+    const planActivo = user.planActivo ?? 0;
+    if (planActivo > 0 && user.fechaInicioPlan && user.estadoPlan === 'activo') {
+        const startDate = new Date(user.fechaInicioPlan);
+        const calculationStartDate = startDate > lastConsolidationDate ? startDate : lastConsolidationDate;
+        const diffTime = consolidationTime.getTime() - calculationStartDate.getTime();
+        if (diffTime > 0) {
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            if (diffDays > 0) {
+                const dailyRate = getDailyRate(planActivo, user.isVip ?? false);
+                const earnedROI = planActivo * dailyRate * diffDays;
+                totalEarned += earnedROI;
+            }
+        }
+    }
+
+    // 2. Consolidate Primary Residual Bonus
+    if ((user.planActivo ?? 0) >= 101) {
+        const referralsSnapshot = await db.collection('users').where('invitadoPor', '==', user.uid).get();
+        if (!referralsSnapshot.empty) {
+            let residualBonus = 0;
+            referralsSnapshot.forEach(refDoc => {
+                const refData = refDoc.data() as UserProfile;
+                if ((refData.planActivo ?? 0) >= 20 && refData.estadoPlan !== 'vencido' && refData.fechaInicioPlan) {
+                    const refStartDate = new Date(refData.fechaInicioPlan);
+                    const calculationStartDate = refStartDate > lastConsolidationDate ? refStartDate : lastConsolidationDate;
+                    const diffTime = consolidationTime.getTime() - calculationStartDate.getTime();
+                    if (diffTime > 0) {
+                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                        if (diffDays > 0) {
+                            const dailyBonus = (refData.planActivo ?? 0) * 0.01;
+                            residualBonus += dailyBonus * diffDays;
+                        }
+                    }
+                }
+            });
+            totalEarned += residualBonus;
+        }
+    }
+    return totalEarned;
 }
 
 export async function createWithdrawalToken(values: z.infer<typeof withdrawalSchema>): Promise<{ success: true, token: string } | { error: string }> {
@@ -463,21 +466,6 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
     const userRef = systemDb.collection('users').doc(user.uid);
     const token = `COMPROBANTE-${Math.floor(1000000000 + Math.random() * 9000000000)}`;
     const now = new Date();
-    
-    const londonTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/London' }));
-    const day = londonTime.getDate();
-
-    if (withdrawalType === 'main') {
-        const isWithdrawalDay = [10, 20, 30].includes(day);
-        if (!isWithdrawalDay) {
-            throw new Error('Retiros de Saldo Actual disponibles solo los días 10, 20 y 30 (00:00 a 23:59, hora de Londres).');
-        }
-    } else { // referral
-        const isWithdrawalDay = [10, 20, 30].includes(day);
-        if (isWithdrawalDay) {
-            throw new Error('Retiros de Bono Referido NO están disponibles los días 10, 20 y 30.');
-        }
-    }
 
     await systemDb.runTransaction(async (transaction) => {
         const userSnap = await transaction.get(userRef);
@@ -487,36 +475,49 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
         const dbUser = userSnap.data() as UserProfile;
         
         let tipoRetiroForDb: 'bono_referido' | 'saldo_actual';
-        let availableBalance = 0;
         
         if (withdrawalType === 'referral') {
             tipoRetiroForDb = 'bono_referido';
-            availableBalance = dbUser.bonoRetirable ?? 0;
-            if (amount > availableBalance) {
-                throw new Error(`Saldo de bono insuficiente. Disponible: ${availableBalance.toFixed(2)} USDT.`);
+            const bonoRetirable = dbUser.bonoRetirable ?? 0;
+            if (amount > bonoRetirable) {
+                throw new Error(`Saldo de bono insuficiente. Disponible: ${bonoRetirable.toFixed(2)} USDT.`);
             }
             
             transaction.update(userRef, {
                 bonoRetirable: FieldValue.increment(-amount),
+                retirosTotales: FieldValue.increment(amount),
             });
 
         } else { // withdrawalType === 'main'
             tipoRetiroForDb = 'saldo_actual';
-            const { earnings } = await calculateProgressiveEarnings(systemDb, user.uid, now);
-            availableBalance = earnings;
+            const ukTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/London' }));
+            const day = ukTime.getDate();
+            const hour = ukTime.getHours();
+            
+            const isWithdrawalDay = [10, 20, 30].includes(day);
+            const isWithdrawalTime = hour >= 6;
 
-            if (amount > availableBalance) {
-                throw new Error(`Saldo de ganancias insuficiente. Disponible: ${availableBalance.toFixed(2)} USDT.`);
+            if (!isWithdrawalDay || !isWithdrawalTime) {
+                throw new Error('Retiros de Saldo Actual disponibles solo los días 10, 20 y 30, a partir de las 6:00 AM (Hora de Londres).');
             }
             
-            // This needs a more complex update logic to zero out earnings, which is hard in a single transaction.
-            // For now, we assume the client-side calculation is a good enough check and the server will re-consolidate later.
-            // This is a simplification to avoid a very complex transaction.
-            // A better approach would be a Cloud Function to handle consolidation.
+            const earnedAmount = await calculateProgressiveEarnings(systemDb, dbUser, now);
             
-            // We can't reliably subtract from a calculated value. Instead we log what should be done.
-            // Let's create the token and let a backend process handle the balance update post-withdrawal.
-            // For now, the user's total balance won't reflect this withdrawal until next consolidation. This is a known limitation.
+            transaction.update(userRef, {
+                saldoUSDT: FieldValue.increment(earnedAmount),
+                lastConsolidation: now.toISOString(),
+            });
+            
+            const consolidatedSaldoUSDT = (dbUser.saldoUSDT ?? 0) + earnedAmount;
+            
+            if (amount > consolidatedSaldoUSDT) {
+                throw new Error(`Saldo actual insuficiente. Disponible: ${consolidatedSaldoUSDT.toFixed(2)} USDT.`);
+            }
+
+            transaction.update(userRef, {
+                saldoUSDT: FieldValue.increment(-amount),
+                retirosTotales: FieldValue.increment(amount),
+            });
         }
         
         const tokenRef = systemDb.collection('retiro_tokens').doc();
@@ -529,11 +530,6 @@ export async function createWithdrawalToken(values: z.infer<typeof withdrawalSch
           uid: user.uid,
           tipoRetiro: tipoRetiroForDb,
           fechaUK: now.toLocaleString('en-GB', { timeZone: 'Europe/London' }),
-        });
-        
-        // This is a temporary measure, total withdrawals should be tracked more robustly.
-        transaction.update(userRef, {
-            retirosTotales: FieldValue.increment(amount)
         });
     });
 
@@ -563,40 +559,41 @@ export async function claimAndFinalizeCycle(userId: string): Promise<{success: t
       }
       const userData = userSnap.data() as UserProfile;
 
-      const totalInvested = userData.totalInvested ?? 0;
-      if (totalInvested <= 0) {
+      const planActivo = userData.planActivo ?? 0;
+      if (planActivo <= 0) {
         throw new Error('No hay un plan activo para reclamar.');
       }
       
-      const { earnings } = await calculateProgressiveEarnings(systemDb, userId, new Date());
-      const totalGenerated = earnings + (userData.bonoDirecto ?? 0);
-      const cap = totalInvested * 3;
-
-      if (totalGenerated < cap) {
-          throw new Error(`Aún no has alcanzado el límite de retorno del 300%. Llevas ${totalGenerated.toFixed(2)} de ${cap.toFixed(2)} USDT.`);
+      if (userData.estadoPlan === 'vencido') {
+        throw new Error('Este ciclo ya ha sido reclamado y está vencido.');
       }
 
-      const investmentsQuery = userRef.collection('investments');
-      const investmentsSnap = await transaction.get(investmentsQuery);
+      // --- Final Consolidation ---
+      const now = new Date();
+      const finalEarnings = await calculateProgressiveEarnings(systemDb, userData, now);
 
-      investmentsSnap.docs.forEach(doc => {
-          transaction.update(doc.ref, { status: 'completed' });
-      });
+      const expirationDate = new Date();
+      expirationDate.setDate(expirationDate.getDate() + 3);
 
       transaction.update(userRef, {
-        saldoUSDT: FieldValue.increment(earnings), // Add final earnings to wallet
-        totalInvested: 0,
+        saldoUSDT: FieldValue.increment(finalEarnings),
+        planActivo: 0,
+        inversionAnterior: 0,
+        fechaInicioPlan: null,
+        estadoPlan: 'vencido',
+        fechaVencimiento: expirationDate.toISOString(),
+        lastConsolidation: now.toISOString(),
       });
       
       const transactionRef = userRef.collection('transacciones').doc();
        transaction.set(transactionRef, {
         fecha: new Date().toISOString(),
         tipo: 'Ciclo Finalizado',
-        descripcion: `Ciclo de ${totalInvested} USDT completado. Puedes activar una nueva inversión.`,
-        monto: earnings,
+        descripcion: `Ciclo de ${planActivo} USDT completado. Cuenta congelada.`,
+        monto: 0,
       });
 
-      return '¡Ciclo completado con éxito! El saldo ha sido transferido a tu billetera.';
+      return '¡Ciclo completado con éxito! El plan ha sido finalizado.';
     });
 
     return { success: true, message: resultMessage };
@@ -626,7 +623,7 @@ export async function getSecondLevelReferrals(directReferralId: string): Promise
           uid: doc.id,
           name: data.name || '',
           email: data.email || '',
-          totalInvested: data.totalInvested ?? 0,
+          planActivo: data.planActivo ?? 0,
         } as UserProfile;
       });
 
@@ -649,30 +646,73 @@ export async function reconcileAccount(userId: string): Promise<{success: true, 
     try {
         const userSnap = await userRef.get();
         if (!userSnap.exists) {
-          // Instead of throwing an error, just log a warning and gracefully exit.
           console.warn(`[reconcileAccount] User with ID ${userId} not found. Skipping reconciliation.`);
           return { success: true, message: `User ${userId} not found, reconciliation skipped.` };
         }
         const userData = userSnap.data() as UserProfile;
-        
-        const { earnings } = await calculateProgressiveEarnings(systemDb, userId, now);
 
-        const totalLifetimeDirect = userData.bonoDirecto || 0;
-        const allTimeEarnings = earnings + totalLifetimeDirect;
-        const cap = (userData.totalInvested ?? 0) * 3;
-        const finalAuditedBalance = parseFloat(Math.min(allTimeEarnings, cap > 0 ? cap : Infinity).toFixed(2));
-  
-        // Overwrite if different from the generated earnings part of the balance
-        // This is tricky. Let's just focus on fixing the bug for now.
-        // The logic for what `saldoUSDT` represents is mixed.
-        // For now, let's assume `reconcile` is not the right place to touch saldoUSDT.
-        // The primary bug was in a previous version of this function. Let's ensure that's fixed and the app runs.
-        // Re-evaluating the balance logic is a bigger task.
+        const planActivo = userData.planActivo ?? 0;
+        let totalAuditedEarnings = 0;
         
+        if (planActivo > 0 && userData.fechaInicioPlan && userData.estadoPlan !== 'vencido') {
+            const startDate = new Date(userData.fechaInicioPlan);
+            const diffTime = now.getTime() - startDate.getTime();
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            if (diffDays > 0) {
+                const dailyRate = getDailyRate(planActivo, userData.isVip ?? false);
+                totalAuditedEarnings += planActivo * dailyRate * diffDays;
+            }
+        }
+        
+        if ((userData.planActivo ?? 0) >= 101) {
+            const referralsSnapshot = await systemDb.collection('users').where('invitadoPor', '==', userData.uid).get();
+            if (!referralsSnapshot.empty) {
+                let residualBonus = 0;
+                for (const refDoc of referralsSnapshot.docs) {
+                    try {
+                        const refData = refDoc.data() as UserProfile;
+                        if ((refData.planActivo ?? 0) >= 20 && refData.estadoPlan !== 'vencido' && refData.fechaInicioPlan) {
+                            const refStartDate = new Date(refData.fechaInicioPlan);
+                             if (isNaN(refStartDate.getTime())) {
+                                console.warn(`[reconcileAccount] Invalid startDate for referral ${refDoc.id}. Skipping bonus calculation for this referral.`);
+                                continue;
+                            }
+                            const diffTime = now.getTime() - refStartDate.getTime();
+                            if (diffTime > 0) {
+                                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                                if (diffDays > 0) {
+                                    const dailyBonus = (refData.planActivo ?? 0) * 0.01;
+                                    residualBonus += dailyBonus * diffDays;
+                                }
+                            }
+                        }
+                    } catch (e: any) {
+                        console.error(`[reconcileAccount] Failed to process referral ${refDoc.id} for user ${userId}. Error: ${e.message}. Skipping this referral.`);
+                    }
+                }
+                totalAuditedEarnings += residualBonus;
+            }
+        }
+
+        const finalAuditedBalance = parseFloat(totalAuditedEarnings.toFixed(2));
+  
+        if (userData.saldoUSDT !== finalAuditedBalance) {
+          await userRef.update({
+            saldoUSDT: finalAuditedBalance,
+          });
+          return { success: true, message: `Cuenta auditada. Saldo corregido a ${finalAuditedBalance.toFixed(2)} USDT.` };
+        }
+
+        return { success: true, message: 'La cuenta ya estaba sincronizada.' };
+  
     } catch (error: any) {
-      console.error(`Error en reconcileAccount para el usuario ${userId}:`, error.message);
-      return { error: `Error del Servidor durante la conciliación: ${error.message}` };
+        if (error.code === 5) { // 5 = gRPC status code for NOT_FOUND
+            console.warn(`[reconcileAccount] User ${userId} was not found during final update, possibly deleted mid-reconciliation. Skipping.`);
+            return { success: true, message: 'User was deleted during reconciliation; process skipped.' };
+        }
+        console.error(`Error en reconcileAccount para el usuario ${userId}:`, error.message);
+        return { error: `Error del Servidor durante la conciliación: ${error.message}` };
     }
-    return { success: true, message: 'Reconciliation check complete.' };
 }
+
     
