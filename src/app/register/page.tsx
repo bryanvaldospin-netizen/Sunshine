@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { Logo } from '@/components/logo';
 import SplashScreen from '@/components/splash-screen';
 import { useForm } from 'react-hook-form';
@@ -43,16 +43,9 @@ const formSchema = z.object({
   }),
 });
 
-export default function RegisterPage() {
+function RegisterPageContent() {
   const { firebaseUser, loading } = useAuth();
   const router = useRouter();
-
-  useEffect(() => {
-    if (!loading && firebaseUser) {
-      router.replace('/dashboard');
-    }
-  }, [loading, firebaseUser, router]);
-
   const { toast } = useToast();
   const { t } = useTranslation();
   const searchParams = useSearchParams();
@@ -76,6 +69,11 @@ export default function RegisterPage() {
     }
   }, [searchParams, form]);
 
+  useEffect(() => {
+    if (!loading && firebaseUser) {
+      router.replace('/dashboard');
+    }
+  }, [loading, firebaseUser, router]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     const result = await registerUser(values);
@@ -121,126 +119,135 @@ export default function RegisterPage() {
   }
 
   return (
+    <div className="w-full max-w-md">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-golden to-red-800">
+            {t('auth.register')}
+          </CardTitle>
+          <CardDescription>Crea tu cuenta para empezar a invertir.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre Completo</FormLabel>
+                    <FormControl>
+                      <Input placeholder="John Doe" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('auth.email')}</FormLabel>
+                    <FormControl>
+                      <Input placeholder="usuario@sunshine.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('auth.password')}</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="••••••••" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="walletAddress"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Billetera USDT (BEP-20)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Introduce tu dirección de billetera única" {...field} />
+                    </FormControl>
+                    <FormDescription className="text-xs text-muted-foreground">
+                      Esta billetera se vinculará a tu cuenta y no podrá ser usada en otra.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="sponsorCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Código de Patrocinador (Opcional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Código de quien te invitó" {...field} />
+                    </FormControl>
+                    <FormDescription className="text-xs text-muted-foreground">
+                      Si llegaste a través de un enlace de referido, este campo se llenará solo.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="terms"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md p-4">
+                    <FormControl>
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel className="text-sm font-normal">
+                        {t('auth.terms')}{' '}
+                        <TermsAndConditionsModal>
+                          <span className="text-accent hover:underline cursor-pointer">{t('auth.termsLink')}</span>
+                        </TermsAndConditionsModal>
+                      </FormLabel>
+                      <FormMessage />
+                    </div>
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" className="w-full bg-gradient-to-r from-golden to-red-800 text-white" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? 'Creando cuenta...' : t('auth.createAccount')}
+              </Button>
+            </form>
+          </Form>
+          <div className="mt-4 text-center text-sm">
+            {t('auth.haveAccount')}{' '}
+            <Link href="/login" className="underline text-accent">
+              Inicia Sesión
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+
+export default function RegisterPage() {
+  return (
     <main className="flex min-h-screen flex-col items-center justify-center p-4">
       <div className="absolute top-8 left-8">
         <Logo />
       </div>
-      <div className="w-full max-w-md">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-golden to-red-800">
-              {t('auth.register')}
-            </CardTitle>
-            <CardDescription>Crea tu cuenta para empezar a invertir.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nombre Completo</FormLabel>
-                      <FormControl>
-                        <Input placeholder="John Doe" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('auth.email')}</FormLabel>
-                      <FormControl>
-                        <Input placeholder="usuario@sunshine.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('auth.password')}</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="••••••••" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="walletAddress"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Billetera USDT (BEP-20)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Introduce tu dirección de billetera única" {...field} />
-                      </FormControl>
-                      <FormDescription className="text-xs text-muted-foreground">
-                        Esta billetera se vinculará a tu cuenta y no podrá ser usada en otra.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="sponsorCode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Código de Patrocinador (Opcional)</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Código de quien te invitó" {...field} />
-                      </FormControl>
-                      <FormDescription className="text-xs text-muted-foreground">
-                        Si llegaste a través de un enlace de referido, este campo se llenará solo.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="terms"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md p-4">
-                      <FormControl>
-                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel className="text-sm font-normal">
-                          {t('auth.terms')}{' '}
-                          <TermsAndConditionsModal>
-                            <span className="text-accent hover:underline cursor-pointer">{t('auth.termsLink')}</span>
-                          </TermsAndConditionsModal>
-                        </FormLabel>
-                        <FormMessage />
-                      </div>
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full bg-gradient-to-r from-golden to-red-800 text-white" disabled={form.formState.isSubmitting}>
-                  {form.formState.isSubmitting ? 'Creando cuenta...' : t('auth.createAccount')}
-                </Button>
-              </form>
-            </Form>
-            <div className="mt-4 text-center text-sm">
-              {t('auth.haveAccount')}{' '}
-              <Link href="/login" className="underline text-accent">
-                Inicia Sesión
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <Suspense fallback={<SplashScreen />}>
+        <RegisterPageContent />
+      </Suspense>
     </main>
   );
 }
