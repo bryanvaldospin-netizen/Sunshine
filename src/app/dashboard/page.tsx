@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, Fragment } from 'react';
@@ -44,6 +43,8 @@ import { APP_DOMAIN } from '@/lib/config';
 import { UpdateNoticeModal } from '@/components/update-notice';
 import { Header } from '@/components/header';
 import SplashScreen from '@/components/splash-screen';
+
+export const dynamic = 'force-dynamic';
 
 const investmentSchema = z.object({
   amount: z.coerce.number().positive('El monto debe ser positivo.'),

@@ -29,6 +29,8 @@ import Link from 'next/link';
 import { signInWithCustomToken } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
+export const dynamic = 'force-dynamic';
+
 // Updated schema to remove user-created invite code
 const formSchema = z.object({
   name: z.string().min(2, { message: 'El nombre debe tener al menos 2 caracteres.' }),
