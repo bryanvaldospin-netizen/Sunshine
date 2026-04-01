@@ -5,7 +5,7 @@ import { onAuthStateChanged, User as FirebaseUser, setPersistence, browserLocalP
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { UserProfile } from '@/types';
-import { reconcileAccount } from '@/lib/actions';
+// import { reconcileAccount } from '@/lib/actions'; // This call was causing server instability.
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -43,14 +43,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
 
       if (currentFirebaseUser) {
-        // Run reconciliation silently in the background. No need to await.
-        reconcileAccount(currentFirebaseUser.uid).then(result => {
-          if (result && 'success' in result && !result.message.includes('ya estaba sincronizada')) {
-            console.log(`Reconciliation for ${currentFirebaseUser.uid}: ${result.message}`);
-          } else if (result && 'error' in result) {
-            console.error(`Reconciliation failed for ${currentFirebaseUser.uid}: ${result.error}`);
-          }
-        });
+        // The reconcileAccount call has been removed from here. It was causing critical server-side errors
+        // in the deployment environment due to token refresh issues.
+        // The core logic (consolidateUserEarnings) is still correctly called within critical server
+        // actions like `createWithdrawalToken`, ensuring data consistency where it matters most.
 
         setFirebaseUser(currentFirebaseUser);
         
