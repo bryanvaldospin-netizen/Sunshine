@@ -83,10 +83,15 @@ const DepositSection = () => {
                     </div>
                 </div>
                 <div>
-                    <Label className="text-gray-400">Paso 2: Notificar a Soporte</Label>
+                    <Label className="text-gray-400">Paso 2: Notificar Depósito</Label>
                      <p className="text-sm text-gray-300">
-                        Una vez realizada la transferencia, contacta a soporte técnico con el comprobante (ID de transacción) para que tu saldo sea acreditado en tu billetera.
+                        Una vez realizada la transferencia, completa el siguiente formulario para que tu saldo sea acreditado. Necesitarás el ID o hash de la transacción.
                     </p>
+                     <Button asChild className="w-full mt-4 bg-golden text-black hover:bg-amber-400">
+                        <a href="https://form.jotform.com/260687723494065" target="_blank" rel="noopener noreferrer">
+                            Notificar Depósito en Jotform
+                        </a>
+                    </Button>
                 </div>
             </CardContent>
         </Card>
