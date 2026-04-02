@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +9,9 @@ import { Send, Sparkles, User } from 'lucide-react';
 import { asistenteVirtual, type AssistantInput } from '@/ai/flows/asistente-flow';
 import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot, query } from 'firebase/firestore';
+import type { Investment } from '@/types';
 
 type Message = {
   role: 'user' | 'model';
@@ -18,11 +21,26 @@ type Message = {
 export default function AsistentePage() {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
+  const [investments, setInvestments] = useState<Investment[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const investmentsQuery = query(collection(db, 'users', user.uid, 'investments'));
+    const unsubscribe = onSnapshot(investmentsQuery, (snapshot) => {
+      const invs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Investment));
+      setInvestments(invs);
+    }, (error) => {
+        console.error("Error fetching investments for assistant:", error);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
   const handleSendMessage = async () => {
-    if (input.trim() === '') return;
+    if (input.trim() === '' || !user) return;
 
     const userMessage: Message = { role: 'user', content: input };
     setMessages((prev) => [...prev, userMessage]);
@@ -34,10 +52,21 @@ export default function AsistentePage() {
             role: msg.role,
             content: [{ text: msg.content }]
         }));
+        
+        const userContext = `
+Nombre: ${user.name}
+Email: ${user.email}
+Inversiones:
+${investments.length > 0 
+    ? investments.map(inv => `  - Plan de ${inv.amount.toFixed(2)} USDT (${inv.status}). Iniciado el ${new Date(inv.startDate).toLocaleDateString('es-ES')}.`).join('\n')
+    : 'El usuario no tiene inversiones activas actualmente.'
+}
+`;
 
       const result = await asistenteVirtual({
         history: historyForApi,
         message: input,
+        userContext: userContext,
       });
 
       const modelMessage: Message = { role: 'model', content: result };
