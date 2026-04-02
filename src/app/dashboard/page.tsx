@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Globe, Gem, Shield, Crown, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon, User as UserIcon, Wallet, Info, ChevronRight, AlertTriangle, Copy } from 'lucide-react';
+import { Globe, Gem, Shield, Crown, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon, User as UserIcon, Wallet, Info, ChevronRight, AlertTriangle, Copy, Sparkles } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, onSnapshot, doc, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -1073,10 +1073,11 @@ export default function DashboardPage() {
           </header>
 
           <Tabs defaultValue="inicio" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 bg-gray-800/50 rounded-none sticky top-16 z-40 backdrop-blur-sm">
+            <TabsList className="grid w-full grid-cols-4 bg-gray-800/50 rounded-none sticky top-16 z-40 backdrop-blur-sm">
               <TabsTrigger value="inicio"><Home className="mr-2 h-4 w-4" /> Inicio</TabsTrigger>
               <TabsTrigger value="profile" asLink href="/profile"><UserIcon className="mr-2 h-4 w-4" />{t('profile.title')}</TabsTrigger>
               <TabsTrigger value="mi-red"><Users className="mr-2 h-4 w-4" /> Mi Red</TabsTrigger>
+              <TabsTrigger value="asistente" asLink href="/asistente"><Sparkles className="mr-2 h-4 w-4" /> Asistente</TabsTrigger>
             </TabsList>
             <TabsContent value="inicio">
               <div className="p-4 md:p-8">
