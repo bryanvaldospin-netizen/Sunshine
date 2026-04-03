@@ -898,11 +898,6 @@ export default function DashboardPage() {
   const [directReferrals, setDirectReferrals] = useState<UserProfile[]>([]);
   const [investments, setInvestments] = useState<Investment[]>([]);
   const [networkLoading, setNetworkLoading] = useState(true);
-  const [renderTime, setRenderTime] = useState<Date | null>(null);
-
-  useEffect(() => {
-    setRenderTime(new Date()); 
-  }, []);
 
   useEffect(() => {
     if (!authLoading && !firebaseUser) {
@@ -957,36 +952,72 @@ export default function DashboardPage() {
     return () => unsubscribe();
   }, [profile?.uid]);
   
-  const { mainBalance, referralBalance, totalLifetimeEarnings, primaryResidualBonus, totalInvested, totalEarningsCap } = useMemo(() => {
-    if (!profile || authLoading || !renderTime) {
-      return { mainBalance: 0, referralBalance: 0, totalLifetimeEarnings: 0, primaryResidualBonus: 0, totalInvested: 0, totalEarningsCap: 0 };
+  const { displayWalletBalance, referralBalance, totalLifetimeEarnings, primaryResidualBonus, totalInvested, totalEarningsCap } = useMemo(() => {
+    const defaultValues = { displayWalletBalance: 0, referralBalance: 0, totalLifetimeEarnings: 0, primaryResidualBonus: 0, totalInvested: 0, totalEarningsCap: 0 };
+    
+    if (!profile || authLoading) {
+      return defaultValues;
     }
 
+    const now = new Date();
+    let unconsolidatedEarnings = 0;
+    let dbGeneratedEarnings = 0;
+    
+    if (investments) {
+        investments.forEach(inv => {
+            dbGeneratedEarnings += inv.earningsGenerated ?? 0;
+            
+            if (inv.status === 'active') {
+                const lastUpdatedTime = inv.lastUpdated ? new Date(inv.lastUpdated) : new Date(inv.startDate);
+                const diffTime = now.getTime() - lastUpdatedTime.getTime();
+                
+                let newEarning = 0;
+                if (diffTime > 0) {
+                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                    newEarning = inv.amount * inv.dailyRate * diffDays;
+                }
+                
+                const maxEarningForPlan = inv.amount * 3;
+                const currentGenerated = inv.earningsGenerated ?? 0;
+                
+                if (currentGenerated + newEarning > maxEarningForPlan) {
+                    newEarning = maxEarningForPlan - currentGenerated;
+                    if (newEarning < 0) newEarning = 0;
+                }
+                
+                unconsolidatedEarnings += newEarning;
+            }
+        });
+    }
+
+    const walletForDisplay = (profile.saldoUSDT ?? 0) + unconsolidatedEarnings;
+    const lifetimeForDisplay = dbGeneratedEarnings + unconsolidatedEarnings;
+
     return { 
-        mainBalance: profile.saldoUSDT ?? 0,
+        displayWalletBalance: walletForDisplay,
         referralBalance: profile.bonoRetirable ?? 0,
-        totalLifetimeEarnings: 0, // This is too complex to calculate client-side accurately now.
-        primaryResidualBonus: 0, // Same.
+        totalLifetimeEarnings: lifetimeForDisplay,
+        primaryResidualBonus: 0, // Not implemented
         totalInvested: profile.totalInvested ?? 0,
         totalEarningsCap: (profile.totalInvested ?? 0) * 3,
     };
-  }, [profile, authLoading, renderTime]);
+  }, [profile, authLoading, investments]);
 
 
   const statItems = useMemo(() => {
     if (!profile) {
       return [
         { title: t('dashboard.totalInvestment'), value: 0, icon: PiggyBank },
-        { title: t('dashboard.generatedEarnings'), value: profile?.saldoUSDT ?? 0, icon: TrendingUp },
+        { title: t('dashboard.generatedEarnings'), value: 0, icon: TrendingUp },
         { title: t('dashboard.totalWithdrawals'), value: 0, icon: CircleDollarSign },
       ];
     }
     return [
       { title: t('dashboard.totalInvestment'), value: totalInvested, icon: PiggyBank },
-      { title: t('dashboard.generatedEarnings'), value: profile.saldoUSDT, icon: TrendingUp },
+      { title: t('dashboard.generatedEarnings'), value: totalLifetimeEarnings, icon: TrendingUp },
       { title: t('dashboard.totalWithdrawals'), value: profile.retirosTotales ?? 0, icon: CircleDollarSign },
     ];
-  }, [t, profile, totalInvested]);
+  }, [t, profile, totalInvested, totalLifetimeEarnings]);
 
   const [chartData, setChartData] = useState<any[]>([]);
   const statsLoading = authLoading;
@@ -999,7 +1030,7 @@ export default function DashboardPage() {
 
     const points = 7;
     const data = [];
-    const earnings = profile.saldoUSDT ?? 0;
+    const earnings = displayWalletBalance;
     for (let i = 0; i < points; i++) {
         const date = new Date();
         date.setDate(date.getDate() - (points - 1 - i));
@@ -1018,7 +1049,7 @@ export default function DashboardPage() {
     }
 
     setChartData(data);
-  }, [profile?.saldoUSDT, authLoading, profile]);
+  }, [displayWalletBalance, authLoading, profile]);
   
 
   const handleLogout = async () => {
@@ -1035,7 +1066,7 @@ export default function DashboardPage() {
   }
 
   const userName = profile?.name || t('dashboard.investor');
-  const progress = totalEarningsCap > 0 ? (mainBalance / totalEarningsCap) * 100 : 0;
+  const progress = totalEarningsCap > 0 ? (totalLifetimeEarnings / totalEarningsCap) * 100 : 0;
   
   const chartConfig = {
     balance: {
@@ -1103,7 +1134,7 @@ export default function DashboardPage() {
                             {authLoading ? (
                                 <Skeleton className="h-12 w-1/2 mx-auto bg-gray-700" />
                             ) : (
-                                <p className="text-5xl font-bold text-green-400">{formatCurrency(profile?.saldoUSDT ?? 0)}</p>
+                                <p className="text-5xl font-bold text-green-400">{formatCurrency(displayWalletBalance)}</p>
                             )}
                             </CardContent>
                         </Card>
@@ -1166,7 +1197,7 @@ export default function DashboardPage() {
                                 ) : totalInvested > 0 ? (
                                     <div className="space-y-2">
                                         <p className="text-lg">Inversión Total Activa: <span className="font-bold text-golden">{formatCurrency(totalInvested)} USDT</span></p>
-                                        <p className="text-lg">Ganancias Totales Acumuladas: <span className="font-bold text-green-400">{formatCurrency(mainBalance)}</span> / <span className="text-sm text-gray-400" title="Límite de Retorno (300%)">{formatCurrency(totalEarningsCap)}</span></p>
+                                        <p className="text-lg">Ganancias Totales Acumuladas: <span className="font-bold text-green-400">{formatCurrency(totalLifetimeEarnings)}</span> / <span className="text-sm text-gray-400" title="Límite de Retorno (300%)">{formatCurrency(totalEarningsCap)}</span></p>
                                     </div>
                                 ) : (
                                     <p>No tienes un plan activo. Realiza un depósito y activa una inversión para obtener uno.</p>
@@ -1188,7 +1219,7 @@ export default function DashboardPage() {
 
                     {profile && !authLoading && (
                       <div className="w-full max-w-5xl">
-                        <WithdrawalSection user={profile} mainBalance={mainBalance} referralBalance={referralBalance} />
+                        <WithdrawalSection user={profile} mainBalance={displayWalletBalance} referralBalance={referralBalance} />
                       </div>
                     )}
                     
