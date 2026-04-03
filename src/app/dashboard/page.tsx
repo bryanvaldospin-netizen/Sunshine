@@ -612,7 +612,13 @@ const TransactionHistory = ({ userId }: { userId: string }) => {
     const transactionsQuery = query(collection(db, 'users', userId, 'transacciones'), orderBy('fecha', 'desc'), limit(5));
 
     const unsubscribe = onSnapshot(transactionsQuery, (snapshot) => {
-        const txs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction & {id: string}));
+        const txs = snapshot.docs.map(doc => {
+            const data = doc.data();
+            if (data.fecha && typeof data.fecha.toDate === 'function') {
+                data.fecha = data.fecha.toDate().toISOString();
+            }
+            return { id: doc.id, ...data } as Transaction & {id: string};
+        });
         setTransactions(txs);
         setIsLoading(false);
     }, (error) => {
@@ -946,7 +952,17 @@ export default function DashboardPage() {
     };
     const investmentsQuery = query(collection(db, 'users', profile.uid, 'investments'));
     const unsubscribe = onSnapshot(investmentsQuery, (snapshot) => {
-        const invs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Investment));
+        const invs = snapshot.docs.map(doc => {
+            const data = doc.data();
+            // Convert Firestore Timestamps to ISO strings to prevent date calculation errors.
+            if (data.startDate && typeof data.startDate.toDate === 'function') {
+                data.startDate = data.startDate.toDate().toISOString();
+            }
+            if (data.lastUpdated && typeof data.lastUpdated.toDate === 'function') {
+                data.lastUpdated = data.lastUpdated.toDate().toISOString();
+            }
+            return { id: doc.id, ...data } as Investment;
+        });
         setInvestments(invs);
     });
     return () => unsubscribe();
@@ -971,9 +987,12 @@ export default function DashboardPage() {
 
             if (inv.status === 'active') {
                 const startDate = new Date(inv.startDate);
+                if (isNaN(startDate.getTime())) return; // Skip if date is invalid
+
                 const diffTime = now.getTime() - startDate.getTime();
                 let totalExpectedEarningForPlan = 0;
                 
+                // If dailyRate is not stored, calculate it on the fly.
                 const rate = inv.dailyRate ?? getDailyRate(inv.amount);
 
                 if (diffTime > 0 && rate > 0) {
