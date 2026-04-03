@@ -890,6 +890,14 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
   );
 };
 
+const getDailyRate = (planAmount: number): number => {
+    if (planAmount >= 1001) return 0.028;
+    if (planAmount >= 501) return 0.026;
+    if (planAmount >= 101) return 0.024;
+    if (planAmount >= 20) return 0.020;
+    return 0;
+};
+
 export default function DashboardPage() {
   const { user: profile, firebaseUser, loading: authLoading } = useAuth();
   const { t, setLocale } = useTranslation();
@@ -909,14 +917,6 @@ export default function DashboardPage() {
     style: 'currency',
     currency: 'USD',
   }).format(value);
-
-  const getDailyRate = (planAmount: number): number => {
-    if (planAmount >= 1001) return 0.028;
-    if (planAmount >= 501) return 0.026;
-    if (planAmount >= 101) return 0.024;
-    if (planAmount >= 20) return 0.020;
-    return 0;
-  };
 
   useEffect(() => {
     if (!profile?.uid) {
@@ -973,10 +973,12 @@ export default function DashboardPage() {
                 const startDate = new Date(inv.startDate);
                 const diffTime = now.getTime() - startDate.getTime();
                 let totalExpectedEarningForPlan = 0;
+                
+                const rate = inv.dailyRate ?? getDailyRate(inv.amount);
 
-                if (diffTime > 0) {
+                if (diffTime > 0 && rate > 0) {
                     const diffDays = diffTime / (1000 * 60 * 60 * 24);
-                    totalExpectedEarningForPlan = inv.amount * inv.dailyRate * diffDays;
+                    totalExpectedEarningForPlan = inv.amount * rate * diffDays;
                 }
                 
                 const maxEarningForPlan = inv.amount * 3;
@@ -984,7 +986,6 @@ export default function DashboardPage() {
                     totalExpectedEarningForPlan = maxEarningForPlan;
                 }
 
-                // The earnings not yet on the DB is the difference between our full calculation and what's stored
                 const planUnconsolidated = totalExpectedEarningForPlan - dbGenerated;
                 if (planUnconsolidated > 0) {
                     unconsolidatedEarnings += planUnconsolidated;
@@ -993,10 +994,8 @@ export default function DashboardPage() {
         });
     }
 
-    // The total earnings to display is the sum of what's in the DB plus the newly calculated part.
     const lifetimeForDisplay = totalDbGeneratedEarnings + unconsolidatedEarnings;
     
-    // The wallet balance to display is also the DB value plus the new part.
     const walletForDisplay = (profile.saldoUSDT ?? 0) + unconsolidatedEarnings;
 
     return { 
