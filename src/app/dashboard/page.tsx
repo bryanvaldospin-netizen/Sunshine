@@ -961,37 +961,43 @@ export default function DashboardPage() {
 
     const now = new Date();
     let unconsolidatedEarnings = 0;
-    let dbGeneratedEarnings = 0;
-    
+    let totalDbGeneratedEarnings = 0;
+
+
     if (investments) {
         investments.forEach(inv => {
-            dbGeneratedEarnings += inv.earningsGenerated ?? 0;
-            
+            const dbGenerated = inv.earningsGenerated ?? 0;
+            totalDbGeneratedEarnings += dbGenerated;
+
             if (inv.status === 'active') {
-                const lastUpdatedTime = inv.lastUpdated ? new Date(inv.lastUpdated) : new Date(inv.startDate);
-                const diffTime = now.getTime() - lastUpdatedTime.getTime();
-                
-                let newEarning = 0;
+                const startDate = new Date(inv.startDate);
+                const diffTime = now.getTime() - startDate.getTime();
+                let totalExpectedEarningForPlan = 0;
+
                 if (diffTime > 0) {
                     const diffDays = diffTime / (1000 * 60 * 60 * 24);
-                    newEarning = inv.amount * inv.dailyRate * diffDays;
+                    totalExpectedEarningForPlan = inv.amount * inv.dailyRate * diffDays;
                 }
                 
                 const maxEarningForPlan = inv.amount * 3;
-                const currentGenerated = inv.earningsGenerated ?? 0;
-                
-                if (currentGenerated + newEarning > maxEarningForPlan) {
-                    newEarning = maxEarningForPlan - currentGenerated;
-                    if (newEarning < 0) newEarning = 0;
+                if (totalExpectedEarningForPlan > maxEarningForPlan) {
+                    totalExpectedEarningForPlan = maxEarningForPlan;
                 }
-                
-                unconsolidatedEarnings += newEarning;
+
+                // The earnings not yet on the DB is the difference between our full calculation and what's stored
+                const planUnconsolidated = totalExpectedEarningForPlan - dbGenerated;
+                if (planUnconsolidated > 0) {
+                    unconsolidatedEarnings += planUnconsolidated;
+                }
             }
         });
     }
 
+    // The total earnings to display is the sum of what's in the DB plus the newly calculated part.
+    const lifetimeForDisplay = totalDbGeneratedEarnings + unconsolidatedEarnings;
+    
+    // The wallet balance to display is also the DB value plus the new part.
     const walletForDisplay = (profile.saldoUSDT ?? 0) + unconsolidatedEarnings;
-    const lifetimeForDisplay = dbGeneratedEarnings + unconsolidatedEarnings;
 
     return { 
         displayWalletBalance: walletForDisplay,
