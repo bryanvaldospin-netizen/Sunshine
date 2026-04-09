@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import type { UserProfile, Transaction, Investment } from '@/types';
-import { processInitialBonus, createWithdrawalToken, getSecondLevelReferrals, activateInvestment } from '@/lib/actions';
+import { processInitialBonus, createWithdrawalToken, getSecondLevelReferrals, activateInvestment, claimDailyTicket } from '@/lib/actions';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Globe, Gem, Shield, Crown, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon, User as UserIcon, Wallet, Info, ChevronRight, AlertTriangle, Copy, Sparkles, Dices } from 'lucide-react';
+import { Globe, Gem, Shield, Crown, Star, PiggyBank, TrendingUp, CircleDollarSign, LogOut, Gift, Home, Briefcase, Users, Link as LinkIcon, User as UserIcon, Wallet, Info, ChevronRight, AlertTriangle, Copy, Sparkles, Dices, Ticket } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { collection, query, where, onSnapshot, doc, orderBy, limit } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -98,6 +98,79 @@ const DepositSection = () => {
             </CardContent>
         </Card>
     );
+}
+
+const DailyRewardCard = ({ user }: { user: UserProfile | null }) => {
+    const { toast } = useToast();
+    const [isClaiming, setIsClaiming] = useState(false);
+    const [timeLeft, setTimeLeft] = useState('');
+    const [canClaim, setCanClaim] = useState(false);
+
+    useEffect(() => {
+        if (!user?.lastTicketClaim) {
+            setCanClaim(true);
+            return;
+        }
+
+        const interval = setInterval(() => {
+            const lastClaimDate = new Date(user.lastTicketClaim as string);
+            const nextClaimDate = new Date(lastClaimDate.getTime() + 24 * 60 * 60 * 1000);
+            const now = new Date();
+
+            if (now >= nextClaimDate) {
+                setCanClaim(true);
+                setTimeLeft('');
+                clearInterval(interval);
+            } else {
+                setCanClaim(false);
+                const diff = nextClaimDate.getTime() - now.getTime();
+                const hours = Math.floor(diff / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+            }
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [user?.lastTicketClaim]);
+
+    const handleClaim = async () => {
+        if (!user || !canClaim || isClaiming) return;
+        setIsClaiming(true);
+        try {
+            const result = await claimDailyTicket(user.uid);
+            if (result.success) {
+                toast({ title: '¡Éxito!', description: 'Has reclamado tu ticket diario. ¡Vuelve mañana!' });
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: result.error });
+            }
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error Inesperado', description: error.message });
+        } finally {
+            setIsClaiming(false);
+        }
+    };
+
+    return (
+        <Card className="bg-gray-800 border-cyan-400 text-white text-center">
+            <CardHeader>
+                <CardTitle className="text-xl font-medium text-gray-300 flex items-center justify-center gap-2">
+                    <Ticket className="text-cyan-400"/>
+                    Tu Recompensa Diaria
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="py-2 flex flex-col items-center justify-center space-y-3">
+                <p className="text-sm text-gray-400">Reclama un ticket gratuito cada 24 horas para jugar en el Casino.</p>
+                <Button 
+                    onClick={handleClaim} 
+                    disabled={!canClaim || isClaiming}
+                    className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white disabled:opacity-60 disabled:bg-gray-600"
+                >
+                    {isClaiming ? 'Reclamando...' : (canClaim ? 'Reclamar Ticket de la Suerte' : `Próximo reclamo en ${timeLeft}`)}
+                </Button>
+            </CardContent>
+        </Card>
+    )
 }
 
 const InvestmentPlansSection = ({ user }: { user: UserProfile | null }) => {
@@ -1177,6 +1250,10 @@ export default function DashboardPage() {
                             )}
                             </CardContent>
                         </Card>
+                    </div>
+
+                    <div className="w-full max-w-5xl">
+                        <DailyRewardCard user={profile} />
                     </div>
 
                     <div className="w-full max-w-5xl">

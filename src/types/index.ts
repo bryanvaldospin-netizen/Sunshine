@@ -30,6 +30,8 @@ export type UserProfile = {
   hasUnclaimedBonuses?: boolean; // Flag for sponsor to claim direct bonus
   fechaRegistro?: string;
   lastConsolidation?: string;
+  tickets?: number;
+  lastTicketClaim?: string; // ISO string
 };
 
 export type DepositRequest = {
@@ -56,4 +58,5 @@ export type Transaction = {
   descripcion: string;
   monto: number;
 };
+
 

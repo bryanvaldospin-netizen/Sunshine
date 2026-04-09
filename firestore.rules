@@ -30,6 +30,8 @@ service cloud.firestore {
                     && request.resource.data.walletAddress is string && request.resource.data.walletAddress.size() > 20
                     && request.resource.data.bonoDirecto == 0
                     && request.resource.data.bonoRetirable == 0
+                    && request.resource.data.tickets == 0
+                    && request.resource.data.lastTicketClaim == null
                     && request.resource.data.fechaRegistro is string;
 
       // This rule allows a user to update their own profile BUT prevents them
@@ -39,7 +41,9 @@ service cloud.firestore {
                     && request.resource.data.totalInvested == resource.data.totalInvested
                     && request.resource.data.bonoDirecto == resource.data.bonoDirecto
                     && request.resource.data.bonoRetirable == resource.data.bonoRetirable
-                    && request.resource.data.rol == resource.data.rol;
+                    && request.resource.data.rol == resource.data.rol
+                    && request.resource.data.tickets == resource.data.tickets
+                    && request.resource.data.lastTicketClaim == resource.data.lastTicketClaim;
       
       // Nobody can delete users to protect user data.
       allow delete: if false;

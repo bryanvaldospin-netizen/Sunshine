@@ -110,6 +110,8 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
       hasUnclaimedBonuses: false,
       fechaRegistro: new Date().toISOString(),
       lastConsolidation: new Date().toISOString(),
+      tickets: 0,
+      lastTicketClaim: null,
     });
 
     const newWalletRef = systemDb.collection('wallet_addresses').doc(walletAddress);
@@ -687,4 +689,117 @@ export async function reconcileAccount(userId: string): Promise<{success: true, 
         console.error(`Error en reconcileAccount para el usuario ${userId}:`, error.message);
         return { error: `Error del Servidor durante la conciliación: ${error.message}` };
     }
+}
+
+export async function claimDailyTicket(userId: string): Promise<{ success: true, message: string } | { error: string }> {
+  if (!userId) {
+    return { error: 'Se requiere iniciar sesión.' };
+  }
+  const userRef = systemDb.collection('users').doc(userId);
+
+  try {
+    const message = await systemDb.runTransaction(async (transaction) => {
+      const userSnap = await transaction.get(userRef);
+      if (!userSnap.exists) {
+        throw new Error('Usuario no encontrado.');
+      }
+      const userData = userSnap.data() as UserProfile;
+      const now = new Date();
+
+      if (userData.lastTicketClaim) {
+        const lastClaimDate = new Date(userData.lastTicketClaim);
+        const diffHours = (now.getTime() - lastClaimDate.getTime()) / (1000 * 60 * 60);
+        if (diffHours < 24) {
+          throw new Error('Ya has reclamado tu ticket hoy. Vuelve en 24 horas.');
+        }
+      }
+      
+      transaction.update(userRef, {
+        tickets: FieldValue.increment(1),
+        lastTicketClaim: now.toISOString(),
+      });
+
+      return '¡Ticket diario reclamado con éxito!';
+    });
+
+    return { success: true, message };
+
+  } catch (error: any) {
+    console.error(`Error en claimDailyTicket para el usuario ${userId}:`, error.message);
+    return { error: `Error del Servidor: ${error.message}` };
+  }
+}
+
+const prizeConfig = [
+  { prize: 0, probability: 0.40 },   // Nada
+  { prize: 0.50, probability: 0.25 }, // $0.50
+  { prize: 1, probability: 0.15 },    // $1.00
+  { prize: 2, probability: 0.10 },    // $2.00
+  { prize: 3, probability: 0.05 },    // $3.00
+  { prize: 5, probability: 0.03 },    // $5.00
+  { prize: 10, probability: 0.015 },  // $10.00
+  { prize: 20, probability: 0.005 },  // $20.00
+];
+
+const segments = [0, 0.5, 1, 2, 3, 5, 10, 20]; // UI segments
+
+export async function spinRoulette(userId: string): Promise<{ prize: number; finalAngle: number; } | { error: string }> {
+  if (!userId) {
+    return { error: 'Se requiere iniciar sesión.' };
+  }
+  const userRef = systemDb.collection('users').doc(userId);
+
+  try {
+    let winningPrize = 0;
+    let finalAngle = 0;
+
+    await systemDb.runTransaction(async (transaction) => {
+      const userSnap = await transaction.get(userRef);
+      if (!userSnap.exists) {
+        throw new Error('Usuario no encontrado.');
+      }
+      const userData = userSnap.data() as UserProfile;
+
+      if ((userData.tickets ?? 0) <= 0) {
+        throw new Error('No tienes suficientes tickets para jugar.');
+      }
+
+      transaction.update(userRef, { tickets: FieldValue.increment(-1) });
+
+      let random = Math.random();
+      let cumulativeProbability = 0;
+
+      for (const item of prizeConfig) {
+        cumulativeProbability += item.probability;
+        if (random <= cumulativeProbability) {
+          winningPrize = item.prize;
+          break;
+        }
+      }
+      
+      const segmentIndex = segments.indexOf(winningPrize);
+      const segmentAngle = 360 / segments.length; // 45 degrees
+      const randomOffset = Math.random() * (segmentAngle - 10) + 5; // Land not on the edge
+      finalAngle = (segmentIndex * segmentAngle) + randomOffset;
+
+
+      if (winningPrize > 0) {
+        transaction.update(userRef, { saldoUSDT: FieldValue.increment(winningPrize) });
+
+        const transactionRef = userRef.collection('transacciones').doc();
+        transaction.set(transactionRef, {
+          fecha: new Date().toISOString(),
+          tipo: 'Premio de Casino',
+          descripcion: `Ganancia en la ruleta de la suerte`,
+          monto: winningPrize
+        });
+      }
+    });
+
+    return { prize: winningPrize, finalAngle: 360 - finalAngle }; // Return inverted angle for CSS rotation
+
+  } catch (error: any) {
+    console.error(`Error en spinRoulette para el usuario ${userId}:`, error.message);
+    return { error: `Error del Servidor: ${error.message}` };
+  }
 }

@@ -21,7 +21,9 @@
         "bonoRetirable": { "type": "number", "description": "The portion of bonuses that is currently available for withdrawal." },
         "hasUnclaimedBonuses": { "type": "boolean", "description": "Flag indicating if the user has made a new investment that the sponsor can claim a bonus for." },
         "fechaRegistro": { "type": "string", "format": "date-time", "description": "The ISO 8601 timestamp of when the user account was created." },
-        "lastConsolidation": { "type": "string", "format": "date-time", "description": "The ISO 8601 timestamp of the last time earnings were consolidated." }
+        "lastConsolidation": { "type": "string", "format": "date-time", "description": "The ISO 8601 timestamp of the last time earnings were consolidated." },
+        "tickets": { "type": "number", "description": "The number of casino tickets the user owns." },
+        "lastTicketClaim": { "type": "string", "format": "date-time", "description": "The ISO 8601 timestamp of the user's last daily ticket claim." }
       },
       "required": ["uid", "name", "email", "rol", "saldoUSDT", "totalInvested", "walletAddress"]
     },
