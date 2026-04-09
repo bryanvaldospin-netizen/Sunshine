@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useTranslation } from '@/hooks/use-translation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import type { UserProfile, Transaction, Investment } from '@/types';
-import { processInitialBonus, createWithdrawalToken, getSecondLevelReferrals, activateInvestment, claimDailyTicket } from '@/lib/actions';
+import { processInitialBonus, createWithdrawalToken, getSecondLevelReferrals, activateInvestment, claimWeeklyTicket } from '@/lib/actions';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -100,36 +100,38 @@ const DepositSection = () => {
     );
 }
 
-const DailyRewardCard = ({ user }: { user: UserProfile | null }) => {
+const WeeklyRewardCard = ({ user }: { user: UserProfile | null }) => {
     const { toast } = useToast();
     const [isClaiming, setIsClaiming] = useState(false);
     const [timeLeft, setTimeLeft] = useState('');
     const [canClaim, setCanClaim] = useState(false);
 
     useEffect(() => {
-        if (!user?.lastTicketClaim) {
-            setCanClaim(true);
-            return;
-        }
+        const updateTimer = () => {
+            if (!user?.lastTicketClaim) {
+                setCanClaim(true);
+                setTimeLeft('');
+                return;
+            }
 
-        const interval = setInterval(() => {
-            const lastClaimDate = new Date(user.lastTicketClaim as string);
-            const nextClaimDate = new Date(lastClaimDate.getTime() + 24 * 60 * 60 * 1000);
+            const lastClaimDate = new Date(user.lastTicketClaim);
+            const nextClaimDate = new Date(lastClaimDate.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
             const now = new Date();
 
             if (now >= nextClaimDate) {
                 setCanClaim(true);
                 setTimeLeft('');
-                clearInterval(interval);
             } else {
                 setCanClaim(false);
                 const diff = nextClaimDate.getTime() - now.getTime();
-                const hours = Math.floor(diff / (1000 * 60 * 60));
-                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-                setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                setTimeLeft(`${days}d ${hours}h`);
             }
-        }, 1000);
+        };
+
+        updateTimer();
+        const interval = setInterval(updateTimer, 1000 * 60 * 60); // Update every hour
 
         return () => clearInterval(interval);
     }, [user?.lastTicketClaim]);
@@ -138,9 +140,9 @@ const DailyRewardCard = ({ user }: { user: UserProfile | null }) => {
         if (!user || !canClaim || isClaiming) return;
         setIsClaiming(true);
         try {
-            const result = await claimDailyTicket(user.uid);
+            const result = await claimWeeklyTicket(user.uid);
             if (result.success) {
-                toast({ title: '¡Éxito!', description: 'Has reclamado tu ticket diario. ¡Vuelve mañana!' });
+                toast({ title: '¡Éxito!', description: 'Has reclamado tu ticket semanal. ¡Vuelve en 7 días!' });
             } else {
                 toast({ variant: 'destructive', title: 'Error', description: result.error });
             }
@@ -156,22 +158,22 @@ const DailyRewardCard = ({ user }: { user: UserProfile | null }) => {
             <CardHeader>
                 <CardTitle className="text-xl font-medium text-gray-300 flex items-center justify-center gap-2">
                     <Ticket className="text-cyan-400"/>
-                    Tu Recompensa Diaria
+                    Tu Recompensa Semanal
                 </CardTitle>
             </CardHeader>
             <CardContent className="py-2 flex flex-col items-center justify-center space-y-3">
-                <p className="text-sm text-gray-400">Reclama un ticket gratuito cada 24 horas para jugar en el Casino.</p>
+                <p className="text-sm text-gray-400">Reclama un ticket gratuito cada 7 días para jugar en el Casino.</p>
                 <Button 
                     onClick={handleClaim} 
                     disabled={!canClaim || isClaiming}
                     className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white disabled:opacity-60 disabled:bg-gray-600"
                 >
-                    {isClaiming ? 'Reclamando...' : (canClaim ? 'Reclamar Ticket de la Suerte' : `Próximo reclamo en ${timeLeft}`)}
+                    {isClaiming ? 'Reclamando...' : (canClaim ? 'Reclamar Ticket de la Suerte' : `Próximo ticket en: ${timeLeft}`)}
                 </Button>
             </CardContent>
         </Card>
     )
-}
+};
 
 const InvestmentPlansSection = ({ user }: { user: UserProfile | null }) => {
     const { t } = useTranslation();
@@ -1253,7 +1255,7 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="w-full max-w-5xl">
-                        <DailyRewardCard user={profile} />
+                        <WeeklyRewardCard user={profile} />
                     </div>
 
                     <div className="w-full max-w-5xl">

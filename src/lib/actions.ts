@@ -691,7 +691,7 @@ export async function reconcileAccount(userId: string): Promise<{success: true, 
     }
 }
 
-export async function claimDailyTicket(userId: string): Promise<{ success: true, message: string } | { error: string }> {
+export async function claimWeeklyTicket(userId: string): Promise<{ success: true, message: string } | { error: string }> {
   if (!userId) {
     return { error: 'Se requiere iniciar sesión.' };
   }
@@ -709,8 +709,8 @@ export async function claimDailyTicket(userId: string): Promise<{ success: true,
       if (userData.lastTicketClaim) {
         const lastClaimDate = new Date(userData.lastTicketClaim);
         const diffHours = (now.getTime() - lastClaimDate.getTime()) / (1000 * 60 * 60);
-        if (diffHours < 24) {
-          throw new Error('Ya has reclamado tu ticket hoy. Vuelve en 24 horas.');
+        if (diffHours < 168) { // 7 days * 24 hours
+          throw new Error('Ya has reclamado tu ticket esta semana. El próximo está disponible en 7 días.');
         }
       }
       
@@ -719,13 +719,13 @@ export async function claimDailyTicket(userId: string): Promise<{ success: true,
         lastTicketClaim: now.toISOString(),
       });
 
-      return '¡Ticket diario reclamado con éxito!';
+      return '¡Ticket semanal reclamado con éxito!';
     });
 
     return { success: true, message };
 
   } catch (error: any) {
-    console.error(`Error en claimDailyTicket para el usuario ${userId}:`, error.message);
+    console.error(`Error en claimWeeklyTicket para el usuario ${userId}:`, error.message);
     return { error: `Error del Servidor: ${error.message}` };
   }
 }
