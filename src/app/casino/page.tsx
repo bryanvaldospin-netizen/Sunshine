@@ -10,70 +10,105 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
 const prizes = [
-  { amount: 0, label: "Nada", color: "bg-gray-700/50" },
-  { amount: 0.5, label: "$0.50", color: "bg-amber-600/50" },
-  { amount: 1, label: "$1.00", color: "bg-gray-600/50" },
-  { amount: 2, label: "$2.00", color: "bg-amber-500/50" },
-  { amount: 3, label: "$3.00", color: "bg-gray-500/50" },
-  { amount: 5, label: "$5.00", color: "bg-amber-400/50" },
-  { amount: 10, label: "$10.00", color: "bg-gray-400/50" },
-  { amount: 20, label: "$20.00", color: "bg-amber-300/50" },
+  { amount: 0, label: "Nada" },
+  { amount: 0.5, label: "$0.50" },
+  { amount: 1, label: "$1.00" },
+  { amount: 2, label: "$2.00" },
+  { amount: 3, label: "$3.00" },
+  { amount: 5, label: "$5.00" },
+  { amount: 10, label: "$10.00" },
+  { amount: 20, label: "$20.00" },
 ];
 
-const Roulette = ({ rotation, transition, segments }: { rotation: number, transition: string, segments: typeof prizes }) => {
-    const segmentAngle = 360 / segments.length;
-  
+const Roulette = ({ rotation, transition, segments }: { rotation: number; transition: string; segments: typeof prizes }) => {
+    const numSegments = segments.length;
+    const anglePerSegment = 360 / numSegments; // 45 degrees
+    const radius = 160;
+    const viewBoxSize = radius * 2 + 40;
+    const center = viewBoxSize / 2;
+    
+    const describeArc = (x: number, y: number, radius: number, startAngle: number, endAngle: number) => {
+        const start = {
+            x: x + radius * Math.cos(startAngle * Math.PI / 180),
+            y: y + radius * Math.sin(startAngle * Math.PI / 180),
+        };
+        const end = {
+            x: x + radius * Math.cos(endAngle * Math.PI / 180),
+            y: y + radius * Math.sin(endAngle * Math.PI / 180),
+        };
+        const largeArcFlag = endAngle - startAngle <= 180 ? '0' : '1';
+        return `M ${x},${y} L ${start.x},${start.y} A ${radius},${radius} 0 ${largeArcFlag} 1 ${end.x},${end.y} Z`;
+    };
+
     return (
-      <div className="relative w-80 h-80 md:w-96 md:h-96 mx-auto">
-        <div 
-          className="absolute top-1/2 left-1/2 w-8 h-8 -mt-4 -ml-4 rounded-full bg-gray-900 border-4 border-amber-300 z-20"
-        />
-        <div 
-          className="w-full h-full rounded-full border-8 border-gray-900/80 shadow-inner"
-          style={{ 
-            transition: `transform ${transition}`,
-            transform: `rotate(${rotation}deg)`,
-            background: `conic-gradient(
-              from 90deg,
-              #42200e 0deg 45deg,
-              #1a1a1a 45deg 90deg,
-              #42200e 90deg 135deg,
-              #1a1a1a 135deg 180deg,
-              #42200e 180deg 225deg,
-              #1a1a1a 225deg 270deg,
-              #42200e 270deg 315deg,
-              #1a1a1a 315deg 360deg
-            )`
-          }}
-        >
-          {segments.map((segment, index) => {
-            const rotate = index * segmentAngle;
-            return (
-              <div
-                key={index}
-                className="absolute w-1/2 h-1/2 origin-bottom-right flex items-center justify-start pl-4"
+        <div className="relative w-80 h-80 md:w-96 md:h-96 mx-auto" style={{ filter: "drop-shadow(0 0 10px rgba(212, 175, 55, 0.4))" }}>
+            <div
+                className="w-full h-full"
                 style={{
-                  transform: `rotate(${rotate}deg)`,
-                  clipPath: `polygon(0 0, 100% 0, 100% 2px, calc(50% * tan(${segmentAngle/2}deg)) 50%, 100% calc(100% - 2px), 100% 100%, 0 100%)`
+                    transition: `transform ${transition}`,
+                    transform: `rotate(${rotation}deg)`,
                 }}
-              >
-                <div 
-                  className="text-white font-bold text-lg md:text-xl text-shadow-md" 
-                  style={{transform: `rotate(${segmentAngle / 2 - 90}deg) translate(0, -50%)`}}
-                >
-                  <span className="block transform -rotate-45">{segment.label}</span>
-                </div>
-              </div>
-            );
-          })}
+            >
+                <svg viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`} className="w-full h-full">
+                    <defs>
+                        <linearGradient id="gold-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                           <stop offset="0%" stopColor="#FBBF24" />
+                           <stop offset="100%" stopColor="#D4AF37" />
+                        </linearGradient>
+                    </defs>
+                    {/* The rotation here aligns the pointer with the middle of the first segment */}
+                    <g transform={`rotate(-90 - ${anglePerSegment / 2}, ${center}, ${center})`}>
+                        {segments.map((segment, i) => {
+                            const startAngle = i * anglePerSegment;
+                            const endAngle = startAngle + anglePerSegment;
+                            const textAngle = startAngle + anglePerSegment / 2;
+                            const textRadius = radius * 0.65;
+                            
+                            const textX = center + textRadius * Math.cos(textAngle * Math.PI / 180);
+                            const textY = center + textRadius * Math.sin(textAngle * Math.PI / 180);
+
+                            return (
+                                <g key={i}>
+                                    <path
+                                        d={describeArc(center, center, radius, startAngle, endAngle)}
+                                        fill={i % 2 === 0 ? '#111827' : 'url(#gold-gradient)'}
+                                        stroke="#000"
+                                        strokeWidth="1"
+                                    />
+                                    <text
+                                        x={textX}
+                                        y={textY}
+                                        dy="0.35em"
+                                        transform={`rotate(${textAngle + 90}, ${textX}, ${textY})`}
+                                        textAnchor="middle"
+                                        fill={i % 2 === 0 ? '#FFFFFF' : '#111827'}
+                                        fontSize="18"
+                                        fontWeight="bold"
+                                        className="[paint-order:stroke]"
+                                        stroke={i % 2 === 0 ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.3)"}
+                                        strokeWidth="0.5px"
+                                    >
+                                        {segment.label}
+                                    </text>
+                                </g>
+                            );
+                        })}
+                    </g>
+                </svg>
+            </div>
+            
+            <div 
+                aria-hidden="true"
+                className="absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0 
+                border-l-[15px] border-l-transparent
+                border-r-[15px] border-r-transparent
+                border-t-[30px] border-t-amber-400 z-10"
+            />
+            <div 
+                aria-hidden="true"
+                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-gray-900 border-4 border-amber-300 z-20 shadow-inner"
+            />
         </div>
-        <div 
-            className="absolute -top-4 left-1/2 -translate-x-1/2 w-0 h-0 
-            border-l-[15px] border-l-transparent
-            border-r-[15px] border-r-transparent
-            border-t-[30px] border-t-amber-400 z-10"
-        />
-      </div>
     );
 };
 
