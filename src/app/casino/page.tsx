@@ -2,11 +2,19 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Ticket, Star, Frown, Dices, ArrowLeft } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Ticket, Dices, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { spinRoulette } from '@/lib/actions';
-import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
 const prizes = [
@@ -22,7 +30,7 @@ const prizes = [
 
 const Roulette = ({ rotation, transition, segments }: { rotation: number; transition: string; segments: typeof prizes }) => {
     const numSegments = segments.length;
-    const anglePerSegment = 360 / numSegments; // 45 degrees
+    const anglePerSegment = 360 / numSegments;
     const radius = 160;
     const viewBoxSize = radius * 2 + 40;
     const center = viewBoxSize / 2;
@@ -56,8 +64,7 @@ const Roulette = ({ rotation, transition, segments }: { rotation: number; transi
                            <stop offset="100%" stopColor="#D4AF37" />
                         </linearGradient>
                     </defs>
-                    {/* The rotation here aligns the pointer with the middle of the first segment */}
-                    <g transform={`rotate(-90 - ${anglePerSegment / 2}, ${center}, ${center})`}>
+                    <g transform={`rotate(-${anglePerSegment / 2}, ${center}, ${center})`}>
                         {segments.map((segment, i) => {
                             const startAngle = i * anglePerSegment;
                             const endAngle = startAngle + anglePerSegment;
@@ -146,12 +153,10 @@ export default function CasinoPage() {
             const result = await spinRoulette(user.uid);
             
             if (result.error) {
-                // Refund ticket if server-side validation fails
                 setTickets(prev => prev + 1);
                 throw new Error(result.error);
             }
             
-            // Add extra spins for excitement
             const baseSpins = 5;
             const newRotation = rotation + (baseSpins * 360) + result.finalAngle;
             setRotation(newRotation);
@@ -169,11 +174,11 @@ export default function CasinoPage() {
                         description: "No has ganado nada esta vez. ¡Mejor suerte para la próxima!",
                     });
                 }
-            }, 6000); // Should match the transition duration
+            }, 6000);
     
         } catch (error: any) {
             setIsSpinning(false);
-            setTickets(prev => prev + 1); // Refund ticket on client if any error happens
+            setTickets(prev => prev + 1);
             toast({
                 variant: "destructive",
                 title: "Error al Girar",
@@ -218,20 +223,45 @@ export default function CasinoPage() {
                 </Button>
 
                  {tickets <= 0 && !isSpinning && (
-                    <Card className="bg-gray-800 border-gray-700 text-center p-6 w-full max-w-md mt-4">
-                        <CardHeader>
-                            <CardTitle>¿Sin Tickets?</CardTitle>
-                            <CardDescription>¡Has usado tu tiro diario! Adquiere más tickets para seguir jugando.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="flex flex-col sm:flex-row gap-4 justify-center">
-                             <Button asChild className="bg-green-600 hover:bg-green-500 text-white">
-                                <a href="https://form.jotform.com/260646464495063" target="_blank" rel="noopener noreferrer">Invertir en 5 Tickets ($4.99)</a>
-                            </Button>
-                            <Button asChild className="bg-blue-600 hover:bg-blue-500 text-white">
-                                <a href="https://form.jotform.com/260646464495063" target="_blank" rel="noopener noreferrer">Invertir en 10 Tickets ($9.99)</a>
-                            </Button>
-                        </CardContent>
-                    </Card>
+                    <div className="text-center mt-4 w-full max-w-md">
+                        <p className="text-gray-400 mb-4">¡Has usado tu tiro diario! Adquiere más tickets para seguir jugando.</p>
+                        <Dialog>
+                            <DialogTrigger asChild>
+                                <Button variant="outline" className="w-full border-golden text-golden hover:bg-golden/10">
+                                    🎟️ Comprar Tickets de la Suerte
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="bg-gray-900 border-golden text-white">
+                                <DialogHeader>
+                                    <DialogTitle className="flex items-center gap-2"><Ticket className="text-golden"/> Comprar Tickets de la Suerte</DialogTitle>
+                                    <DialogDescription>
+                                        Elige un paquete para continuar la diversión.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="py-4 space-y-3">
+                                    <div className="flex justify-between items-center p-3 rounded-lg bg-gray-800/50">
+                                        <span className="font-semibold">1 Ticket</span>
+                                        <span className="text-golden font-bold text-lg">$0.99</span>
+                                    </div>
+                                    <div className="flex justify-between items-center p-3 rounded-lg bg-gray-800/50 border-2 border-golden shadow-lg">
+                                        <span className="font-semibold">5 Tickets</span>
+                                        <span className="text-golden font-bold text-lg">$4.99</span>
+                                    </div>
+                                    <div className="flex justify-between items-center p-3 rounded-lg bg-gray-800/50">
+                                        <span className="font-semibold">10 Tickets</span>
+                                        <span className="text-golden font-bold text-lg">$9.99</span>
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button asChild className="w-full bg-gradient-to-r from-golden to-red-800 text-white">
+                                        <a href="https://www.jotform.com/form/260646464495063" target="_blank" rel="noopener noreferrer">
+                                            Solicitar Tickets
+                                        </a>
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
                 )}
 
             </CardContent>
