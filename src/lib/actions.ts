@@ -778,8 +778,8 @@ export async function spinRoulette(userId: string): Promise<{ prize: number; fin
       }
       
       const segmentIndex = segments.indexOf(winningPrize);
-      const segmentAngle = 360 / segments.length; // 45 degrees
-      const randomOffset = Math.random() * (segmentAngle - 10) + 5; // Land not on the edge
+      const segmentAngle = 360 / segments.length;
+      const randomOffset = Math.random() * (segmentAngle - 10) + 5;
       finalAngle = (segmentIndex * segmentAngle) + randomOffset;
 
 
@@ -796,7 +796,7 @@ export async function spinRoulette(userId: string): Promise<{ prize: number; fin
       }
     });
 
-    return { prize: winningPrize, finalAngle: 360 - finalAngle }; // Return inverted angle for CSS rotation
+    return { prize: winningPrize, finalAngle: 360 - finalAngle };
 
   } catch (error: any) {
     console.error(`Error en spinRoulette para el usuario ${userId}:`, error.message);
