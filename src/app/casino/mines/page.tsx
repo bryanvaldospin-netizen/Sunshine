@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { startMinesGame, revealMinesSquare, cashOutMines } from '@/lib/actions';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { Label } from '@/components/ui/label';
 
 const GRID_SIZE = 25;
 
