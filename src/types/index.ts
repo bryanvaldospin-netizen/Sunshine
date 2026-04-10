@@ -59,4 +59,15 @@ export type Transaction = {
   monto: number;
 };
 
-
+export type MinesGame = {
+  id: string;
+  userId: string;
+  createdAt: string; // ISO string
+  status: 'active' | 'busted' | 'cashed_out';
+  numMines: number;
+  wagerAmount: number; // Number of tickets
+  revealedSquares: number[];
+  mineLocations: number[]; // Not sent to client
+  multiplier: number;
+  winnings?: number;
+};

@@ -63,6 +63,12 @@ service cloud.firestore {
         // Only the server can create/update/delete investments.
         allow write: if false;
       }
+      
+      // Rules for mines game subcollection
+      match /mines_games/{gameId} {
+        // A user can create, read and update their own game sessions.
+        allow read, write: if isOwner(userId);
+      }
     }
 
     // Rules for invitation codes (single-use, deprecated)

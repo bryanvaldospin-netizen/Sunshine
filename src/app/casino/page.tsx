@@ -11,7 +11,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Ticket, Dices, ArrowLeft } from 'lucide-react';
+import { Ticket, Dices, ArrowLeft, Bomb } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { spinRoulette } from '@/lib/actions';
@@ -266,6 +266,21 @@ export default function CasinoPage() {
 
             </CardContent>
         </Card>
+
+        <Card className="w-full max-w-4xl bg-gray-800/80 border-cyan-400 text-white flex flex-col md:flex-row items-center justify-between p-8">
+            <div className="flex-1 mb-6 md:mb-0 md:mr-8">
+                <CardTitle className="text-2xl font-bold text-cyan-300 flex items-center gap-3"><Bomb />La Mina de Oro</CardTitle>
+                <CardDescription className="text-gray-300 mt-2">
+                    Un juego de estrategia y suerte. Destapa casillas para encontrar diamantes y multiplicar tu apuesta. ¡Pero cuidado con las minas! ¿Hasta dónde te atreverás a llegar?
+                </CardDescription>
+            </div>
+            <Link href="/casino/mines">
+                <Button className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white text-lg py-6 px-10">
+                    Jugar a la Mina
+                </Button>
+            </Link>
+        </Card>
+
     </div>
   );
 }

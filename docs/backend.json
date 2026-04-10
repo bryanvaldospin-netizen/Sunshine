@@ -88,6 +88,24 @@
         "monto": { "type": "number" }
       },
       "required": ["fecha", "tipo", "descripcion", "monto"]
+    },
+    "MinesGame": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "MinesGame",
+      "type": "object",
+      "description": "Represents a single session of the Mines game.",
+      "properties": {
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["active", "busted", "cashed_out"] },
+        "numMines": { "type": "number" },
+        "wagerAmount": { "type": "number", "description": "Number of tickets wagered." },
+        "revealedSquares": { "type": "array", "items": { "type": "number" } },
+        "mineLocations": { "type": "array", "items": { "type": "number" } },
+        "multiplier": { "type": "number" },
+        "winnings": { "type": "number" }
+      },
+      "required": ["userId", "createdAt", "status", "numMines", "wagerAmount"]
     }
   },
   "auth": {
@@ -105,6 +123,10 @@
     "/users/{userId}/transacciones/{transactionId}": {
       "schema": { "$ref": "#/entities/Transaction" },
       "description": "Stores the transaction history for a single user."
+    },
+    "/users/{userId}/mines_games/{gameId}": {
+      "schema": { "$ref": "#/entities/MinesGame" },
+      "description": "Stores individual Mines game sessions for a user."
     },
     "/invitation_codes/{invitationCodeId}": {
       "schema": { "$ref": "#/entities/InvitationCode" },

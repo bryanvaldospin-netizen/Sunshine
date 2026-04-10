@@ -2,7 +2,7 @@
 'use server';
 
 import { z } from 'zod';
-import type { UserProfile, InvestmentData } from '@/types';
+import type { UserProfile, InvestmentData, MinesGame } from '@/types';
 import * as system from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 
@@ -801,5 +801,156 @@ export async function spinRoulette(userId: string): Promise<{ prize: number; fin
   } catch (error: any) {
     console.error(`Error en spinRoulette para el usuario ${userId}:`, error.message);
     return { error: `Error del Servidor: ${error.message}` };
+  }
+}
+
+// MINES GAME ACTIONS
+
+function combinations(n: number, k: number): number {
+    if (k < 0 || k > n) {
+        return 0;
+    }
+    if (k === 0 || k === n) {
+        return 1;
+    }
+    if (k > n / 2) {
+        k = n - k;
+    }
+    let res = 1;
+    for (let i = 1; i <= k; i++) {
+        res = res * (n - i + 1) / i;
+    }
+    return res;
+}
+
+const calculateMultiplier = (gemsFound: number, numMines: number) => {
+    const numGems = 25 - numMines;
+    const multiplier = combinations(25, gemsFound) / combinations(numGems, gemsFound);
+    return multiplier;
+};
+
+export async function startMinesGame(userId: string, numMines: number): Promise<{ gameId: string } | { error: string }> {
+  if (!userId) return { error: 'Usuario no autenticado.' };
+  if (numMines < 1 || numMines > 20) return { error: 'Número de minas inválido.' };
+
+  const userRef = systemDb.collection('users').doc(userId);
+  const gameRef = userRef.collection('mines_games').doc();
+
+  try {
+    let finalGameId: string = '';
+    await systemDb.runTransaction(async (transaction) => {
+      const userSnap = await transaction.get(userRef);
+      if (!userSnap.exists) throw new Error('Usuario no encontrado.');
+      if ((userSnap.data()?.tickets ?? 0) < 1) throw new Error('No tienes suficientes tickets.');
+
+      transaction.update(userRef, { tickets: FieldValue.increment(-1) });
+
+      const mineLocations: number[] = [];
+      while (mineLocations.length < numMines) {
+        const pos = Math.floor(Math.random() * 25);
+        if (!mineLocations.includes(pos)) {
+          mineLocations.push(pos);
+        }
+      }
+
+      const newGame: Omit<MinesGame, 'id'> = {
+        userId,
+        createdAt: new Date().toISOString(),
+        status: 'active',
+        numMines,
+        wagerAmount: 1, // 1 ticket
+        revealedSquares: [],
+        mineLocations,
+        multiplier: 1,
+      };
+
+      transaction.set(gameRef, newGame);
+      finalGameId = gameRef.id;
+    });
+
+    return { gameId: finalGameId };
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+export async function revealMinesSquare(gameId: string, userId: string, index: number): Promise<{ isMine: boolean; gemsFound: number; multiplier: number } | { error: string }> {
+  if (!gameId || !userId || index < 0 || index > 24) return { error: 'Datos inválidos.' };
+
+  const gameRef = systemDb.collection('users').doc(userId).collection('mines_games').doc(gameId);
+
+  try {
+    let result: { isMine: boolean; gemsFound: number; multiplier: number } | null = null;
+
+    await systemDb.runTransaction(async (transaction) => {
+      const gameSnap = await transaction.get(gameRef);
+      if (!gameSnap.exists) throw new Error('Partida no encontrada.');
+      
+      const gameData = gameSnap.data() as MinesGame;
+      if (gameData.status !== 'active') throw new Error('La partida no está activa.');
+      if (gameData.revealedSquares.includes(index)) throw new Error('Casilla ya revelada.');
+
+      const isMine = gameData.mineLocations.includes(index);
+      const updates: Partial<MinesGame> = {};
+
+      if (isMine) {
+        updates.status = 'busted';
+        result = { isMine: true, gemsFound: gameData.revealedSquares.length, multiplier: gameData.multiplier };
+      } else {
+        const newRevealedSquares = [...gameData.revealedSquares, index];
+        const newGemsFound = newRevealedSquares.length;
+        const newMultiplier = calculateMultiplier(newGemsFound, gameData.numMines);
+        
+        updates.revealedSquares = newRevealedSquares;
+        updates.multiplier = newMultiplier;
+        result = { isMine: false, gemsFound: newGemsFound, multiplier: newMultiplier };
+      }
+      transaction.update(gameRef, updates);
+    });
+    
+    if (!result) throw new Error('La transacción falló.');
+    return result;
+
+  } catch (error: any) {
+    return { error: error.message };
+  }
+}
+
+export async function cashOutMines(gameId: string, userId: string): Promise<{ amountWon: number } | { error: string }> {
+  if (!gameId || !userId) return { error: 'Datos inválidos.' };
+
+  const userRef = systemDb.collection('users').doc(userId);
+  const gameRef = userRef.collection('mines_games').doc(gameId);
+
+  try {
+    let finalAmountWon = 0;
+    await systemDb.runTransaction(async (transaction) => {
+      const gameSnap = await transaction.get(gameRef);
+      if (!gameSnap.exists) throw new Error('Partida no encontrada.');
+      const gameData = gameSnap.data() as MinesGame;
+      if (gameData.status !== 'active') throw new Error('No se puede cobrar en esta partida.');
+      if (gameData.revealedSquares.length === 0) throw new Error('No has encontrado ningún diamante para cobrar.');
+
+      const amountWon = (gameData.multiplier - 1) * gameData.wagerAmount;
+      if (amountWon <= 0) throw new Error('No hay ganancias para cobrar.');
+      
+      finalAmountWon = amountWon;
+
+      transaction.update(userRef, { saldoUSDT: FieldValue.increment(amountWon) });
+      transaction.update(gameRef, { status: 'cashed_out', winnings: amountWon });
+
+      const transactionRef = userRef.collection('transacciones').doc();
+      transaction.set(transactionRef, {
+        fecha: new Date().toISOString(),
+        tipo: 'Premio de Casino',
+        descripcion: `Ganancia en La Mina de Oro`,
+        monto: amountWon
+      });
+    });
+
+    return { amountWon: finalAmountWon };
+
+  } catch (error: any) {
+    return { error: error.message };
   }
 }
