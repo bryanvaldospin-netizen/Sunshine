@@ -153,14 +153,17 @@ export default function RoulettePage() {
             const result = await spinRoulette(user.uid);
             
             if (result.error) {
+                // If the server returns a controlled error (e.g., "Not enough tickets"), give the ticket back.
                 setTickets(prev => prev + 1);
                 throw new Error(result.error);
             }
             
+            // The spin was successful on the server, now animate it using the angle from the server.
             const baseSpins = 5;
             const newRotation = rotation + (baseSpins * 360) + result.finalAngle;
             setRotation(newRotation);
     
+            // After animation, show the result.
             setTimeout(() => {
                 setIsSpinning(false);
                 if (result.prize > 0) {
@@ -174,11 +177,11 @@ export default function RoulettePage() {
                         description: "No has ganado nada esta vez. ¡Mejor suerte para la próxima!",
                     });
                 }
-            }, 6000);
+            }, 6000); // This duration must match the CSS transition duration
     
         } catch (error: any) {
+            // This catch block will handle network errors, or the re-thrown server error.
             setIsSpinning(false);
-            setTickets(prev => prev + 1);
             toast({
                 variant: "destructive",
                 title: "Error al Girar",
