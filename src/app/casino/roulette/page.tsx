@@ -182,6 +182,7 @@ export default function RoulettePage() {
         } catch (error: any) {
             // This catch block will handle network errors, or the re-thrown server error.
             setIsSpinning(false);
+            setTickets(prev => prev + 1); // Give ticket back on any failure
             toast({
                 variant: "destructive",
                 title: "Error al Girar",
@@ -257,7 +258,7 @@ export default function RoulettePage() {
                                 </div>
                                 <DialogFooter>
                                     <Button asChild className="w-full bg-gradient-to-r from-golden to-red-800 text-white">
-                                        <a href="https://www.jotform.com/form/260646464495063" target="_blank" rel="noopener noreferrer">
+                                        <a href="https://form.jotform.com/261000430361033" target="_blank" rel="noopener noreferrer">
                                             Solicitar Tickets
                                         </a>
                                     </Button>
