@@ -106,6 +106,22 @@
         "winnings": { "type": "number" }
       },
       "required": ["userId", "createdAt", "status", "numMines", "wagerAmount"]
+    },
+    "CrashGame": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CrashGame",
+      "type": "object",
+      "description": "Represents a single session of the Crash game 'El Vuelo del León'.",
+      "properties": {
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["active", "crashed", "cashed_out"] },
+        "betAmount": { "type": "number", "description": "Amount of USDT wagered." },
+        "crashPoint": { "type": "number", "description": "The multiplier at which the game crashes." },
+        "cashOutMultiplier": { "type": "number", "description": "The multiplier at which the user cashed out." },
+        "winnings": { "type": "number" }
+      },
+      "required": ["userId", "createdAt", "status", "betAmount", "crashPoint"]
     }
   },
   "auth": {
@@ -127,6 +143,10 @@
     "/users/{userId}/mines_games/{gameId}": {
       "schema": { "$ref": "#/entities/MinesGame" },
       "description": "Stores individual Mines game sessions for a user."
+    },
+    "/users/{userId}/crash_games/{gameId}": {
+      "schema": { "$ref": "#/entities/CrashGame" },
+      "description": "Stores individual Crash game sessions for a user."
     },
     "/invitation_codes/{invitationCodeId}": {
       "schema": { "$ref": "#/entities/InvitationCode" },

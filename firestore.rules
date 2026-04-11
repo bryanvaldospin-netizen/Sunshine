@@ -69,6 +69,12 @@ service cloud.firestore {
         // A user can create, read and update their own game sessions.
         allow read, write: if isOwner(userId);
       }
+      
+      // Rules for crash game subcollection
+      match /crash_games/{gameId} {
+        // A user can create, read and update their own game sessions.
+        allow read, write: if isOwner(userId);
+      }
     }
 
     // Rules for invitation codes (single-use, deprecated)

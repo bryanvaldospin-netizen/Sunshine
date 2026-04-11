@@ -71,3 +71,14 @@ export type MinesGame = {
   multiplier: number;
   winnings?: number;
 };
+
+export type CrashGame = {
+  id: string;
+  userId: string;
+  createdAt: string; // ISO string
+  status: 'active' | 'crashed' | 'cashed_out';
+  betAmount: number; // USDT
+  crashPoint: number;
+  cashOutMultiplier?: number;
+  winnings?: number;
+};

@@ -2,7 +2,7 @@
 'use server';
 
 import { z } from 'zod';
-import type { UserProfile, InvestmentData, MinesGame } from '@/types';
+import type { UserProfile, InvestmentData, MinesGame, CrashGame } from '@/types';
 import * as system from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 
@@ -953,4 +953,104 @@ export async function cashOutMines(gameId: string, userId: string): Promise<{ am
   } catch (error: any) {
     return { error: error.message };
   }
+}
+
+
+// CRASH GAME ACTIONS
+
+function calculateCrashPoint(): number {
+    const r = Math.random();
+    const crash = 1 / (1-r);
+    const cappedCrash = Math.min(crash, 1000); // Cap at 1000x for sanity
+    const finalCrashPoint = Math.max(1.01, cappedCrash);
+    return parseFloat(finalCrashPoint.toFixed(2));
+}
+
+export async function startCrashGame(userId: string, betAmount: number): Promise<{ gameId: string; crashPoint: number } | { error: string }> {
+    if (!userId) return { error: 'Usuario no autenticado.' };
+    if (betAmount <= 0) return { error: 'La apuesta debe ser mayor a cero.' };
+
+    const userRef = systemDb.collection('users').doc(userId);
+    const gameRef = userRef.collection('crash_games').doc();
+
+    try {
+        const crashPoint = calculateCrashPoint();
+        let finalGameId: string = '';
+
+        await systemDb.runTransaction(async (transaction) => {
+            const userSnap = await transaction.get(userRef);
+            if (!userSnap.exists) throw new Error('Usuario no encontrado.');
+            const userData = userSnap.data() as UserProfile;
+
+            if ((userData.saldoUSDT ?? 0) < betAmount) {
+                throw new Error('Saldo insuficiente para realizar esta apuesta.');
+            }
+
+            transaction.update(userRef, { saldoUSDT: FieldValue.increment(-betAmount) });
+
+            const newGame: Omit<CrashGame, 'id'> = {
+                userId,
+                createdAt: new Date().toISOString(),
+                status: 'active',
+                betAmount,
+                crashPoint,
+            };
+
+            transaction.set(gameRef, newGame);
+            finalGameId = gameRef.id;
+        });
+
+        return { gameId: finalGameId, crashPoint };
+    } catch (error: any) {
+        console.error(`Error en startCrashGame para ${userId}:`, error.message);
+        return { error: error.message };
+    }
+}
+
+
+export async function cashOutCrashGame(userId: string, gameId: string, cashOutMultiplier: number): Promise<{ amountWon: number } | { error: string }> {
+    if (!userId || !gameId || cashOutMultiplier <= 1) {
+        return { error: 'Datos inválidos para cobrar.' };
+    }
+    
+    const userRef = systemDb.collection('users').doc(userId);
+    const gameRef = userRef.collection('crash_games').doc(gameId);
+
+    try {
+        let finalAmountWon = 0;
+        await systemDb.runTransaction(async (transaction) => {
+            const gameSnap = await transaction.get(gameRef);
+            if (!gameSnap.exists) throw new Error('Partida no encontrada.');
+            
+            const gameData = gameSnap.data() as CrashGame;
+            if (gameData.status !== 'active') throw new Error('La partida ya ha finalizado.');
+            if (cashOutMultiplier > gameData.crashPoint) {
+                throw new Error('Intento de cobro después del crash.');
+            }
+
+            const amountWon = gameData.betAmount * cashOutMultiplier;
+            finalAmountWon = parseFloat(amountWon.toFixed(2));
+
+            transaction.update(userRef, { saldoUSDT: FieldValue.increment(finalAmountWon) });
+            transaction.update(gameRef, { 
+                status: 'cashed_out', 
+                winnings: finalAmountWon,
+                cashOutMultiplier,
+            });
+
+            const transactionRef = userRef.collection('transacciones').doc();
+            transaction.set(transactionRef, {
+                fecha: new Date().toISOString(),
+                tipo: 'Premio de Casino',
+                descripcion: `Ganancia en El Vuelo del León`,
+                monto: finalAmountWon
+            });
+        });
+
+        return { amountWon: finalAmountWon };
+
+    } catch (error: any) {
+        console.error(`Error en cashOutCrashGame para ${userId}:`, error.message);
+        return { error: error.message };
+    }
 }
