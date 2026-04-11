@@ -731,14 +731,14 @@ export async function claimWeeklyTicket(userId: string): Promise<{ success: true
 }
 
 const prizeConfig = [
-  { prize: 0, probability: 0.40 },   // Nada
-  { prize: 0.50, probability: 0.25 }, // $0.50
-  { prize: 1, probability: 0.15 },    // $1.00
-  { prize: 2, probability: 0.10 },    // $2.00
-  { prize: 3, probability: 0.05 },    // $3.00
-  { prize: 5, probability: 0.03 },    // $5.00
-  { prize: 10, probability: 0.015 },  // $10.00
-  { prize: 20, probability: 0.005 },  // $20.00
+  { prize: 0, probability: 0.90 },     // Nada (90%)
+  { prize: 0.50, probability: 0.05 },   // $0.50 (5%)
+  { prize: 1, probability: 0.025 },    // $1.00 (2.5%)
+  { prize: 2, probability: 0.012 },    // $2.00 (1.2%)
+  { prize: 3, probability: 0.008 },    // $3.00 (0.8%)
+  { prize: 5, probability: 0.003 },    // $5.00 (0.3%)
+  { prize: 10, probability: 0.0015 },  // $10.00 (0.15%)
+  { prize: 20, probability: 0.0005 },  // $20.00 (0.05%)
 ];
 
 const segments = [0, 0.5, 1, 2, 3, 5, 10, 20]; // UI segments
