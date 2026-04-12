@@ -61,14 +61,14 @@ export default function SlotsPage() {
 
     const [reels, setReels] = useState<Symbol[]>(['7', '7', '7']);
     const [isSpinning, setIsSpinning] = useState(false);
-    const [tickets, setTickets] = useState(user?.tickets ?? 0);
+    const [tickets, setTickets] = useState(0);
     
     const spinSoundRef = useRef<HTMLAudioElement>(null);
     const winSoundRef = useRef<HTMLAudioElement>(null);
 
     useEffect(() => {
         if (user) {
-            setTickets(user.tickets);
+            setTickets(user.tickets ?? 0);
         }
     }, [user]);
 
@@ -85,10 +85,20 @@ export default function SlotsPage() {
 
         const result = await spinSlots(user.uid);
         
-        // Spin animation duration
         setTimeout(() => {
             setIsSpinning(false);
-            if (result.error) {
+            
+            if (!result) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Error de Red',
+                    description: 'No se pudo comunicar con el servidor. Tu ticket ha sido devuelto.'
+                });
+                setTickets(prev => prev + 1);
+                return;
+            }
+
+            if ('error' in result) {
                 toast({ variant: 'destructive', title: 'Error', description: result.error });
                 setTickets(prev => prev + 1); // Return ticket on error
             } else {
