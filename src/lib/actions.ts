@@ -732,7 +732,7 @@ export async function claimWeeklyTicket(userId: string): Promise<{ success: true
 
 const prizeConfig = [
   { prize: 0, probability: 0.90 },     // Nada (90%)
-  { prize: 0.50, probability: 0.05 },   // $0.50 (5%)
+  { prize: 0.5, probability: 0.05 },   // $0.50 (5%)
   { prize: 1, probability: 0.025 },    // $1.00 (2.5%)
   { prize: 2, probability: 0.012 },    // $2.00 (1.2%)
   { prize: 3, probability: 0.008 },    // $3.00 (0.8%)
@@ -959,10 +959,14 @@ export async function cashOutMines(gameId: string, userId: string): Promise<{ am
 // CRASH GAME ACTIONS
 
 function calculateCrashPoint(): number {
+    // This distribution is skewed towards lower numbers, making high multipliers rarer.
     const r = Math.random();
-    const crash = 1 / (1-r);
-    const cappedCrash = Math.min(crash, 1000); // Cap at 1000x for sanity
+    const crash = 1 / (1 - r);
+
+    // Cap the crash point at 50x for game balance and ensure it's at least 1.01
+    const cappedCrash = Math.min(crash, 50.00); 
     const finalCrashPoint = Math.max(1.01, cappedCrash);
+    
     return parseFloat(finalCrashPoint.toFixed(2));
 }
 
@@ -1024,7 +1028,7 @@ export async function cashOutCrashGame(userId: string, gameId: string, cashOutMu
             
             const gameData = gameSnap.data() as CrashGame;
             if (gameData.status !== 'active') throw new Error('La partida ya ha finalizado.');
-            if (cashOutMultiplier > gameData.crashPoint) {
+            if (cashOutMultiplier >= gameData.crashPoint) {
                 throw new Error('Intento de cobro después del crash.');
             }
 

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -10,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { startCrashGame, cashOutCrashGame } from '@/lib/actions';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
-import { LineChart, Line, YAxis, XAxis, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { AreaChart, Area, YAxis, XAxis, ResponsiveContainer } from 'recharts';
 
 const LionIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" {...props}>
@@ -32,6 +33,7 @@ export default function CrashPage() {
     const [crashPoint, setCrashPoint] = useState<number | null>(null);
     const [multiplier, setMultiplier] = useState(1.00);
     const [chartData, setChartData] = useState<ChartData[]>([{ time: 0, multiplier: 1 }]);
+    const [lionPosition, setLionPosition] = useState(0);
     
     const [isLoading, setIsLoading] = useState(false);
     const animationFrameRef = useRef<number>();
@@ -65,6 +67,7 @@ export default function CrashPage() {
             setCrashPoint(result.crashPoint);
             setGameState('playing');
             setMultiplier(1.00);
+            setLionPosition(0);
             setChartData([{ time: 0, multiplier: 1 }]);
             startTimeRef.current = performance.now();
             animationFrameRef.current = requestAnimationFrame(gameLoop);
@@ -81,7 +84,6 @@ export default function CrashPage() {
         
         if (result.error) {
             toast({ variant: 'destructive', title: 'Error al cobrar', description: result.error });
-            // Potentially resume game if cashout fails? For now, we stop.
             setGameState('setup');
         } else {
             toast({ title: `¡Cobrado en ${multiplier.toFixed(2)}x!`, description: `Has ganado ${result.amountWon.toFixed(2)} USDT.` });
@@ -91,17 +93,22 @@ export default function CrashPage() {
     };
 
     const gameLoop = (currentTime: number) => {
-        if (!startTimeRef.current) return;
+        if (!startTimeRef.current || !crashPoint) return;
         const elapsedTime = currentTime - startTimeRef.current;
         
         const newMultiplier = parseFloat((1 * Math.pow(1.07, elapsedTime / 1000)).toFixed(2));
-        setMultiplier(newMultiplier);
-
-        setChartData(prevData => [...prevData, {time: elapsedTime, multiplier: newMultiplier}]);
         
-        if (crashPoint && newMultiplier >= crashPoint) {
+        if (newMultiplier >= crashPoint) {
+            setMultiplier(crashPoint);
+            setChartData(prevData => [...prevData, {time: elapsedTime, multiplier: crashPoint}]);
             setGameState('crashed');
         } else {
+            setMultiplier(newMultiplier);
+            setChartData(prevData => [...prevData, {time: elapsedTime, multiplier: newMultiplier}]);
+            
+            const progress = (newMultiplier - 1) / (crashPoint - 1);
+            setLionPosition(Math.min(90, progress * 100));
+
             animationFrameRef.current = requestAnimationFrame(gameLoop);
         }
     };
@@ -120,6 +127,7 @@ export default function CrashPage() {
         setCrashPoint(null);
         setMultiplier(1.00);
         setChartData([{ time: 0, multiplier: 1 }]);
+        setLionPosition(0);
     };
 
     const currentWinnings = useMemo(() => {
@@ -178,7 +186,7 @@ export default function CrashPage() {
                         </div>
                     </div>
                      {/* Chart Section */}
-                    <div className="md:col-span-2 relative aspect-video bg-black/30 rounded-lg flex items-center justify-center p-4">
+                    <div className="md:col-span-2 relative aspect-video bg-black/30 rounded-lg flex items-center justify-center p-4 overflow-hidden">
                        {gameState === 'setup' && (
                            <div className="text-center text-gray-500">
                                <LionIcon className="h-24 w-24 mx-auto text-golden opacity-20" />
@@ -196,8 +204,20 @@ export default function CrashPage() {
                                 )}>
                                     {multiplier.toFixed(2)}x
                                 </h2>
-                                {gameState === 'crashed' && <p className="text-red-400 font-semibold mt-2">¡CRASH!</p>}
+                                {gameState === 'crashed' && <p className="text-red-400 font-semibold mt-2">💥 ¡EL LEÓN SALIÓ VOLANDO!</p>}
                             </div>
+
+                             <LionIcon 
+                                className={cn("absolute h-10 w-10 text-golden z-20 transition-all duration-100 ease-linear",
+                                    gameState === 'crashed' && 'opacity-0 scale-150 animate-ping'
+                                )}
+                                style={{
+                                    bottom: `${5 + lionPosition * 0.8}%`,
+                                    left: '50%',
+                                    transform: 'translateX(-50%)'
+                                }}
+                            />
+
                             <ResponsiveContainer width="100%" height="100%">
                                 <AreaChart data={chartData}>
                                     <defs>
@@ -205,10 +225,22 @@ export default function CrashPage() {
                                             <stop offset="5%" stopColor="#D4AF37" stopOpacity={0.4}/>
                                             <stop offset="95%" stopColor="#D4AF37" stopOpacity={0}/>
                                         </linearGradient>
+                                        <linearGradient id="crashGradient" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4}/>
+                                            <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                                        </linearGradient>
                                     </defs>
                                     <YAxis domain={[1, 'dataMax + 0.5']} hide />
                                     <XAxis dataKey="time" hide />
-                                    <Area type="monotone" dataKey="multiplier" stroke="#D4AF37" strokeWidth={4} fill="url(#chartGradient)" isAnimationActive={false} dot={false}/>
+                                    <Area 
+                                        type="monotone" 
+                                        dataKey="multiplier" 
+                                        stroke={gameState === 'crashed' ? '#ef4444' : '#D4AF37'}
+                                        fill={gameState === 'crashed' ? 'url(#crashGradient)' : 'url(#chartGradient)'}
+                                        strokeWidth={4} 
+                                        isAnimationActive={false} 
+                                        dot={false}
+                                    />
                                 </AreaChart>
                             </ResponsiveContainer>
                         </>
