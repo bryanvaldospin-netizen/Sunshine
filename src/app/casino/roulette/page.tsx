@@ -11,11 +11,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Ticket, Dices, ArrowLeft } from 'lucide-react';
+import { Ticket, Dices, ArrowLeft, Copy } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { spinRoulette } from '@/lib/actions';
 import Link from 'next/link';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const prizes = [
   { amount: 0, label: "Nada" },
@@ -127,6 +129,7 @@ export default function RoulettePage() {
     const [rotation, setRotation] = useState(0);
     const [isSpinning, setIsSpinning] = useState(false);
     const [tickets, setTickets] = useState(user?.tickets ?? 0);
+    const ticketWalletAddress = "0x471d4424e1016a256a8d13283522302cb020a4d2";
 
     useEffect(() => {
         if (user) {
@@ -134,6 +137,10 @@ export default function RoulettePage() {
         }
     }, [user]);
 
+    const handleCopyAddress = () => {
+        navigator.clipboard.writeText(ticketWalletAddress);
+        toast({ title: "Dirección copiada", description: "La dirección de billetera ha sido copiada al portapapeles." });
+    }
 
     const handleSpin = async () => {
         if (!user) {
@@ -153,17 +160,13 @@ export default function RoulettePage() {
             const result = await spinRoulette(user.uid);
             
             if (result.error) {
-                // If the server returns a controlled error (e.g., "Not enough tickets"), give the ticket back.
-                setTickets(prev => prev + 1);
                 throw new Error(result.error);
             }
             
-            // The spin was successful on the server, now animate it using the angle from the server.
             const baseSpins = 5;
             const newRotation = rotation + (baseSpins * 360) + result.finalAngle;
             setRotation(newRotation);
     
-            // After animation, show the result.
             setTimeout(() => {
                 setIsSpinning(false);
                 if (result.prize > 0) {
@@ -180,9 +183,8 @@ export default function RoulettePage() {
             }, 6000); // This duration must match the CSS transition duration
     
         } catch (error: any) {
-            // This catch block will handle network errors, or the re-thrown server error.
+            setTickets(prev => prev + 1);
             setIsSpinning(false);
-            setTickets(prev => prev + 1); // Give ticket back on any failure
             toast({
                 variant: "destructive",
                 title: "Error al Girar",
@@ -228,7 +230,7 @@ export default function RoulettePage() {
 
                  {tickets <= 0 && !isSpinning && (
                     <div className="text-center mt-4 w-full max-w-md">
-                        <p className="text-gray-400 mb-4">¡Has usado tu tiro diario! Adquiere más tickets para seguir jugando.</p>
+                        <p className="text-gray-400 mb-4">¡Has usado tu tiro semanal! Adquiere más tickets para seguir jugando.</p>
                         <Dialog>
                             <DialogTrigger asChild>
                                 <Button variant="outline" className="w-full border-golden text-golden hover:bg-golden/10">
@@ -254,6 +256,15 @@ export default function RoulettePage() {
                                     <div className="flex justify-between items-center p-3 rounded-lg bg-gray-800/50">
                                         <span className="font-semibold">10 Tickets</span>
                                         <span className="text-golden font-bold text-lg">$9.99</span>
+                                    </div>
+                                </div>
+                                <div className="px-6 pb-4 space-y-2">
+                                    <Label className="text-xs text-muted-foreground">BILLETERA BEP20 PARA COMPRA DE TICKET:</Label>
+                                    <div className="flex items-center gap-2">
+                                        <Input readOnly value={ticketWalletAddress} className="bg-gray-700 border-gray-600 truncate font-mono text-sm"/>
+                                        <Button onClick={handleCopyAddress} variant="outline" size="icon" className="border-golden text-golden hover:bg-golden/10 hover:text-golden flex-shrink-0">
+                                            <Copy className="h-4 w-4" />
+                                        </Button>
                                     </div>
                                 </div>
                                 <DialogFooter>
