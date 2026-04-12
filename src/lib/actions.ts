@@ -1156,3 +1156,62 @@ export async function cashOutBalloonGame(userId: string, gameId: string, cashOut
         return { error: error.message };
     }
 }
+
+// SLOTS GAME ACTIONS
+export async function spinSlots(userId: string): Promise<{ combination: string[]; prize: number } | { error: string }> {
+    if (!userId) {
+        return { error: 'Se requiere iniciar sesión.' };
+    }
+    const userRef = systemDb.collection('users').doc(userId);
+
+    try {
+        const result = await systemDb.runTransaction(async (transaction) => {
+            const userSnap = await transaction.get(userRef);
+            if (!userSnap.exists) {
+                throw new Error('Usuario no encontrado.');
+            }
+            const userData = userSnap.data() as UserProfile;
+
+            if ((userData.tickets ?? 0) < 1) {
+                throw new Error('No tienes suficientes tickets para jugar.');
+            }
+
+            transaction.update(userRef, { tickets: FieldValue.increment(-1) });
+
+            const symbols = ['BAR', '7', 'CHERRY', 'DIAMOND', 'BAR', 'CHERRY', '7', 'DIAMOND', 'CHERRY'];
+            const reel1 = symbols[Math.floor(Math.random() * symbols.length)];
+            const reel2 = symbols[Math.floor(Math.random() * symbols.length)];
+            const reel3 = symbols[Math.floor(Math.random() * symbols.length)];
+            const combination = [reel1, reel2, reel3];
+
+            let prize = 0;
+            if (reel1 === '7' && reel2 === '7' && reel3 === '7') {
+                prize = 10.00;
+            } else if (reel1 === 'DIAMOND' && reel2 === 'DIAMOND' && reel3 === 'DIAMOND') {
+                prize = 5.00;
+            } else if (combination.includes('CHERRY')) {
+                prize = 1.00;
+            }
+
+            if (prize > 0) {
+                transaction.update(userRef, { saldoUSDT: FieldValue.increment(prize) });
+
+                const transactionRef = userRef.collection('transacciones').doc();
+                transaction.set(transactionRef, {
+                    fecha: new Date().toISOString(),
+                    tipo: 'Premio de Casino',
+                    descripcion: `Ganancia en Tragamonedas`,
+                    monto: prize
+                });
+            }
+            
+            return { combination, prize };
+        });
+
+        return result;
+
+    } catch (error: any) {
+        console.error(`Error en spinSlots para el usuario ${userId}:`, error.message);
+        return { error: `Error del Servidor: ${error.message}` };
+    }
+}
