@@ -122,6 +122,22 @@
         "winnings": { "type": "number" }
       },
       "required": ["userId", "createdAt", "status", "betAmount", "crashPoint"]
+    },
+    "BalloonGame": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "BalloonGame",
+      "type": "object",
+      "description": "Represents a single session of the Balloon game 'El Balón de Oro'.",
+      "properties": {
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["active", "burst", "cashed_out"] },
+        "betAmount": { "type": "number", "description": "Amount of USDT wagered." },
+        "burstPoint": { "type": "number", "description": "The multiplier at which the balloon bursts." },
+        "cashOutMultiplier": { "type": "number", "description": "The multiplier at which the user cashed out." },
+        "winnings": { "type": "number" }
+      },
+      "required": ["userId", "createdAt", "status", "betAmount", "burstPoint"]
     }
   },
   "auth": {
@@ -147,6 +163,10 @@
     "/users/{userId}/crash_games/{gameId}": {
       "schema": { "$ref": "#/entities/CrashGame" },
       "description": "Stores individual Crash game sessions for a user."
+    },
+    "/users/{userId}/balloon_games/{gameId}": {
+      "schema": { "$ref": "#/entities/BalloonGame" },
+      "description": "Stores individual Balloon game sessions for a user."
     },
     "/invitation_codes/{invitationCodeId}": {
       "schema": { "$ref": "#/entities/InvitationCode" },

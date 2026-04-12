@@ -82,3 +82,14 @@ export type CrashGame = {
   cashOutMultiplier?: number;
   winnings?: number;
 };
+
+export type BalloonGame = {
+  id: string;
+  userId: string;
+  createdAt: string; // ISO string
+  status: 'active' | 'burst' | 'cashed_out';
+  betAmount: number; // USDT
+  burstPoint: number;
+  cashOutMultiplier?: number;
+  winnings?: number;
+};

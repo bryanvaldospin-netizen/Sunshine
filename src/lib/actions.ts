@@ -2,7 +2,7 @@
 'use server';
 
 import { z } from 'zod';
-import type { UserProfile, InvestmentData, MinesGame, CrashGame } from '@/types';
+import type { UserProfile, InvestmentData, MinesGame, CrashGame, BalloonGame } from '@/types';
 import * as system from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 
@@ -1055,6 +1055,104 @@ export async function cashOutCrashGame(userId: string, gameId: string, cashOutMu
 
     } catch (error: any) {
         console.error(`Error en cashOutCrashGame para ${userId}:`, error.message);
+        return { error: error.message };
+    }
+}
+
+// BALLOON GAME ACTIONS
+
+function calculateBurstPoint(): number {
+    const r = Math.random();
+    const burst = 1 / (1 - r);
+    const cappedBurst = Math.min(burst, 50.00); 
+    const finalBurstPoint = Math.max(1.01, cappedBurst);
+    return parseFloat(finalBurstPoint.toFixed(2));
+}
+
+export async function startBalloonGame(userId: string, betAmount: number): Promise<{ gameId: string; burstPoint: number } | { error: string }> {
+    if (!userId) return { error: 'Usuario no autenticado.' };
+    if (betAmount < 0.1) return { error: 'La apuesta mínima es de 0.10 USDT.' };
+
+    const userRef = systemDb.collection('users').doc(userId);
+    const gameRef = userRef.collection('balloon_games').doc();
+
+    try {
+        const burstPoint = calculateBurstPoint();
+        let finalGameId: string = '';
+
+        await systemDb.runTransaction(async (transaction) => {
+            const userSnap = await transaction.get(userRef);
+            if (!userSnap.exists) throw new Error('Usuario no encontrado.');
+            const userData = userSnap.data() as UserProfile;
+
+            if ((userData.saldoUSDT ?? 0) < betAmount) {
+                throw new Error('Saldo insuficiente para realizar esta apuesta.');
+            }
+
+            transaction.update(userRef, { saldoUSDT: FieldValue.increment(-betAmount) });
+
+            const newGame: Omit<BalloonGame, 'id'> = {
+                userId,
+                createdAt: new Date().toISOString(),
+                status: 'active',
+                betAmount,
+                burstPoint,
+            };
+
+            transaction.set(gameRef, newGame);
+            finalGameId = gameRef.id;
+        });
+
+        return { gameId: finalGameId, burstPoint };
+    } catch (error: any) {
+        console.error(`Error en startBalloonGame para ${userId}:`, error.message);
+        return { error: error.message };
+    }
+}
+
+export async function cashOutBalloonGame(userId: string, gameId: string, cashOutMultiplier: number): Promise<{ amountWon: number } | { error: string }> {
+    if (!userId || !gameId || cashOutMultiplier <= 1) {
+        return { error: 'Datos inválidos para cobrar.' };
+    }
+    
+    const userRef = systemDb.collection('users').doc(userId);
+    const gameRef = userRef.collection('balloon_games').doc(gameId);
+
+    try {
+        let finalAmountWon = 0;
+        await systemDb.runTransaction(async (transaction) => {
+            const gameSnap = await transaction.get(gameRef);
+            if (!gameSnap.exists) throw new Error('Partida no encontrada.');
+            
+            const gameData = gameSnap.data() as BalloonGame;
+            if (gameData.status !== 'active') throw new Error('La partida ya ha finalizado.');
+            if (cashOutMultiplier >= gameData.burstPoint) {
+                throw new Error('Intento de cobro después de la explosión.');
+            }
+
+            const amountWon = gameData.betAmount * cashOutMultiplier;
+            finalAmountWon = parseFloat(amountWon.toFixed(2));
+
+            transaction.update(userRef, { saldoUSDT: FieldValue.increment(finalAmountWon) });
+            transaction.update(gameRef, { 
+                status: 'cashed_out', 
+                winnings: finalAmountWon,
+                cashOutMultiplier,
+            });
+
+            const transactionRef = userRef.collection('transacciones').doc();
+            transaction.set(transactionRef, {
+                fecha: new Date().toISOString(),
+                tipo: 'Premio de Casino',
+                descripcion: `Ganancia en El Balón de Oro`,
+                monto: finalAmountWon
+            });
+        });
+
+        return { amountWon: finalAmountWon };
+
+    } catch (error: any) {
+        console.error(`Error en cashOutBalloonGame para ${userId}:`, error.message);
         return { error: error.message };
     }
 }

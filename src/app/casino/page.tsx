@@ -8,6 +8,16 @@ import { useAuth } from '@/hooks/use-auth';
 import { useEffect, useState } from 'react';
 import { Ticket } from 'lucide-react';
 
+
+const BalloonIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+        <path d="M12.5 22C16.9183 22 20.5 18.4183 20.5 14C20.5 9.58172 16.9183 6 12.5 6C8.08172 6 4.5 9.58172 4.5 14C4.5 18.4183 8.08172 22 12.5 22Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M12.5 6C12.5 3.79086 10.7091 2 8.5 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M12.5 22L12.5 19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+);
+
+
 export default function CasinoHubPage() {
     const { user } = useAuth();
     const [tickets, setTickets] = useState(user?.tickets ?? 0);
@@ -45,7 +55,7 @@ export default function CasinoHubPage() {
                 
                 <p className="text-gray-300">Selecciona un juego para comenzar a ganar.</p>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
                     <Card className="bg-gray-800/80 border-golden/50 text-white flex flex-col items-center justify-between p-6 text-center hover:border-golden hover:shadow-lg hover:shadow-golden/20 transition-all">
                         <Gem className="h-16 w-16 text-amber-400" style={{filter: 'drop-shadow(0 0 8px #fbbd23)'}} />
                         <CardHeader className="p-2">
@@ -90,6 +100,22 @@ export default function CasinoHubPage() {
                             </Button>
                         </Link>
                     </Card>
+
+                    <Card className="bg-gray-800/80 border-amber-400/50 text-white flex flex-col items-center justify-between p-6 text-center hover:border-amber-400 hover:shadow-lg hover:shadow-amber-400/20 transition-all">
+                        <BalloonIcon className="h-16 w-16 text-amber-400" style={{filter: 'drop-shadow(0 0 8px #fbbd23)'}} />
+                         <CardHeader className="p-2">
+                            <CardTitle className="text-2xl font-bold text-amber-300">El Balón de Oro</CardTitle>
+                        </CardHeader>
+                        <CardDescription className="text-gray-400 mb-4 h-20">
+                            Infla el balón y cobra antes de que explote. ¡Controla tu riesgo y tu recompensa! (Costo: Saldo USDT)
+                        </CardDescription>
+                        <Link href="/casino/balloon" className="w-full">
+                            <Button className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+                                Jugar a Inflar
+                            </Button>
+                        </Link>
+                    </Card>
+
                 </div>
             </CardContent>
         </Card>
