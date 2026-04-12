@@ -277,7 +277,7 @@ export async function activateInvestment(userId: string, amount: number): Promis
 }
 
 export async function getWalletAddress() {
-  return "0x471d4424e1016a256a256a8d13283522302cb020a4d2";
+  return "0x471d4424e1016a256a8d13283522302cb020a4d2";
 }
 
 export async function syncInviteCodes() {
@@ -1178,21 +1178,42 @@ export async function spinSlots(userId: string): Promise<{ combination: string[]
 
             transaction.update(userRef, { tickets: FieldValue.increment(-1) });
 
-            const symbols = ['BAR', '7', 'CHERRY', 'DIAMOND', 'BAR', 'CHERRY', '7', 'DIAMOND', 'CHERRY'];
-            const reel1 = symbols[Math.floor(Math.random() * symbols.length)];
-            const reel2 = symbols[Math.floor(Math.random() * symbols.length)];
-            const reel3 = symbols[Math.floor(Math.random() * symbols.length)];
-            const combination = [reel1, reel2, reel3];
-
+            const outcomeRoll = Math.floor(Math.random() * 100) + 1; // 1 to 100
+            let combination: string[];
             let prize = 0;
-            if (reel1 === '7' && reel2 === '7' && reel3 === '7') {
-                prize = 10.00;
-            } else if (reel1 === 'DIAMOND' && reel2 === 'DIAMOND' && reel3 === 'DIAMOND') {
-                prize = 5.00;
-            } else if (combination.includes('CHERRY')) {
-                prize = 1.00;
-            }
 
+            if (outcomeRoll <= 75) { // 75% for LOSS
+                prize = 0;
+                const symbols = ['BAR', '7', 'DIAMOND'];
+                let r1, r2, r3;
+                do {
+                    r1 = symbols[Math.floor(Math.random() * symbols.length)];
+                    r2 = symbols[Math.floor(Math.random() * symbols.length)];
+                    r3 = symbols[Math.floor(Math.random() * symbols.length)];
+                } while ((r1 === '7' && r2 === '7' && r3 === '7') || (r1 === 'DIAMOND' && r2 === 'DIAMOND' && r3 === 'DIAMOND'));
+                combination = [r1, r2, r3];
+            } else if (outcomeRoll <= 95) { // 20% for CHERRY (76-95)
+                prize = 1.00;
+                const symbols = ['BAR', '7', 'DIAMOND'];
+                const reels = [
+                    'CHERRY',
+                    symbols[Math.floor(Math.random() * symbols.length)],
+                    symbols[Math.floor(Math.random() * symbols.length)]
+                ];
+                // Shuffle array to randomize cherry position
+                for (let i = reels.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [reels[i], reels[j]] = [reels[j], reels[i]];
+                }
+                combination = reels;
+            } else if (outcomeRoll <= 99) { // 4% for DIAMOND (96-99)
+                prize = 5.00;
+                combination = ['DIAMOND', 'DIAMOND', 'DIAMOND'];
+            } else { // 1% for 777 (100)
+                prize = 10.00;
+                combination = ['7', '7', '7'];
+            }
+            
             if (prize > 0) {
                 transaction.update(userRef, { saldoUSDT: FieldValue.increment(prize) });
 
