@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -12,6 +11,9 @@ import { startCrashGame, cashOutCrashGame } from '@/lib/actions';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { AreaChart, Area, YAxis, XAxis, ResponsiveContainer } from 'recharts';
+import { db } from '@/lib/firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
+
 
 const LionIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" {...props}>
@@ -39,7 +41,19 @@ export default function CrashPage() {
     const animationFrameRef = useRef<number>();
     const startTimeRef = useRef<number>();
     
-    const balance = user?.saldoUSDT ?? 0;
+    const [balance, setBalance] = useState(user?.saldoUSDT ?? 0);
+
+    useEffect(() => {
+        if (user?.uid) {
+            const userDocRef = doc(db, 'users', user.uid);
+            const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    setBalance(docSnap.data().saldoUSDT ?? 0);
+                }
+            });
+            return () => unsubscribe();
+        }
+    }, [user?.uid]);
 
     const handleBetChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
