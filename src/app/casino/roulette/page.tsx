@@ -130,6 +130,7 @@ export default function RoulettePage() {
     const [isSpinning, setIsSpinning] = useState(false);
     const [tickets, setTickets] = useState(user?.tickets ?? 0);
     const ticketWalletAddress = "0x471d4424e1016a256a8d13283522302cb020a4d2";
+    const binanceId = "797960108";
 
     useEffect(() => {
         if (user) {
@@ -140,6 +141,11 @@ export default function RoulettePage() {
     const handleCopyAddress = () => {
         navigator.clipboard.writeText(ticketWalletAddress);
         toast({ title: "Dirección copiada", description: "La dirección de billetera ha sido copiada al portapapeles." });
+    }
+
+    const handleCopyBinanceId = () => {
+        navigator.clipboard.writeText(binanceId);
+        toast({ title: "ID de Binance copiado", description: "El ID de Binance ha sido copiado al portapapeles." });
     }
 
     const handleSpin = async () => {
@@ -258,13 +264,24 @@ export default function RoulettePage() {
                                         <span className="text-golden font-bold text-lg">$9.99</span>
                                     </div>
                                 </div>
-                                <div className="px-6 pb-4 space-y-2">
-                                    <Label className="text-xs text-muted-foreground">BILLETERA BEP20 PARA COMPRA DE TICKET:</Label>
-                                    <div className="flex items-center gap-2">
-                                        <Input readOnly value={ticketWalletAddress} className="bg-gray-700 border-gray-600 truncate font-mono text-sm"/>
-                                        <Button onClick={handleCopyAddress} variant="outline" size="icon" className="border-golden text-golden hover:bg-golden/10 hover:text-golden flex-shrink-0">
-                                            <Copy className="h-4 w-4" />
-                                        </Button>
+                                <div className="px-6 pb-4 space-y-4">
+                                    <div>
+                                        <Label className="text-xs text-muted-foreground">BILLETERA BEP20 PARA COMPRA DE TICKET:</Label>
+                                        <div className="flex items-center gap-2">
+                                            <Input readOnly value={ticketWalletAddress} className="bg-gray-700 border-gray-600 truncate font-mono text-sm"/>
+                                            <Button onClick={handleCopyAddress} variant="outline" size="icon" className="border-golden text-golden hover:bg-golden/10 hover:text-golden flex-shrink-0">
+                                                <Copy className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <Label className="text-xs text-muted-foreground">ID BINANCE "Sunshine UK":</Label>
+                                        <div className="flex items-center gap-2">
+                                            <Input readOnly value={binanceId} className="bg-gray-700 border-gray-600 truncate font-mono text-sm"/>
+                                            <Button onClick={handleCopyBinanceId} variant="outline" size="icon" className="border-golden text-golden hover:bg-golden/10 hover:text-golden flex-shrink-0">
+                                                <Copy className="h-4 w-4" />
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
                                 <DialogFooter>
