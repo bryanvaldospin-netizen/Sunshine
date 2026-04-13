@@ -1150,6 +1150,64 @@ export default function DashboardPage() {
     setChartData(data);
   }, [displayWalletBalance, authLoading, profile]);
   
+  const BuyTicketsComponent = () => {
+    const { toast } = useToast();
+    const ticketWalletAddress = "0x471d4424e1016a256a8d13283522302cb020a4d2";
+
+    const handleCopyAddress = () => {
+        navigator.clipboard.writeText(ticketWalletAddress);
+        toast({ title: "Dirección copiada", description: "La dirección de billetera ha sido copiada al portapapeles." });
+    }
+
+    return (
+        <Dialog>
+            <DialogTrigger asChild>
+                <Button variant="outline" className="w-full border-golden text-golden hover:bg-golden/10">
+                    🎟️ Comprar Tickets de la Suerte
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-gray-900 border-golden text-white">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2"><Ticket className="text-golden"/> Comprar Tickets de la Suerte</DialogTitle>
+                    <DialogDescription>
+                        Elige un paquete para continuar la diversión.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="py-4 space-y-3">
+                    <div className="flex justify-between items-center p-3 rounded-lg bg-gray-800/50">
+                        <span className="font-semibold">1 Ticket</span>
+                        <span className="text-golden font-bold text-lg">$0.99</span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 rounded-lg bg-gray-800/50 border-2 border-golden shadow-lg">
+                        <span className="font-semibold">5 Tickets</span>
+                        <span className="text-golden font-bold text-lg">$4.99</span>
+                    </div>
+                    <div className="flex justify-between items-center p-3 rounded-lg bg-gray-800/50">
+                        <span className="font-semibold">10 Tickets</span>
+                        <span className="text-golden font-bold text-lg">$9.99</span>
+                    </div>
+                </div>
+                <div className="px-6 pb-4 space-y-2">
+                    <Label className="text-xs text-muted-foreground">BILLETERA BEP20 PARA COMPRA DE TICKET:</Label>
+                    <div className="flex items-center gap-2">
+                        <Input readOnly value={ticketWalletAddress} className="bg-gray-700 border-gray-600 truncate font-mono text-sm"/>
+                        <Button onClick={handleCopyAddress} variant="outline" size="icon" className="border-golden text-golden hover:bg-golden/10 hover:text-golden flex-shrink-0">
+                            <Copy className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button asChild className="w-full bg-gradient-to-r from-golden to-red-800 text-white">
+                        <a href="https://form.jotform.com/261000430361033" target="_blank" rel="noopener noreferrer">
+                            Solicitar Tickets
+                        </a>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+  };
+
 
   const handleLogout = async () => {
     try {
@@ -1256,6 +1314,21 @@ export default function DashboardPage() {
 
                     <div className="w-full max-w-5xl">
                         <WeeklyRewardCard user={profile} />
+                    </div>
+
+                    <div className="w-full max-w-5xl">
+                        <Card className="bg-gray-800 border-gray-700 text-white text-center">
+                            <CardHeader>
+                                <CardTitle className="text-xl font-medium text-gray-300 flex items-center justify-center gap-2">
+                                    <Ticket className="text-golden"/>
+                                    Más Oportunidades
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-sm text-gray-400 mb-4">¿Se te acabaron los tickets? ¡No te preocupes! Compra más para seguir la diversión.</p>
+                                <BuyTicketsComponent />
+                            </CardContent>
+                        </Card>
                     </div>
 
                     <div className="w-full max-w-5xl">
