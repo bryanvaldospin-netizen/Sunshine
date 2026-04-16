@@ -1350,7 +1350,7 @@ export async function claimBingoWin(userId: string, gameId: string, winType: 'li
                 throw new Error("La combinación ganadora no pudo ser validada. Intento de reclamo inválido.");
             }
             
-            prize = winType === 'line' ? 2.00 : 15.00;
+            prize = winType === 'line' ? 0.50 : 1.00;
             const newStatus = winType === 'line' ? 'line_won' : 'bingo_won';
 
             transaction.update(userRef, { saldoUSDT: FieldValue.increment(prize) });

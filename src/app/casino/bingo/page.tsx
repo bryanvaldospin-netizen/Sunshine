@@ -182,8 +182,8 @@ export default function BingoPage() {
                         <Card className="bg-gray-800 p-4 border-gray-700 text-center">
                              <CardTitle className="text-lg mb-2">Premios</CardTitle>
                              <div className="text-left space-y-1 text-sm">
-                                 <p><span className="font-bold text-golden">Línea:</span> $2.00 USDT</p>
-                                 <p><span className="font-bold text-golden">Cartón Lleno:</span> $15.00 USDT</p>
+                                 <p><span className="font-bold text-golden">Línea:</span> $0.50 USDT</p>
+                                 <p><span className="font-bold text-golden">Cartón Lleno:</span> $1.00 USDT</p>
                              </div>
                         </Card>
                     </div>
