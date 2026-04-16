@@ -64,37 +64,7 @@ export default function CasinoHubPage() {
                 
                 <p className="text-gray-300">Selecciona un juego para comenzar a ganar.</p>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 w-full">
-                    <Card className="bg-gray-800/80 border-golden/50 text-white flex flex-col items-center justify-between p-6 text-center hover:border-golden hover:shadow-lg hover:shadow-golden/20 transition-all">
-                        <Gem className="h-16 w-16 text-amber-400" style={{filter: 'drop-shadow(0 0 8px #fbbd23)'}} />
-                        <CardHeader className="p-2">
-                            <CardTitle className="text-2xl font-bold text-golden">La Ruleta de la Suerte</CardTitle>
-                        </CardHeader>
-                        <CardDescription className="text-gray-400 mb-4 h-20">
-                            Gira la ruleta y prueba tu suerte. ¡Premios instantáneos de hasta $20 te esperan! (Costo: 1 Ticket)
-                        </CardDescription>
-                        <Link href="/casino/roulette" className="w-full">
-                            <Button className="w-full bg-gradient-to-r from-golden to-red-800 text-white">
-                                Jugar a la Ruleta
-                            </Button>
-                        </Link>
-                    </Card>
-
-                    <Card className="bg-gray-800/80 border-cyan-400/50 text-white flex flex-col items-center justify-between p-6 text-center hover:border-cyan-400 hover:shadow-lg hover:shadow-cyan-400/20 transition-all">
-                        <Bomb className="h-16 w-16 text-cyan-400" style={{filter: 'drop-shadow(0 0 8px #0ff)'}} />
-                         <CardHeader className="p-2">
-                            <CardTitle className="text-2xl font-bold text-cyan-300">La Mina de Oro</CardTitle>
-                        </CardHeader>
-                        <CardDescription className="text-gray-400 mb-4 h-20">
-                            Encuentra los diamantes y evita las minas para multiplicar tu apuesta. (Costo: 1 Ticket)
-                        </CardDescription>
-                        <Link href="/casino/mines" className="w-full">
-                            <Button className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white">
-                                Jugar a la Mina
-                            </Button>
-                        </Link>
-                    </Card>
-                    
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
                     <Card className="bg-gray-800/80 border-purple-400/50 text-white flex flex-col items-center justify-between p-6 text-center hover:border-purple-400 hover:shadow-lg hover:shadow-purple-400/20 transition-all">
                         <Rocket className="h-16 w-16 text-purple-400" style={{filter: 'drop-shadow(0 0 8px #a855f7)'}} />
                          <CardHeader className="p-2">
@@ -106,36 +76,6 @@ export default function CasinoHubPage() {
                         <Link href="/casino/crash" className="w-full">
                             <Button className="w-full bg-gradient-to-r from-purple-500 to-indigo-500 text-white">
                                 Jugar a Crash
-                            </Button>
-                        </Link>
-                    </Card>
-
-                    <Card className="bg-gray-800/80 border-amber-400/50 text-white flex flex-col items-center justify-between p-6 text-center hover:border-amber-400 hover:shadow-lg hover:shadow-amber-400/20 transition-all">
-                        <BalloonIcon className="h-16 w-16 text-amber-400" style={{filter: 'drop-shadow(0 0 8px #fbbd23)'}} />
-                         <CardHeader className="p-2">
-                            <CardTitle className="text-2xl font-bold text-amber-300">El Balón de Oro</CardTitle>
-                        </CardHeader>
-                        <CardDescription className="text-gray-400 mb-4 h-20">
-                            Infla el balón y cobra antes de que explote. ¡Controla tu riesgo y tu recompensa! (Costo: Saldo USDT)
-                        </CardDescription>
-                        <Link href="/casino/balloon" className="w-full">
-                            <Button className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white">
-                                Jugar a Inflar
-                            </Button>
-                        </Link>
-                    </Card>
-                    
-                    <Card className="bg-gray-800/80 border-red-400/50 text-white flex flex-col items-center justify-between p-6 text-center hover:border-red-400 hover:shadow-lg hover:shadow-red-400/20 transition-all">
-                        <SlotMachineIcon className="h-16 w-16 text-red-400" style={{filter: 'drop-shadow(0 0 8px #f87171)'}} />
-                         <CardHeader className="p-2">
-                            <CardTitle className="text-2xl font-bold text-red-300">Tragamonedas Clásico</CardTitle>
-                        </CardHeader>
-                        <CardDescription className="text-gray-400 mb-4 h-20">
-                            Alinea los símbolos y gana premios instantáneos. ¡Busca el 777! (Costo: 1 Ticket)
-                        </CardDescription>
-                        <Link href="/casino/slots" className="w-full">
-                            <Button className="w-full bg-gradient-to-r from-red-500 to-rose-500 text-white">
-                                Jugar a Slots
                             </Button>
                         </Link>
                     </Card>
@@ -155,6 +95,69 @@ export default function CasinoHubPage() {
                         </Link>
                     </Card>
 
+                    <Card className="bg-gray-800/80 border-cyan-400/50 text-white flex flex-col items-center justify-between p-6 text-center hover:border-cyan-400 hover:shadow-lg hover:shadow-cyan-400/20 transition-all">
+                        <Bomb className="h-16 w-16 text-cyan-400" style={{filter: 'drop-shadow(0 0 8px #0ff)'}} />
+                         <CardHeader className="p-2">
+                            <CardTitle className="text-2xl font-bold text-cyan-300">La Mina de Oro</CardTitle>
+                        </CardHeader>
+                        <CardDescription className="text-gray-400 mb-4 h-20">
+                            Encuentra los diamantes y evita las minas para multiplicar tu apuesta. (Costo: 1 Ticket)
+                        </CardDescription>
+                        <Link href="/casino/mines" className="w-full">
+                            <Button className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white">
+                                Jugar a la Mina
+                            </Button>
+                        </Link>
+                    </Card>
+
+                    <Card className="bg-gray-800/80 border-red-400/50 text-white flex flex-col items-center justify-between p-6 text-center hover:border-red-400 hover:shadow-lg hover:shadow-red-400/20 transition-all">
+                        <SlotMachineIcon className="h-16 w-16 text-red-400" style={{filter: 'drop-shadow(0 0 8px #f87171)'}} />
+                         <CardHeader className="p-2">
+                            <CardTitle className="text-2xl font-bold text-red-300">Tragamonedas Clásico</CardTitle>
+                        </CardHeader>
+                        <CardDescription className="text-gray-400 mb-4 h-20">
+                            Alinea los símbolos y gana premios instantáneos. ¡Busca el 777! (Costo: 1 Ticket)
+                        </CardDescription>
+                        <Link href="/casino/slots" className="w-full">
+                            <Button className="w-full bg-gradient-to-r from-red-500 to-rose-500 text-white">
+                                Jugar a Slots
+                            </Button>
+                        </Link>
+                    </Card>
+
+                    {/*
+                    <Card className="bg-gray-800/80 border-golden/50 text-white flex flex-col items-center justify-between p-6 text-center hover:border-golden hover:shadow-lg hover:shadow-golden/20 transition-all">
+                        <Gem className="h-16 w-16 text-amber-400" style={{filter: 'drop-shadow(0 0 8px #fbbd23)'}} />
+                        <CardHeader className="p-2">
+                            <CardTitle className="text-2xl font-bold text-golden">La Ruleta de la Suerte</CardTitle>
+                        </CardHeader>
+                        <CardDescription className="text-gray-400 mb-4 h-20">
+                            Gira la ruleta y prueba tu suerte. ¡Premios instantáneos de hasta $20 te esperan! (Costo: 1 Ticket)
+                        </CardDescription>
+                        <Link href="/casino/roulette" className="w-full">
+                            <Button className="w-full bg-gradient-to-r from-golden to-red-800 text-white">
+                                Jugar a la Ruleta
+                            </Button>
+                        </Link>
+                    </Card>
+                    */}
+
+                    {/*
+                    <Card className="bg-gray-800/80 border-amber-400/50 text-white flex flex-col items-center justify-between p-6 text-center hover:border-amber-400 hover:shadow-lg hover:shadow-amber-400/20 transition-all">
+                        <BalloonIcon className="h-16 w-16 text-amber-400" style={{filter: 'drop-shadow(0 0 8px #fbbd23)'}} />
+                         <CardHeader className="p-2">
+                            <CardTitle className="text-2xl font-bold text-amber-300">El Balón de Oro</CardTitle>
+                        </CardHeader>
+                        <CardDescription className="text-gray-400 mb-4 h-20">
+                            Infla el balón y cobra antes de que explote. ¡Controla tu riesgo y tu recompensa! (Costo: Saldo USDT)
+                        </CardDescription>
+                        <Link href="/casino/balloon" className="w-full">
+                            <Button className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+                                Jugar a Inflar
+                            </Button>
+                        </Link>
+                    </Card>
+                    */}
                 </div>
             </CardContent>
         </Card>
