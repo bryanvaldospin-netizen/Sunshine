@@ -93,3 +93,13 @@ export type BalloonGame = {
   cashOutMultiplier?: number;
   winnings?: number;
 };
+
+export type BingoGame = {
+  id: string;
+  userId: string;
+  createdAt: string; // ISO string
+  status: 'active' | 'line_won' | 'bingo_won';
+  card: (number | null)[][];
+  winnings?: number;
+  winType?: 'line' | 'bingo';
+};

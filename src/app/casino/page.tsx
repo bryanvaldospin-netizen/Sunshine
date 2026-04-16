@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Dices, ArrowLeft, Gem, Bomb, Rocket, Ticket } from 'lucide-react';
+import { Dices, ArrowLeft, Gem, Bomb, Rocket, Ticket, LayoutGrid } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import { useEffect, useState } from 'react';
@@ -136,6 +136,21 @@ export default function CasinoHubPage() {
                         <Link href="/casino/slots" className="w-full">
                             <Button className="w-full bg-gradient-to-r from-red-500 to-rose-500 text-white">
                                 Jugar a Slots
+                            </Button>
+                        </Link>
+                    </Card>
+
+                    <Card className="bg-gray-800/80 border-blue-400/50 text-white flex flex-col items-center justify-between p-6 text-center hover:border-blue-400 hover:shadow-lg hover:shadow-blue-400/20 transition-all">
+                        <LayoutGrid className="h-16 w-16 text-blue-400" style={{filter: 'drop-shadow(0 0 8px #60a5fa)'}} />
+                         <CardHeader className="p-2">
+                            <CardTitle className="text-2xl font-bold text-blue-300">Bingo Sunshine</CardTitle>
+                        </CardHeader>
+                        <CardDescription className="text-gray-400 mb-4 h-20">
+                            Completa tu cartón y canta ¡Bingo! Premios por línea y por cartón lleno. (Costo: 1 Ticket)
+                        </CardDescription>
+                        <Link href="/casino/bingo" className="w-full">
+                            <Button className="w-full bg-gradient-to-r from-blue-500 to-sky-500 text-white">
+                                Jugar a Bingo
                             </Button>
                         </Link>
                     </Card>

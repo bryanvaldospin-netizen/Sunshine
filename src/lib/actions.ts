@@ -2,7 +2,7 @@
 'use server';
 
 import { z } from 'zod';
-import type { UserProfile, InvestmentData, MinesGame, CrashGame, BalloonGame } from '@/types';
+import type { UserProfile, InvestmentData, MinesGame, CrashGame, BalloonGame, BingoGame } from '@/types';
 import * as system from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
 
@@ -1168,7 +1168,7 @@ export async function cashOutBalloonGame(userId: string, gameId: string, cashOut
 }
 
 // SLOTS GAME ACTIONS
-export async function spinSlots(userId: string): Promise<{ combination: string[]; prize: number } | { error: string }> {
+export async function spinSlots(userId: string): Promise<{ combination: string[]; prize: number } | { error: string } | undefined> {
     if (!userId) {
         return { error: 'Se requiere iniciar sesión.' };
     }
@@ -1200,7 +1200,7 @@ export async function spinSlots(userId: string): Promise<{ combination: string[]
                     r1 = symbols[Math.floor(Math.random() * symbols.length)];
                     r2 = symbols[Math.floor(Math.random() * symbols.length)];
                     r3 = symbols[Math.floor(Math.random() * symbols.length)];
-                } while ((r1 === '7' && r2 === '7' && r3 === '7') || (r1 === 'DIAMOND' && r2 === 'DIAMOND' && r3 === 'DIAMOND'));
+                } while ((r1 === r2 && r2 === r3) && r1 !== 'BAR'); // Avoid triple 7s or Diamonds
                 combination = [r1, r2, r3];
             } else if (outcomeRoll <= 95) { // 20% for CHERRY (76-95)
                 prize = 1.00;
@@ -1244,5 +1244,131 @@ export async function spinSlots(userId: string): Promise<{ combination: string[]
     } catch (error: any) {
         console.error(`Error en spinSlots para el usuario ${userId}:`, error.message);
         return { error: `Error del Servidor: ${error.message}` };
+    }
+}
+
+// BINGO GAME ACTIONS
+export async function startBingoGame(userId: string): Promise<{ gameId: string; card: (number | null)[][] } | { error: string }> {
+    if (!userId) return { error: 'Usuario no autenticado.' };
+
+    const userRef = systemDb.collection('users').doc(userId);
+    const gameRef = userRef.collection('bingo_games').doc();
+
+    try {
+        let card: (number | null)[][] = [];
+        let finalGameId = '';
+
+        await systemDb.runTransaction(async (transaction) => {
+            const userSnap = await transaction.get(userRef);
+            if (!userSnap.exists) throw new Error('Usuario no encontrado.');
+            if ((userSnap.data()?.tickets ?? 0) < 1) throw new Error('No tienes suficientes tickets.');
+
+            transaction.update(userRef, { tickets: FieldValue.increment(-1) });
+
+            const generateCard = () => {
+                const card: (number | null)[][] = Array(5).fill(0).map(() => Array(5).fill(0));
+                const ranges = [[1, 15], [16, 30], [31, 45], [46, 60], [61, 75]];
+                for (let col = 0; col < 5; col++) {
+                    const [min, max] = ranges[col];
+                    const columnNumbers = new Set<number>();
+                    while (columnNumbers.size < 5) {
+                        columnNumbers.add(Math.floor(Math.random() * (max - min + 1)) + min);
+                    }
+                    Array.from(columnNumbers).forEach((num, row) => {
+                        card[row][col] = num;
+                    });
+                }
+                card[2][2] = null; // Free space
+                return card;
+            };
+
+            card = generateCard();
+            const newGame: Omit<BingoGame, 'id'> = {
+                userId,
+                createdAt: new Date().toISOString(),
+                status: 'active',
+                card,
+            };
+
+            transaction.set(gameRef, newGame);
+            finalGameId = gameRef.id;
+        });
+
+        return { gameId: finalGameId, card };
+    } catch (error: any) {
+        return { error: error.message };
+    }
+}
+
+export async function claimBingoWin(userId: string, gameId: string, winType: 'line' | 'bingo', markedIndices: [number, number][], calledNumbers: number[]): Promise<{ prize: number } | { error: string }> {
+    if (!userId || !gameId || !winType) return { error: 'Datos inválidos.' };
+
+    const userRef = systemDb.collection('users').doc(userId);
+    const gameRef = userRef.collection('bingo_games').doc(gameId);
+
+    try {
+        let prize = 0;
+        await systemDb.runTransaction(async (transaction) => {
+            const gameSnap = await transaction.get(gameRef);
+            if (!gameSnap.exists) throw new Error('Partida no encontrada.');
+            const gameData = gameSnap.data() as BingoGame;
+            if (gameData.status !== 'active') throw new Error('El premio para esta partida ya ha sido reclamado.');
+
+            const card = gameData.card;
+            
+            // Server-side validation
+            const isWinValid = () => {
+                const allMarked = [...markedIndices, [2, 2]];
+                
+                // Verify all marked numbers were actually called
+                for (const [r, c] of markedIndices) {
+                    const num = card[r][c];
+                    if (num === null || !calledNumbers.includes(num)) {
+                        return false; 
+                    }
+                }
+                
+                // Check win condition
+                if (winType === 'line') {
+                    // Check rows
+                    for (let r = 0; r < 5; r++) {
+                        if (allMarked.every(([row, _]) => row === r)) return true;
+                    }
+                    // Check columns
+                    for (let c = 0; c < 5; c++) {
+                         if (allMarked.every(([_, col]) => col === c)) return true;
+                    }
+                    // Check diagonals
+                    if (allMarked.every(([r,c]) => r === c)) return true;
+                    if (allMarked.every(([r,c]) => r + c === 4)) return true;
+
+                } else if (winType === 'bingo') {
+                    if (allMarked.length === 25) return true;
+                }
+                return false;
+            };
+
+            if (!isWinValid()) {
+                throw new Error("La combinación ganadora no pudo ser validada. Intento de reclamo inválido.");
+            }
+            
+            prize = winType === 'line' ? 2.00 : 15.00;
+            const newStatus = winType === 'line' ? 'line_won' : 'bingo_won';
+
+            transaction.update(userRef, { saldoUSDT: FieldValue.increment(prize) });
+            transaction.update(gameRef, { status: newStatus, winnings: prize, winType });
+
+            const transactionRef = userRef.collection('transacciones').doc();
+            transaction.set(transactionRef, {
+                fecha: new Date().toISOString(),
+                tipo: 'Premio de Casino',
+                descripcion: `Ganancia en Bingo Sunshine (${winType})`,
+                monto: prize,
+            });
+        });
+
+        return { prize };
+    } catch (error: any) {
+        return { error: error.message };
     }
 }
