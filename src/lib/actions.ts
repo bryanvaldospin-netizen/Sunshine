@@ -824,9 +824,19 @@ function combinations(n: number, k: number): number {
 }
 
 const calculateMultiplier = (gemsFound: number, numMines: number) => {
+    // Per user request: to earn more, users MUST select more mines.
+    // For 1-2 mines, the multiplier is capped at 1x, resulting in no profit.
+    if (numMines <= 2) {
+        return 1.0;
+    }
+
     const numGems = 25 - numMines;
-    const multiplier = combinations(25, gemsFound) / combinations(numGems, gemsFound);
-    return multiplier;
+    const rawMultiplier = combinations(25, gemsFound) / combinations(numGems, gemsFound);
+
+    // Per user request: reduce multiplier increase by 15% to ensure sustainability.
+    const finalMultiplier = 1 + (rawMultiplier - 1) * 0.85; 
+    
+    return finalMultiplier;
 };
 
 export async function startMinesGame(userId: string, numMines: number): Promise<{ gameId: string } | { error: string }> {
