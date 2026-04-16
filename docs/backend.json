@@ -148,7 +148,7 @@
         "userId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "status": { "type": "string", "enum": ["active", "line_won", "bingo_won"] },
-        "card": { "type": "array", "items": { "type": "array", "items": { "type": ["number", "null"] } } },
+        "card": { "type": "array", "items": { "type": ["number", "null"] } },
         "winnings": { "type": "number" },
         "winType": { "type": "string", "enum": ["line", "bingo"] }
       },

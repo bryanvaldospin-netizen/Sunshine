@@ -99,7 +99,7 @@ export type BingoGame = {
   userId: string;
   createdAt: string; // ISO string
   status: 'active' | 'line_won' | 'bingo_won';
-  card: (number | null)[][];
+  card: (number | null)[];
   winnings?: number;
   winType?: 'line' | 'bingo';
 };

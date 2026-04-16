@@ -24,7 +24,7 @@ export default function BingoPage() {
 
     const [gameState, setGameState] = useState<GameState>('setup');
     const [gameId, setGameId] = useState<string | null>(null);
-    const [card, setCard] = useState<(number | null)[][]>([]);
+    const [card, setCard] = useState<(number | null)[]>([]);
     const [calledNumbers, setCalledNumbers] = useState<number[]>([]);
     const [markedIndices, setMarkedIndices] = useState<[number, number][]>([]);
     const [isBingoActive, setIsBingoActive] = useState(false);
@@ -124,8 +124,9 @@ export default function BingoPage() {
     };
 
     const handleMarkNumber = (row: number, col: number) => {
-        const number = card[row][col];
-        if (gameState !== 'playing' || number === null || !calledNumbers.includes(number)) {
+        const index = row * 5 + col;
+        const number = card[index];
+        if (gameState !== 'playing' || (number !== null && !calledNumbers.includes(number))) {
             return;
         }
         if (!markedIndices.some(([r, c]) => r === row && c === col)) {
@@ -199,27 +200,30 @@ export default function BingoPage() {
                             </div>
                         ) : (
                             <div className="aspect-square w-full max-w-md bg-black/30 rounded-lg p-2 grid grid-cols-5 gap-2">
-                                {card.map((row, r) => row.map((num, c) => {
+                                {card.length > 0 && Array.from({ length: 25 }).map((_, index) => {
+                                    const r = Math.floor(index / 5);
+                                    const c = index % 5;
+                                    const num = card[index];
                                     const isMarked = markedIndices.some(([mr, mc]) => mr === r && mc === c);
-                                    const isFreeSpace = r === 2 && c === 2;
+                                    const isFreeSpace = index === 12;
                                     
                                     return (
                                         <button 
-                                            key={`${r}-${c}`}
+                                            key={index}
                                             onClick={() => handleMarkNumber(r, c)}
                                             disabled={gameState !== 'playing'}
                                             className={cn(
                                                 "w-full h-full rounded-md flex items-center justify-center text-lg font-bold transition-colors duration-300",
                                                 {"bg-gray-800 border-2 border-golden/50 text-white": !isMarked && !isFreeSpace},
                                                 {"bg-golden text-black border-2 border-amber-300": isMarked || isFreeSpace},
-                                                {"cursor-pointer hover:bg-gray-700": gameState === 'playing' && !isMarked && calledNumbers.includes(num!)},
-                                                {"opacity-50": gameState === 'playing' && !isMarked && !calledNumbers.includes(num!) && !isFreeSpace}
+                                                {"cursor-pointer hover:bg-gray-700": gameState === 'playing' && !isMarked && num !== null && calledNumbers.includes(num)},
+                                                {"opacity-50": gameState === 'playing' && !isMarked && num !== null && !calledNumbers.includes(num) && !isFreeSpace}
                                             )}
                                         >
                                             {isFreeSpace ? <Star className="h-6 w-6"/> : num}
                                         </button>
                                     );
-                                }))}
+                                })}
                             </div>
                         )}
                          {gameState === 'playing' && 

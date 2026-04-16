@@ -1248,14 +1248,14 @@ export async function spinSlots(userId: string): Promise<{ combination: string[]
 }
 
 // BINGO GAME ACTIONS
-export async function startBingoGame(userId: string): Promise<{ gameId: string; card: (number | null)[][] } | { error: string }> {
+export async function startBingoGame(userId: string): Promise<{ gameId: string; card: (number | null)[] } | { error: string }> {
     if (!userId) return { error: 'Usuario no autenticado.' };
 
     const userRef = systemDb.collection('users').doc(userId);
     const gameRef = userRef.collection('bingo_games').doc();
 
     try {
-        let card: (number | null)[][] = [];
+        let card: (number | null)[] = [];
         let finalGameId = '';
 
         await systemDb.runTransaction(async (transaction) => {
@@ -1266,7 +1266,7 @@ export async function startBingoGame(userId: string): Promise<{ gameId: string; 
             transaction.update(userRef, { tickets: FieldValue.increment(-1) });
 
             const generateCard = () => {
-                const card: (number | null)[][] = Array(5).fill(0).map(() => Array(5).fill(0));
+                const card2D: (number | null)[][] = Array(5).fill(0).map(() => Array(5).fill(0));
                 const ranges = [[1, 15], [16, 30], [31, 45], [46, 60], [61, 75]];
                 for (let col = 0; col < 5; col++) {
                     const [min, max] = ranges[col];
@@ -1275,11 +1275,11 @@ export async function startBingoGame(userId: string): Promise<{ gameId: string; 
                         columnNumbers.add(Math.floor(Math.random() * (max - min + 1)) + min);
                     }
                     Array.from(columnNumbers).forEach((num, row) => {
-                        card[row][col] = num;
+                        card2D[row][col] = num;
                     });
                 }
-                card[2][2] = null; // Free space
-                return card;
+                card2D[2][2] = null; // Free space
+                return card2D.flat();
             };
 
             card = generateCard();
@@ -1318,32 +1318,30 @@ export async function claimBingoWin(userId: string, gameId: string, winType: 'li
             
             // Server-side validation
             const isWinValid = () => {
-                const allMarked = [...markedIndices, [2, 2]];
-                
-                // Verify all marked numbers were actually called
                 for (const [r, c] of markedIndices) {
-                    const num = card[r][c];
+                    if (r === 2 && c === 2) continue;
+                    const flatIndex = r * 5 + c;
+                    const num = card[flatIndex];
                     if (num === null || !calledNumbers.includes(num)) {
                         return false; 
                     }
                 }
                 
-                // Check win condition
-                if (winType === 'line') {
-                    // Check rows
-                    for (let r = 0; r < 5; r++) {
-                        if (allMarked.every(([row, _]) => row === r)) return true;
-                    }
-                    // Check columns
-                    for (let c = 0; c < 5; c++) {
-                         if (allMarked.every(([_, col]) => col === c)) return true;
-                    }
-                    // Check diagonals
-                    if (allMarked.every(([r,c]) => r === c)) return true;
-                    if (allMarked.every(([r,c]) => r + c === 4)) return true;
+                const allMarked = [...markedIndices, [2, 2]];
+                const isMarked = (r: number, c: number) => allMarked.some(([row, col]) => row === r && col === c);
 
+                if (winType === 'line') {
+                    for (let r = 0; r < 5; r++) {
+                        if (isMarked(r, 0) && isMarked(r, 1) && isMarked(r, 2) && isMarked(r, 3) && isMarked(r, 4)) return true;
+                    }
+                    for (let c = 0; c < 5; c++) {
+                        if (isMarked(0, c) && isMarked(1, c) && isMarked(2, c) && isMarked(3, c) && isMarked(4, c)) return true;
+                    }
+                    if (isMarked(0, 0) && isMarked(1, 1) && isMarked(2, 2) && isMarked(3, 3) && isMarked(4, 4)) return true;
+                    if (isMarked(0, 4) && isMarked(1, 3) && isMarked(2, 2) && isMarked(3, 1) && isMarked(4, 0)) return true;
+                
                 } else if (winType === 'bingo') {
-                    if (allMarked.length === 25) return true;
+                    if (allMarked.length >= 25) return true;
                 }
                 return false;
             };
