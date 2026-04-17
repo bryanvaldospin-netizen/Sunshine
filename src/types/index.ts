@@ -103,3 +103,31 @@ export type BingoGame = {
   winnings?: number;
   winType?: 'line' | 'bingo';
 };
+
+export type Match = {
+  id: string;
+  sport: 'Fútbol' | 'Basketball';
+  league: string;
+  teamA: { name: string; logo: string; };
+  teamB: { name: string; logo: string; };
+  time: string;
+  odds: {
+    teamA: number;
+    draw?: number;
+    teamB: number;
+  };
+};
+
+export type Bet = {
+  id: string;
+  userId: string;
+  matchId: string;
+  sport: 'Fútbol' | 'Basketball';
+  matchDescription: string;
+  betOn: string;
+  odds: number;
+  amount: number;
+  potentialWinnings: number;
+  status: 'pendiente' | 'ganada' | 'perdida';
+  createdAt: string; // ISO String
+};

@@ -153,6 +153,25 @@
         "winType": { "type": "string", "enum": ["line", "bingo"] }
       },
       "required": ["userId", "createdAt", "status", "card"]
+    },
+    "Bet": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Bet",
+      "type": "object",
+      "description": "Represents a single sports bet made by a user.",
+      "properties": {
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pendiente", "ganada", "perdida"] },
+        "sport": { "type": "string", "enum": ["Fútbol", "Basketball"] },
+        "matchId": { "type": "string" },
+        "matchDescription": { "type": "string", "description": "e.g., 'Real Madrid vs FC Barcelona'" },
+        "betOn": { "type": "string", "description": "What the user bet on, e.g., 'Real Madrid'" },
+        "odds": { "type": "number" },
+        "amount": { "type": "number", "description": "Amount of USDT wagered." },
+        "potentialWinnings": { "type": "number" }
+      },
+      "required": ["userId", "createdAt", "status", "sport", "matchId", "matchDescription", "betOn", "odds", "amount", "potentialWinnings"]
     }
   },
   "auth": {
@@ -186,6 +205,10 @@
     "/users/{userId}/bingo_games/{gameId}": {
       "schema": { "$ref": "#/entities/BingoGame" },
       "description": "Stores individual Bingo game sessions for a user."
+    },
+    "/users/{userId}/bets/{betId}": {
+      "schema": { "$ref": "#/entities/Bet" },
+      "description": "Stores individual sports bets for a user."
     },
     "/invitation_codes/{invitationCodeId}": {
       "schema": { "$ref": "#/entities/InvitationCode" },

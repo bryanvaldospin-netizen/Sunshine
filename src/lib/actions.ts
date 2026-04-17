@@ -1370,3 +1370,65 @@ export async function claimBingoWin(userId: string, gameId: string, winType: 'li
         return { error: error.message };
     }
 }
+
+// PRONOSTICOS ACTIONS
+const placeBetSchema = z.object({
+  userId: z.string(),
+  matchId: z.string(),
+  sport: z.enum(['Fútbol', 'Basketball']),
+  matchDescription: z.string(),
+  betOn: z.string(),
+  odds: z.number(),
+  amount: z.number().positive('La apuesta debe ser un monto positivo.'),
+});
+
+export async function placeBet(values: z.infer<typeof placeBetSchema>): Promise<{ success: true, message: string } | { error: string }> {
+  const validation = placeBetSchema.safeParse(values);
+  if (!validation.success) {
+    return { error: validation.error.errors.map(e => e.message).join(', ') };
+  }
+
+  const { userId, amount, ...betDetails } = validation.data;
+  const userRef = systemDb.collection('users').doc(userId);
+  const betRef = userRef.collection('bets').doc();
+
+  try {
+    await systemDb.runTransaction(async (transaction) => {
+      const userSnap = await transaction.get(userRef);
+      if (!userSnap.exists) throw new Error('Usuario no encontrado.');
+      
+      const userData = userSnap.data() as UserProfile;
+      if ((userData.saldoUSDT ?? 0) < amount) {
+        throw new Error('Saldo de billetera insuficiente para esta apuesta.');
+      }
+
+      // Deduct from wallet
+      transaction.update(userRef, { saldoUSDT: FieldValue.increment(-amount) });
+
+      // Create bet document
+      const newBet = {
+        userId,
+        ...betDetails,
+        amount,
+        potentialWinnings: amount * betDetails.odds,
+        status: 'pendiente',
+        createdAt: new Date().toISOString(),
+      };
+      transaction.set(betRef, newBet);
+      
+      // Create transaction record
+      const transactionRef = userRef.collection('transacciones').doc();
+      transaction.set(transactionRef, {
+        fecha: new Date().toISOString(),
+        tipo: 'Apuesta Deportiva',
+        descripcion: `Apuesta en ${betDetails.sport}: ${betDetails.matchDescription}`,
+        monto: -amount
+      });
+    });
+
+    return { success: true, message: '¡Apuesta realizada con éxito!' };
+  } catch (error: any) {
+    console.error(`Error en placeBet para ${userId}:`, error.message);
+    return { error: error.message };
+  }
+}

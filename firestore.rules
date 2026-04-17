@@ -87,6 +87,14 @@ service cloud.firestore {
         // A user can create, read and update their own game sessions.
         allow read, write: if isOwner(userId);
       }
+      
+      // Rules for bets subcollection
+      match /bets/{betId} {
+        // A user can create, read and list their own bets.
+        // Updates and deletes are disallowed from client for security.
+        allow create, read, list: if isOwner(userId);
+        allow update, delete: if false;
+      }
     }
 
     // Rules for invitation codes (single-use, deprecated)
