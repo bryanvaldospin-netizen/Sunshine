@@ -25,6 +25,7 @@ export type UserProfile = {
   inviteCode?: string;
   ultimoCheckIn?: string;
   walletAddress?: string;
+  cuentaBancaria?: string;
   bonoDirecto: number;
   bonoRetirable?: number;
   hasUnclaimedBonuses?: boolean; // Flag for sponsor to claim direct bonus

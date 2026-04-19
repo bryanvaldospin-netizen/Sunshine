@@ -1278,13 +1278,12 @@ export default function DashboardPage() {
           </header>
 
           <Tabs defaultValue="inicio" className="w-full">
-            <TabsList className="grid w-full grid-cols-6 bg-gray-800/50 rounded-none sticky top-16 z-40 backdrop-blur-sm">
+            <TabsList className="grid w-full grid-cols-5 bg-gray-800/50 rounded-none sticky top-16 z-40 backdrop-blur-sm">
               <TabsTrigger value="inicio"><Home className="mr-2 h-4 w-4" /> Inicio</TabsTrigger>
               <TabsTrigger value="profile" asLink href="/profile"><UserIcon className="mr-2 h-4 w-4" />{t('profile.title')}</TabsTrigger>
               <TabsTrigger value="mi-red"><Users className="mr-2 h-4 w-4" /> Mi Red</TabsTrigger>
               <TabsTrigger value="asistente" asLink href="/asistente"><Sparkles className="mr-2 h-4 w-4" /> Asistente</TabsTrigger>
               <TabsTrigger value="casino" asLink href="/casino"><Dices className="mr-2 h-4 w-4" /> Casino</TabsTrigger>
-              <TabsTrigger value="pronosticos" asLink href="/pronosticos"><ListChecks className="mr-2 h-4 w-4" /> Pronósticos</TabsTrigger>
             </TabsList>
             <TabsContent value="inicio">
               <div className="p-4 md:p-8">

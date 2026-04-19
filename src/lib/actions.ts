@@ -31,7 +31,8 @@ const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   sponsorCode: z.string().optional(),
-  walletAddress: z.string().min(20, 'La dirección de la billetera no es válida.'),
+  walletAddress: z.string().optional(),
+  cuentaBancaria: z.string().optional(),
 });
 
 export async function registerUser(values: z.infer<typeof registerSchema>): Promise<{success: true, token: string | null, message?: string} | {error: string}> {
@@ -41,12 +42,17 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
     }
 
     const validatedValues = registerSchema.parse(values);
-    const { email, password, name, walletAddress, sponsorCode } = validatedValues;
+    const { email, password, name, walletAddress, sponsorCode, cuentaBancaria } = validatedValues;
     
-    const walletRef = systemDb.collection('wallet_addresses').doc(walletAddress);
-    const walletSnap = await walletRef.get();
-    if (walletSnap.exists) {
-      return { error: 'Error: Esta billetera ya está vinculada a otra cuenta. Usa una dirección única.' };
+    if (walletAddress) {
+        if (walletAddress.length < 20) {
+            return { error: 'La dirección de billetera USDT (BEP-20) proporcionada no es válida.' };
+        }
+        const walletRef = systemDb.collection('wallet_addresses').doc(walletAddress);
+        const walletSnap = await walletRef.get();
+        if (walletSnap.exists) {
+            return { error: 'Error: Esta billetera ya está vinculada a otra cuenta. Usa una dirección única.' };
+        }
     }
 
     let invitadoPor: string | null = null;
@@ -103,7 +109,8 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
       retirosTotales: 0,
       invitadoPor: invitadoPor,
       inviteCode: inviteCode,
-      walletAddress: walletAddress,
+      walletAddress: walletAddress || '',
+      cuentaBancaria: cuentaBancaria || '',
       ultimoCheckIn: null,
       bonoDirecto: 0,
       bonoRetirable: 0,
@@ -114,11 +121,13 @@ export async function registerUser(values: z.infer<typeof registerSchema>): Prom
       lastTicketClaim: null,
     });
 
-    const newWalletRef = systemDb.collection('wallet_addresses').doc(walletAddress);
-    batch.set(newWalletRef, {
-        userId: user.uid,
-        createdAt: new Date().toISOString()
-    });
+    if (walletAddress) {
+        const newWalletRef = systemDb.collection('wallet_addresses').doc(walletAddress);
+        batch.set(newWalletRef, {
+            userId: user.uid,
+            createdAt: new Date().toISOString()
+        });
+    }
     
     const userInviteCodeRef = systemDb.collection('invite_codes_map').doc(inviteCode);
     batch.set(userInviteCodeRef, {

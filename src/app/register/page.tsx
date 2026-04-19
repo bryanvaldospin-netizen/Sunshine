@@ -33,7 +33,8 @@ const formSchema = z.object({
   name: z.string().min(2, { message: 'El nombre debe tener al menos 2 caracteres.' }),
   email: z.string().email({ message: 'Por favor, introduce un email válido.' }),
   password: z.string().min(6, { message: 'La contraseña debe tener al menos 6 caracteres.' }),
-  walletAddress: z.string().min(20, { message: 'Por favor, introduce una dirección de billetera USDT (BEP-20) válida.' }),
+  walletAddress: z.string().optional(),
+  cuentaBancaria: z.string().optional(),
   sponsorCode: z.string().optional(),
   terms: z.literal(true, {
     errorMap: () => ({ message: 'Debes aceptar los términos y condiciones.' }),
@@ -54,6 +55,7 @@ function RegisterPageContent() {
       email: '',
       password: '',
       walletAddress: '',
+      cuentaBancaria: '',
       sponsorCode: '',
     },
   });
@@ -171,13 +173,26 @@ function RegisterPageContent() {
                 name="walletAddress"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Billetera USDT (BEP-20)</FormLabel>
+                    <FormLabel>Billetera USDT (BEP-20) (Opcional)</FormLabel>
                     <FormControl>
-                      <Input placeholder="Introduce tu dirección de billetera única" {...field} />
+                      <Input placeholder="Introduce tu dirección de billetera" {...field} />
                     </FormControl>
                     <FormDescription className="text-xs text-muted-foreground">
-                      Esta billetera se vinculará a tu cuenta y no podrá ser usada en otra.
+                      Si la proporcionas, esta billetera se vinculará a tu cuenta y no podrá ser usada en otra.
                     </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="cuentaBancaria"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Ingrese su cuenta bancaria (Válida solo para Ecuador: Pichincha, Guayaquil, BanEcuador, Banco Internacional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Número de cuenta (Opcional)" {...field} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
