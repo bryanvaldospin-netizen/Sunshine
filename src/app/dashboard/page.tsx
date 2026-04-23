@@ -943,7 +943,7 @@ const WithdrawalSection = ({ user, mainBalance, referralBalance }: { user: UserP
                     Copiar Token
                   </Button>
                   <Button asChild className="w-full bg-golden text-black hover:bg-amber-400">
-                    <a href="https://form.jotform.com/260687723494065" target="_blank" rel="noopener noreferrer">
+                    <a href="https://form.jotform.com/261118893895068" target="_blank" rel="noopener noreferrer">
                       Completar Retiro en Jotform
                     </a>
                   </Button>
@@ -1215,7 +1215,7 @@ export default function DashboardPage() {
                 </div>
                 <DialogFooter>
                     <Button asChild className="w-full bg-gradient-to-r from-golden to-red-800 text-white">
-                        <a href="https://form.jotform.com/261119201588051" target="_blank" rel="noopener noreferrer">
+                        <a href="https://form.jotform.com/261119002359046" target="_blank" rel="noopener noreferrer">
                             Solicitar Tickets
                         </a>
                     </Button>
