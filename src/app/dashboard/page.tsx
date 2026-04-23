@@ -90,7 +90,7 @@ const DepositSection = () => {
                         Una vez realizada la transferencia, completa el siguiente formulario para que tu saldo sea acreditado. Necesitarás el ID o hash de la transacción.
                     </p>
                      <Button asChild className="w-full mt-4 bg-golden text-black hover:bg-amber-400">
-                        <a href="https://form.jotform.com/260646464495063" target="_blank" rel="noopener noreferrer">
+                        <a href="https://form.jotform.com/261119201588051" target="_blank" rel="noopener noreferrer">
                             Notificar Depósito en Jotform
                         </a>
                     </Button>
@@ -1215,7 +1215,7 @@ export default function DashboardPage() {
                 </div>
                 <DialogFooter>
                     <Button asChild className="w-full bg-gradient-to-r from-golden to-red-800 text-white">
-                        <a href="https://form.jotform.com/261000430361033" target="_blank" rel="noopener noreferrer">
+                        <a href="https://form.jotform.com/261119201588051" target="_blank" rel="noopener noreferrer">
                             Solicitar Tickets
                         </a>
                     </Button>

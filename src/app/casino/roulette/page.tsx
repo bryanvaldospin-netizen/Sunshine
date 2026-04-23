@@ -286,7 +286,7 @@ export default function RoulettePage() {
                                 </div>
                                 <DialogFooter>
                                     <Button asChild className="w-full bg-gradient-to-r from-golden to-red-800 text-white">
-                                        <a href="https://form.jotform.com/261000430361033" target="_blank" rel="noopener noreferrer">
+                                        <a href="https://form.jotform.com/261119201588051" target="_blank" rel="noopener noreferrer">
                                             Solicitar Tickets
                                         </a>
                                     </Button>
